@@ -1,32 +1,183 @@
-# React + TypeScript + Vite
+# MLPilot
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Resume-focused full-stack web application that automates the machine learning workflow for tabular datasets. Upload a CSV, run EDA, preprocess with pipelines, train models, and compare results — all through a neo-brutalist UI.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Tailwind CSS, Vite, TanStack React Query, React Router |
+| Backend | Python 3.12+, FastAPI, scikit-learn, pandas, numpy |
+| Storage | JSON file (`data/db.json`) |
+| ML | Random Forest, SVM, Logistic Regression |
 
-## React Compiler
+## Architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```
+┌──────────────┐     ┌──────────────────┐     ┌──────────────┐
+│  React SPA   │────▶│  FastAPI Backend │────▶│  JSON Store  │
+│  localhost:5173│    │  localhost:8000  │     │  data/db.json│
+└──────────────┘     └──────────────────┘     └──────────────┘
+       │                      │
+       │   REST API (JSON)    │
+       └──────────────────────┘
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Backend Structure
+
+```
+backend/
+├── app/
+│   ├── main.py                    # FastAPI app + CORS + exception handlers
+│   ├── storage.py                 # JSON file CRUD
+│   ├── core/
+│   │   ├── config.py              # Settings (pydantic-settings)
+│   │   ├── exceptions.py          # Domain exception hierarchy
+│   │   └── security.py            # JWT + password hashing (unused)
+│   └── api/v1/
+│       ├── router.py              # Route registration
+│       ├── errors.py              # Structured error responses
+│       └── endpoints/
+│           ├── datasets.py        # Upload, list, get, delete
+│           ├── eda.py             # Column stats, correlation, findings
+│           ├── pipelines.py       # CRUD + execution
+│           └── training.py        # Train, compare, job management
+└── tests/
+    ├── test_health.py
+    ├── test_datasets.py
+    ├── test_eda.py
+    └── test_training.py
+```
+
+### Frontend Structure
+
+```
+src/
+├── App.tsx                        # Routes + QueryClientProvider
+├── main.tsx                       # Entry point
+├── core/api/                      # Axios API modules
+│   ├── client.ts                  # Axios instance + interceptors
+│   ├── datasets.api.ts
+│   ├── eda.api.ts
+│   ├── pipelines.api.ts
+│   └── training.api.ts
+├── core/types/                    # TypeScript interfaces
+├── modules/                       # Feature modules
+│   ├── datasets/hooks/            # useDatasets, useEDA
+│   ├── pipelines/hooks/           # usePipelines
+│   └── training/hooks/            # useModels, useJobs
+├── pages/                         # Page components
+│   ├── Dashboard.tsx              # Overview with dataset + model summary
+│   ├── DatasetUpload.tsx          # Upload + dataset list
+│   ├── DatasetOverview.tsx        # Column stats table
+│   ├── EDA.tsx                    # Correlation matrix + findings
+│   ├── Preprocessing.tsx          # Pipeline CRUD
+│   ├── ModelTraining.tsx          # Algorithm selection + training
+│   ├── ModelComparison.tsx        # Leaderboard with metrics
+│   ├── Results.tsx                # Model history table
+│   ├── Home.tsx                   # Landing page
+│   └── Settings.tsx               # System config
+└── shared/components/             # Reusable UI
+    ├── EmptyState.tsx
+    ├── ErrorState.tsx
+    ├── LoadingSpinner.tsx
+    ├── PageHeader.tsx
+    ├── Pagination.tsx
+    └── ui/ (Button, Card, Badge, Input)
+```
+
+## Setup
+
+### Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+- npm
+
+### Backend
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate     # Windows
+# source .venv/bin/activate  # Unix
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
+
+### Frontend
+
+```bash
+# From project root
+npm install
+npm run dev     # starts at localhost:5173
+```
+
+### Production Build
+
+```bash
+npm run build   # produces dist/
+```
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/datasets/upload` | Upload dataset (CSV/Parquet/JSON/XLSX) |
+| `GET` | `/api/v1/datasets/` | List datasets (paginated) |
+| `GET` | `/api/v1/datasets/{id}` | Get dataset |
+| `DELETE` | `/api/v1/datasets/{id}` | Delete dataset |
+| `GET` | `/api/v1/datasets/{id}/eda` | Full EDA report |
+| `GET` | `/api/v1/datasets/{id}/columns` | Column stats |
+| `POST` | `/api/v1/pipelines/` | Create pipeline |
+| `GET` | `/api/v1/pipelines/` | List pipelines (paginated) |
+| `GET` | `/api/v1/pipelines/{id}` | Get pipeline |
+| `PUT` | `/api/v1/pipelines/{id}` | Update pipeline |
+| `DELETE` | `/api/v1/pipelines/{id}` | Delete pipeline |
+| `POST` | `/api/v1/pipelines/{id}/execute` | Execute pipeline |
+| `POST` | `/api/v1/training/` | Train model |
+| `GET` | `/api/v1/training/models` | List models (paginated) |
+| `GET` | `/api/v1/training/models/{id}` | Get model |
+| `GET` | `/api/v1/training/models/compare` | Compare models |
+| `GET` | `/api/v1/training/jobs` | List jobs (paginated) |
+| `GET` | `/api/v1/training/jobs/{id}` | Get job |
+| `POST` | `/api/v1/training/jobs/{id}/cancel` | Cancel job |
+
+All list endpoints accept `?page=1&per_page=20` query parameters.
+
+Error responses follow a consistent format:
+```json
+{"error": {"code": "VALIDATION_ERROR", "message": "...", "field": null}}
+```
+
+## Testing
+
+### Backend
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m pytest tests/ -v
+```
+
+### Frontend
+
+```bash
+npm test          # vitest run
+npm run lint      # oxlint
+npm run typecheck # tsc -b
+```
+
+## Features
+
+- [x] Dataset upload (CSV, Parquet, JSON, XLSX) with format validation
+- [x] Automated EDA: column stats, correlation matrix, auto-findings
+- [x] Preprocessing pipelines: imputation, encoding, scaling, split
+- [x] Model training: Random Forest, SVM, Logistic Regression
+- [x] Model comparison leaderboard with best-model detection
+- [x] Job lifecycle tracking (queued → running → completed/failed)
+- [x] Paginated list endpoints
+- [x] Structured error responses
+- [x] Loading/error/empty states on all pages
+- [x] Test suite (pytest + vitest)

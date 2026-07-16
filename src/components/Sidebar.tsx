@@ -4,9 +4,8 @@ const navItems = [
   { to: "/dashboard", icon: "dashboard", label: "Overview" },
   { to: "/datasets", icon: "database", label: "Dataset" },
   { to: "/training", icon: "model_training", label: "Training" },
-  { to: "/preprocessing", icon: "cleaning_services", label: "Cleaning" },
-  { to: "/preprocessing", icon: "process_chart", label: "Preprocessing", match: true },
-  { to: "/results", icon: "leaderboard", label: "Leaderboard" },
+  { to: "/preprocessing", icon: "process_chart", label: "Preprocessing" },
+  { to: "/compare", icon: "leaderboard", label: "Leaderboard" },
   { to: "/eda", icon: "monitoring", label: "Visualizations" },
   { to: "/results", icon: "description", label: "Reports" },
 ]
@@ -25,7 +24,7 @@ export default function Sidebar() {
           <NavLink
             key={item.label}
             to={item.to}
-            end={!item.match}
+            end
             className={({ isActive }) =>
               `flex items-center gap-3 py-3 px-4 font-headline text-sm font-medium transition-transform hover:translate-x-1 ${
                 isActive

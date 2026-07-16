@@ -1,40 +1,116 @@
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useDatasets, useUploadDataset } from '../modules/datasets/hooks/useDatasets'
+import { PageHeader } from '../shared/components/PageHeader'
+import { EmptyState } from '../shared/components/EmptyState'
+import { ErrorState } from '../shared/components/ErrorState'
+import { LoadingSpinner } from '../shared/components/LoadingSpinner'
+import { Pagination } from '../shared/components/Pagination'
+import { Badge } from '../shared/components/ui/badge'
+import { formatFileSize, formatDate } from '../shared/utils/format'
+
 export default function DatasetUpload() {
+  const navigate = useNavigate()
+  const [page, setPage] = useState(1)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const { data, isLoading, error, refetch } = useDatasets(page)
+  const uploadMutation = useUploadDataset()
+
+  const handleUpload = async (file: File) => {
+    try {
+      const ds = await uploadMutation.mutateAsync({ file })
+      navigate(`/datasets/${ds.id}`)
+    } catch {
+      // error handled by mutation
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) handleUpload(file)
+  }
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) handleUpload(file)
+  }
+
   return (
     <div className="p-8 lg:p-12 max-w-4xl">
-      <section className="mb-12">
-        <h1 className="font-headline text-5xl md:text-7xl font-black uppercase leading-none mb-4 tracking-tighter">
-          Dataset <span className="text-secondary">Upload</span>
-        </h1>
-        <p className="text-xl text-on-surface-variant font-medium">Ingest your data. CSV, Parquet, or JSON.</p>
-      </section>
+      <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
 
-      <div className="bg-white border-2 border-primary p-8 neo-shadow mb-8">
-        <div className="border-2 border-dashed border-primary p-12 text-center hover:bg-surface-container-low transition-colors cursor-pointer group">
+      <div className="bg-surface border-2 border-primary p-8 neo-shadow mb-8">
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => document.getElementById('file-input')?.click()}
+          className={`border-2 border-dashed border-primary p-12 text-center transition-colors cursor-pointer group ${
+            isDragOver ? 'border-solid bg-primary/5' : ''
+          }`}
+        >
           <span className="material-symbols-outlined text-6xl text-on-surface-variant group-hover:text-primary transition-colors">cloud_upload</span>
-          <p className="font-headline font-black text-xl uppercase mt-4">Drop Files Here</p>
+          <p className="font-headline font-black text-xl uppercase mt-4">
+            {isDragOver ? 'Drop now' : 'Drop Files Here'}
+          </p>
           <p className="text-on-surface-variant text-sm font-medium mt-2">or click to browse — Max 5GB</p>
+          <p className="text-xs text-on-surface-variant mt-1">CSV, Parquet, JSON, Excel</p>
         </div>
+        <input
+          id="file-input"
+          type="file"
+          accept=".csv,.parquet,.json,.xlsx"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+        {uploadMutation.isError && (
+          <p className="mt-4 text-secondary font-headline font-bold text-sm">
+            Upload failed: {(uploadMutation.error as Error)?.message ?? 'Unknown error'}
+          </p>
+        )}
+        {uploadMutation.isPending && (
+          <div className="mt-4 flex items-center gap-3">
+            <LoadingSpinner className="py-0" />
+            <span className="font-headline font-bold text-sm">Uploading...</span>
+          </div>
+        )}
       </div>
 
-      <div className="bg-white border-2 border-primary p-8 neo-shadow">
-        <h3 className="font-headline font-black text-xl uppercase mb-6">Recent Uploads</h3>
-        {[
-          { name: "training_data_v3.csv", size: "1.2 GB", status: "Processed", color: "bg-tertiary" },
-          { name: "test_samples.parquet", size: "450 MB", status: "Processing", color: "bg-primary-container" },
-        ].map((file) => (
-          <div key={file.name} className="flex items-center justify-between py-4 border-b-2 border-primary last:border-b-0">
-            <div className="flex items-center gap-4">
-              <span className="material-symbols-outlined text-2xl">description</span>
-              <div>
-                <p className="font-headline font-bold">{file.name}</p>
-                <p className="text-xs text-on-surface-variant">{file.size}</p>
+      <div className="bg-surface border-2 border-primary p-8 neo-shadow">
+        <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
+
+        {isLoading && <LoadingSpinner />}
+        {error && <ErrorState message="Failed to load datasets" onRetry={() => refetch()} />}
+        {!isLoading && !error && data && data.items.length === 0 && (
+          <EmptyState icon="database" title="No datasets yet" description="Upload a CSV, Parquet, or JSON file to get started." />
+        )}
+        {!isLoading && !error && data && data.items.length > 0 && (
+          <>
+            {data.items.map((ds) => (
+              <div
+                key={ds.id}
+                onClick={() => navigate(`/datasets/${ds.id}`)}
+                className="flex items-center justify-between py-4 border-b-2 border-primary last:border-b-0 hover:bg-surface-variant/30 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  <span className="material-symbols-outlined text-2xl">description</span>
+                  <div>
+                    <p className="font-headline font-bold">{ds.name}</p>
+                    <p className="text-xs text-on-surface-variant">
+                      {formatFileSize(ds.file_size_bytes)} · {ds.row_count?.toLocaleString() ?? '—'} rows · {formatDate(ds.created_at)}
+                    </p>
+                  </div>
+                </div>
+                <Badge variant={ds.status === 'ready' ? 'success' : ds.status === 'failed' ? 'danger' : 'warning'}>
+                  {ds.status}
+                </Badge>
               </div>
-            </div>
-            <span className={`${file.color} text-primary text-xs font-headline font-bold uppercase px-3 py-1 border-2 border-primary`}>
-              {file.status}
-            </span>
-          </div>
-        ))}
+            ))}
+            <Pagination page={data.page} perPage={data.per_page} total={data.total} onPageChange={setPage} />
+          </>
+        )}
       </div>
     </div>
   )
