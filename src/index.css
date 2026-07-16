@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-primary font-body;
+  }
+
+  ::selection {
+    @apply bg-primary-container text-on-primary-container;
+  }
+}
+
+@layer utilities {
+  .neo-shadow {
+    box-shadow: 6px 6px 0px 0px #1a1a1a;
+  }
+
+  .neo-shadow-sm {
+    box-shadow: 4px 4px 0px 0px #1a1a1a;
+  }
+
+  .neo-shadow-active {
+    box-shadow: 2px 2px 0px 0px #1a1a1a;
+    transform: translate(4px, 4px);
+  }
+
+  .neo-border {
+    border: 3px solid #1a1a1a;
+  }
+
+  .neo-border-sm {
+    border: 2px solid #1a1a1a;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+}
