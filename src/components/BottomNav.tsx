@@ -3,7 +3,8 @@ import { NavLink } from "react-router-dom"
 const items = [
   { to: "/dashboard", icon: "dashboard", label: "Home" },
   { to: "/datasets", icon: "database", label: "Data" },
-  { to: "/preprocessing", icon: "process_chart", label: "Clean" },
+  { to: "/cleaning", icon: "cleaning_services", label: "Clean" },
+  { to: "/preprocessing", icon: "process_chart", label: "Pipeline" },
   { to: "/training", icon: "model_training", label: "Train" },
   { to: "/results", icon: "description", label: "Reports" },
 ]

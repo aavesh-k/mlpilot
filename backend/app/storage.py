@@ -244,4 +244,51 @@ class JSONStorage:
             shutil.rmtree(path)
 
 
+    # --- Cleaning Runs ---
+    def _cleaning_dir(self, dataset_id: str, run_id: str | None = None) -> Path:
+        p = self._base / "cleaning" / dataset_id
+        if run_id:
+            p = p / run_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def save_cleaning_config(self, dataset_id: str, run_id: str, config: dict) -> None:
+        path = self._cleaning_dir(dataset_id, run_id) / "config.json"
+        self._atomic_json_write(path, config)
+
+    def save_cleaning_report(self, dataset_id: str, run_id: str, report: dict) -> None:
+        path = self._cleaning_dir(dataset_id, run_id) / "report.json"
+        self._atomic_json_write(path, report)
+
+    def get_cleaning_report(self, dataset_id: str, run_id: str) -> dict | None:
+        return self._read_json_file(self._cleaning_dir(dataset_id, run_id) / "report.json")
+
+    def list_cleaning_runs(self, dataset_id: str) -> list[dict]:
+        base = self._base / "cleaning" / dataset_id
+        if not base.exists():
+            return []
+        runs = []
+        for child in sorted(base.iterdir(), reverse=True):
+            if child.is_dir():
+                report = self._read_json_file(child / "report.json")
+                if report:
+                    runs.append({
+                        "run_id": child.name,
+                        "created_at": report.get("created_at", ""),
+                        "before": report.get("before", {}),
+                        "after": report.get("after", {}),
+                        "step_count": len(report.get("steps", [])),
+                    })
+        return runs
+
+    def get_cleaned_data_path(self, dataset_id: str, run_id: str) -> Path:
+        return self._cleaning_dir(dataset_id, run_id) / "cleaned.parquet"
+
+    def delete_cleaning_run(self, dataset_id: str, run_id: str) -> None:
+        path = self._cleaning_dir(dataset_id, run_id)
+        if path.exists():
+            import shutil
+            shutil.rmtree(path)
+
+
 storage = JSONStorage()

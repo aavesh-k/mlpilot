@@ -9,6 +9,7 @@ import Home from "./pages/Home"
 import Dashboard from "./pages/Dashboard"
 import DatasetUpload from "./pages/DatasetUpload"
 import DatasetOverview from "./pages/DatasetOverview"
+import Cleaning from "./pages/Cleaning"
 import Preprocessing from "./pages/Preprocessing"
 import Visualizations from "./pages/Visualizations"
 import ModelTraining from "./pages/ModelTraining"
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="/dashboard" element={withErrorBoundary(<Dashboard />, "Dashboard")} />
               <Route path="/datasets" element={withErrorBoundary(<DatasetUpload />, "Datasets")} />
               <Route path="/datasets/:id" element={withErrorBoundary(<DatasetOverview />, "DatasetOverview")} />
+              <Route path="/cleaning" element={withErrorBoundary(<Cleaning />, "Cleaning")} />
               <Route
                 path="/preprocessing"
                 element={withErrorBoundary(
