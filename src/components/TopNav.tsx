@@ -1,6 +1,10 @@
 import { NavLink, useLocation } from "react-router-dom"
 import { useState, useEffect } from "react"
 
+interface TopNavProps {
+  onToggleSidebar?: () => void
+}
+
 const links = [
   { to: "/", label: "Home" },
   { to: "/dashboard", label: "Dashboard" },
@@ -8,7 +12,7 @@ const links = [
   { to: "/settings", label: "Settings" },
 ]
 
-export default function TopNav() {
+export default function TopNav({ onToggleSidebar }: TopNavProps) {
   const [dark, setDark] = useState(false)
   const location = useLocation()
 
@@ -23,11 +27,18 @@ export default function TopNav() {
 
   return (
     <header className="flex justify-between items-center w-full px-6 py-4 bg-background border-b-2 border-primary">
-      <div className="flex items-center gap-8">
+      <div className="flex items-center gap-4">
+        <button
+          onClick={onToggleSidebar}
+          className="lg:hidden p-2 hover:bg-primary-container transition-colors cursor-pointer -ml-2"
+          aria-label="Toggle sidebar"
+        >
+          <span className="material-symbols-outlined text-2xl">menu</span>
+        </button>
         <NavLink to="/" className="text-xl font-headline font-black text-primary tracking-tighter uppercase">
           MLPilot
         </NavLink>
-        <nav className="hidden lg:flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-6 ml-8">
           {links.map((link) => (
             <NavLink
               key={link.to}
@@ -49,6 +60,7 @@ export default function TopNav() {
         <button
           onClick={() => setDark(!dark)}
           className="p-2 hover:bg-primary-container transition-colors cursor-pointer"
+          aria-label="Toggle theme"
         >
           <span className="material-symbols-outlined">{dark ? "light_mode" : "dark_mode"}</span>
         </button>

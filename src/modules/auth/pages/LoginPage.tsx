@@ -1,25 +1,33 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { loginSchema, type LoginFormData } from '../../../shared/schemas/auth'
 import { useAuth } from '../hooks/useAuth'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  })
+
+  const onSubmit = async (data: LoginFormData) => {
+    setServerError('')
     setLoading(true)
     try {
-      await login({ email, password })
+      await login(data)
       navigate('/dashboard')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Login failed'
-      setError(msg)
+      setServerError(msg)
     } finally {
       setLoading(false)
     }
@@ -58,10 +66,10 @@ export default function LoginPage() {
             MLPilot
           </NavLink>
 
-          <form className="space-y-8" onSubmit={handleSubmit}>
-            {error && (
+          <form className="space-y-8" onSubmit={handleSubmit(onSubmit)}>
+            {serverError && (
               <div className="bg-secondary/10 border-2 border-secondary p-4">
-                <p className="font-headline font-bold text-sm text-secondary">{error}</p>
+                <p className="font-headline font-bold text-sm text-secondary">{serverError}</p>
               </div>
             )}
 
@@ -73,12 +81,13 @@ export default function LoginPage() {
                 <input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="user@mlpilot.io"
-                  required
+                  {...register('email')}
                   className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
                 />
+                {errors.email && (
+                  <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.email.message}</p>
+                )}
               </div>
               <div>
                 <label className="block font-headline font-black text-sm uppercase tracking-widest text-on-surface mb-1" htmlFor="password">
@@ -87,12 +96,13 @@ export default function LoginPage() {
                 <input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  required
+                  {...register('password')}
                   className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
                 />
+                {errors.password && (
+                  <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.password.message}</p>
+                )}
               </div>
             </div>
 

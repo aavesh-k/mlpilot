@@ -57,7 +57,7 @@ export default function Dashboard() {
         </section>
         <NavLink
           to="/datasets"
-          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow max-w-md"
+          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow w-full sm:max-w-md"
         >
           <div className="w-16 h-16 bg-white border-2 border-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
             <span className="material-symbols-outlined text-4xl font-bold">add</span>

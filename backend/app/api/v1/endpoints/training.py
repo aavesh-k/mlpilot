@@ -190,14 +190,6 @@ async def list_models(page: int = 1, per_page: int = 20) -> dict:
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
-@router.get("/models/{model_id}")
-async def get_model(model_id: str) -> dict:
-    model = storage.get_model(model_id)
-    if not model:
-        raise NotFoundError("Model", model_id)
-    return model
-
-
 @router.get("/models/compare")
 async def compare_models(ids: str = "") -> list[dict]:
     if not ids:
@@ -215,6 +207,14 @@ async def compare_models(ids: str = "") -> list[dict]:
         m["is_best"] = m.get("metrics", {}).get("accuracy", 0) >= best_acc
 
     return sorted(selected, key=lambda m: m.get("metrics", {}).get("accuracy", 0), reverse=True)
+
+
+@router.get("/models/{model_id}")
+async def get_model(model_id: str) -> dict:
+    model = storage.get_model(model_id)
+    if not model:
+        raise NotFoundError("Model", model_id)
+    return model
 
 
 @router.get("/jobs")

@@ -29,8 +29,10 @@ data/datasets/
 data/models/
 backend/data/datasets/
 backend/data/models/
+data/db.json
 backend/data/db.json
 backend/*.db
+backend/mlpilot.db
 
 # Logs
 *.log

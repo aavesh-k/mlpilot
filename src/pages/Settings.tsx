@@ -49,7 +49,7 @@ export default function Settings() {
           </div>
         ))}
 
-        <div className="flex gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row gap-4 pt-4">
           <Button variant="primary" size="lg" className="flex-1">Save Configuration</Button>
           <Button variant="primary" size="lg" className="flex-1 bg-secondary">Reset Defaults</Button>
         </div>

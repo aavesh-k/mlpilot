@@ -45,7 +45,7 @@ export default function DatasetOverview() {
         action={<Badge variant={dataset.status === 'ready' ? 'success' : 'danger'}>{dataset.status}</Badge>}
       />
 
-      <div className="grid grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
         {[
           { label: 'Rows', value: dataset.row_count?.toLocaleString() ?? '—' },
           { label: 'Columns', value: dataset.column_count ?? '—' },

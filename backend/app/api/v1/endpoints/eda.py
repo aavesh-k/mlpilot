@@ -108,7 +108,7 @@ async def run_eda(dataset_id: str) -> dict:
 
 
 @router.get("/{dataset_id}/columns")
-async def get_columns(dataset_id: str) -> list[dict]:
+async def get_columns(dataset_id: str) -> dict:
     dataset = storage.get_dataset(dataset_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
@@ -116,4 +116,4 @@ async def get_columns(dataset_id: str) -> list[dict]:
     cols = storage.get_columns(dataset_id)
     if not cols:
         return await run_eda(dataset_id)
-    return cols
+    return {"column_stats": cols}

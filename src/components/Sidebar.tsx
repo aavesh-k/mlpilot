@@ -1,4 +1,10 @@
 import { NavLink } from "react-router-dom"
+import { useEffect } from "react"
+
+interface SidebarProps {
+  isOpen: boolean
+  onClose: () => void
+}
 
 const navItems = [
   { to: "/dashboard", icon: "dashboard", label: "Overview" },
@@ -10,9 +16,18 @@ const navItems = [
   { to: "/results", icon: "description", label: "Reports" },
 ]
 
-export default function Sidebar() {
-  return (
-    <aside className="hidden md:flex flex-col h-screen py-8 px-4 gap-2 bg-background border-r-2 border-primary w-64 flex-shrink-0">
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden"
+    } else {
+      document.body.style.overflow = ""
+    }
+    return () => { document.body.style.overflow = "" }
+  }, [isOpen])
+
+  const sidebarContent = (
+    <div className="flex flex-col h-full py-8 px-4 gap-2 bg-background w-64">
       <div className="mb-10 px-4">
         <h2 className="font-headline font-bold text-primary tracking-tighter uppercase text-xs opacity-60">
           SECTIONS
@@ -25,6 +40,7 @@ export default function Sidebar() {
             key={item.label}
             to={item.to}
             end
+            onClick={() => onClose()}
             className={({ isActive }) =>
               `flex items-center gap-3 py-3 px-4 font-headline text-sm font-medium transition-transform hover:translate-x-1 ${
                 isActive
@@ -44,6 +60,29 @@ export default function Sidebar() {
           Downloads
         </a>
       </div>
-    </aside>
+    </div>
+  )
+
+  return (
+    <>
+      <aside className="hidden lg:flex flex-col h-screen border-r-2 border-primary flex-shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/50 transition-opacity" onClick={onClose} />
+          <aside className="absolute left-0 top-0 h-full border-r-2 border-primary" style={{ animation: "slideIn 0.2s ease-out" }}>
+            {sidebarContent}
+          </aside>
+        </div>
+      )}
+      <style>{`
+        @keyframes slideIn {
+          from { transform: translateX(-100%); }
+          to { transform: translateX(0); }
+        }
+      `}</style>
+    </>
   )
 }

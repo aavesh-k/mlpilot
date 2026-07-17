@@ -14,13 +14,22 @@ Resume-focused full-stack web application that automates the machine learning wo
 ## Architecture
 
 ```
-┌──────────────┐     ┌──────────────────┐     ┌──────────────┐
-│  React SPA   │────▶│  FastAPI Backend │────▶│  JSON Store  │
-│  localhost:5173│    │  localhost:8000  │     │  data/db.json│
-└──────────────┘     └──────────────────┘     └──────────────┘
+┌──────────────┐     ┌─────────────────────┐     ┌──────────────┐
+│  React SPA   │────▶│   FastAPI Backend   │────▶│  JSON Store  │
+│  localhost:5173│    │   localhost:8000    │     │data/db.json  │
+└──────────────┘     └─────────────────────┘     └──────────────┘
        │                      │
        │   REST API (JSON)    │
        └──────────────────────┘
+```
+
+### Workflow
+
+```
+Upload CSV ──▶ EDA ──▶ Pipeline ──▶ Train ──▶ Compare
+ (dataset)     (stats,    (impute,     (RF, SVM,   (leaderboard,
+               findings)   encode,      LogReg)     best model)
+                          scale, split)
 ```
 
 ### Backend Structure
@@ -45,8 +54,13 @@ backend/
 └── tests/
     ├── test_health.py
     ├── test_datasets.py
+    ├── test_datasets_extended.py
     ├── test_eda.py
-    └── test_training.py
+    ├── test_eda_extended.py
+    ├── test_pipelines.py
+    ├── test_training.py
+    ├── test_training_extended.py
+    └── conftest.py
 ```
 
 ### Frontend Structure
@@ -84,6 +98,10 @@ src/
     ├── PageHeader.tsx
     ├── Pagination.tsx
     └── ui/ (Button, Card, Badge, Input)
+src/shared/schemas/            # Zod validation schemas
+    ├── auth.ts
+    ├── pipeline.ts
+    └── training.ts
 ```
 
 ## Setup
@@ -111,6 +129,14 @@ uvicorn app.main:app --reload --port 8000
 # From project root
 npm install
 npm run dev     # starts at localhost:5173
+```
+
+### Docker
+
+```bash
+docker compose up --build
+# Backend: http://localhost:8000
+# Frontend: http://localhost:5173
 ```
 
 ### Production Build
@@ -153,7 +179,7 @@ Error responses follow a consistent format:
 
 ## Testing
 
-### Backend
+### Backend (44 tests)
 
 ```bash
 cd backend
@@ -161,13 +187,26 @@ pip install -r requirements-dev.txt
 python -m pytest tests/ -v
 ```
 
-### Frontend
+### Frontend (50 tests)
 
 ```bash
 npm test          # vitest run
 npm run lint      # oxlint
 npm run typecheck # tsc -b
 ```
+
+### CI Pipeline
+
+The project includes GitHub Actions CI (`.github/workflows/ci.yml`) that runs on every push:
+
+| Step | Command |
+|------|---------|
+| Backend lint | `ruff check backend/` |
+| Backend test | `pytest backend/tests/` |
+| Frontend typecheck | `tsc -b` |
+| Frontend lint | `oxlint src/` |
+| Frontend test | `vitest run` |
+| Frontend build | `vite build` |
 
 ## Features
 
@@ -180,4 +219,5 @@ npm run typecheck # tsc -b
 - [x] Paginated list endpoints
 - [x] Structured error responses
 - [x] Loading/error/empty states on all pages
-- [x] Test suite (pytest + vitest)
+- [x] Test suite — 44 backend tests + 50 frontend tests
+- [x] CI pipeline (GitHub Actions)

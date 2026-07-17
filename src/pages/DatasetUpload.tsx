@@ -38,16 +38,16 @@ export default function DatasetUpload() {
   }
 
   return (
-    <div className="p-8 lg:p-12 max-w-4xl">
+    <div className="p-4 md:p-8 lg:p-12 max-w-4xl">
       <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
 
-      <div className="bg-surface border-2 border-primary p-8 neo-shadow mb-8">
+      <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow mb-8">
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
           onClick={() => document.getElementById('file-input')?.click()}
-          className={`border-2 border-dashed border-primary p-12 text-center transition-colors cursor-pointer group ${
+          className={`border-2 border-dashed border-primary p-6 md:p-12 text-center transition-colors cursor-pointer group ${
             isDragOver ? 'border-solid bg-primary/5' : ''
           }`}
         >
@@ -78,7 +78,7 @@ export default function DatasetUpload() {
         )}
       </div>
 
-      <div className="bg-surface border-2 border-primary p-8 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
 
         {isLoading && <LoadingSpinner />}

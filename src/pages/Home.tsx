@@ -13,16 +13,16 @@ export default function Home() {
           <p className="text-xl md:text-2xl font-medium max-w-xl mb-10 leading-relaxed border-l-4 border-primary pl-6">
             Automate your ML workflow from dataset to deployment with neo-brutalist precision. FORM FOLLOWS FUNCTION.
           </p>
-          <div className="flex flex-wrap gap-6">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
             <NavLink
               to="/dashboard"
-              className="bg-primary-container text-on-primary-container neo-border font-headline font-black uppercase text-xl px-8 py-4 neo-shadow hover:neo-shadow-active transition-all inline-block"
+              className="bg-primary-container text-on-primary-container neo-border font-headline font-black uppercase text-xl px-8 py-4 neo-shadow hover:neo-shadow-active transition-all text-center sm:text-left"
             >
               Launch Dashboard
             </NavLink>
             <a
               href="#docs"
-              className="bg-white text-primary neo-border font-headline font-black uppercase text-xl px-8 py-4 neo-shadow hover:neo-shadow-active transition-all inline-block"
+              className="bg-white text-primary neo-border font-headline font-black uppercase text-xl px-8 py-4 neo-shadow hover:neo-shadow-active transition-all text-center sm:text-left"
             >
               Documentation
             </a>
@@ -143,7 +143,7 @@ export default function Home() {
         </p>
         <NavLink
           to="/auth"
-          className="bg-primary text-white neo-border font-display font-black text-2xl uppercase px-12 py-6 neo-shadow hover:neo-shadow-active transition-all active:scale-95 inline-block"
+          className="bg-primary text-white neo-border font-display font-black text-2xl uppercase px-12 py-6 neo-shadow hover:neo-shadow-active transition-all active:scale-95 inline-block w-full sm:w-auto"
         >
           Start Free Run
         </NavLink>

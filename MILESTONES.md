@@ -78,14 +78,14 @@ Each milestone is independently buildable and testable. They build on each other
 **Goal:** Production-ready quality. Testing, error handling, performance, and developer experience.
 
 ### Features
-- [ ] Comprehensive test suite (pytest + vitest)
-- [ ] Structured error responses across all endpoints
-- [ ] Loading/error/empty states for all frontend pages
-- [ ] Pagination on dataset/model listing
-- [ ] Form validation parity (Zod ↔ Pydantic)
-- [ ] Responsive design QA
-- [ ] README with architecture diagram + setup
-- [ ] CI pipeline (lint, typecheck, test)
+- [x] Comprehensive test suite — 44 backend tests (8 files) + 50 frontend tests (12 files)
+- [x] Structured error responses across all endpoints (`{"error": {"code", "message", "field?"}}`)
+- [x] Loading/error/empty states (ErrorState, LoadingSpinner with skeletons, Pagination)
+- [x] Pagination on dataset/model listing
+- [x] Form validation parity (Zod ↔ Pydantic) — auth, pipeline, training schemas
+- [x] Responsive design QA — BottomNav, slide-in Sidebar, grid/button/padding fixes
+- [x] README with architecture diagram + setup
+- [x] CI pipeline (lint, typecheck, test) — `.github/workflows/ci.yml`
 
 ### Estimated Complexity: 3 / 5
 

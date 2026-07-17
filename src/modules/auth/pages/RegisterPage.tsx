@@ -1,28 +1,33 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { registerSchema, type RegisterFormData } from '../../../shared/schemas/auth'
 import { useAuth } from '../hooks/useAuth'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const { register } = useAuth()
-  const [form, setForm] = useState({ email: '', username: '', password: '', password_confirm: '' })
-  const [error, setError] = useState('')
+  const { register: registerUser } = useAuth()
+  const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((prev) => ({ ...prev, [field]: e.target.value }))
-  }
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError('')
     setLoading(true)
     try {
-      await register(form)
+      await registerUser(data)
       navigate('/auth')
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail || 'Registration failed'
-      setError(msg)
+      setServerError(msg)
     } finally {
       setLoading(false)
     }
@@ -61,10 +66,10 @@ export default function RegisterPage() {
             Register
           </h2>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {error && (
+          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+            {serverError && (
               <div className="bg-secondary/10 border-2 border-secondary p-4">
-                <p className="font-headline font-bold text-sm text-secondary">{error}</p>
+                <p className="font-headline font-bold text-sm text-secondary">{serverError}</p>
               </div>
             )}
 
@@ -75,12 +80,13 @@ export default function RegisterPage() {
               <input
                 id="reg-email"
                 type="email"
-                value={form.email}
-                onChange={handleChange('email')}
                 placeholder="user@mlpilot.io"
-                required
+                {...register('email')}
                 className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
               />
+              {errors.email && (
+                <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.email.message}</p>
+              )}
             </div>
 
             <div>
@@ -90,14 +96,13 @@ export default function RegisterPage() {
               <input
                 id="reg-username"
                 type="text"
-                value={form.username}
-                onChange={handleChange('username')}
                 placeholder="engineer42"
-                required
-                minLength={3}
-                maxLength={100}
+                {...register('username')}
                 className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
               />
+              {errors.username && (
+                <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.username.message}</p>
+              )}
             </div>
 
             <div>
@@ -107,13 +112,13 @@ export default function RegisterPage() {
               <input
                 id="reg-password"
                 type="password"
-                value={form.password}
-                onChange={handleChange('password')}
                 placeholder="Min 8 chars, upper, lower, digit"
-                required
-                minLength={8}
+                {...register('password')}
                 className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
               />
+              {errors.password && (
+                <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.password.message}</p>
+              )}
             </div>
 
             <div>
@@ -123,13 +128,13 @@ export default function RegisterPage() {
               <input
                 id="reg-password-confirm"
                 type="password"
-                value={form.password_confirm}
-                onChange={handleChange('password_confirm')}
                 placeholder="Re-enter password"
-                required
-                minLength={8}
+                {...register('password_confirm')}
                 className="w-full bg-transparent border-t-0 border-x-0 border-b-2 border-primary p-3 font-body text-lg transition-all focus:ring-0 focus:border-b-4 focus:border-b-primary-container outline-none"
               />
+              {errors.password_confirm && (
+                <p className="mt-1 text-secondary font-headline font-bold text-xs">{errors.password_confirm.message}</p>
+              )}
             </div>
 
             <button
