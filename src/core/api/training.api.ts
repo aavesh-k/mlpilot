@@ -2,12 +2,17 @@ import { apiClient } from './client'
 import type { PaginatedResponse } from '../types/api'
 
 export interface ModelMetrics {
-  accuracy: number
-  f1_score: number
-  precision: number
-  recall: number
+  accuracy?: number
+  f1_score?: number
+  precision?: number
+  recall?: number
   roc_auc?: number
+  r2?: number
+  rmse?: number
+  mae?: number
+  mape?: number
   cv_mean_score?: number
+  [key: string]: number | undefined
 }
 
 export interface Model {
@@ -15,6 +20,7 @@ export interface Model {
   job_id?: string
   dataset_id: string
   pipeline_id?: string
+  target_column?: string
   name: string
   algorithm: string
   hyperparameters: Record<string, unknown>
