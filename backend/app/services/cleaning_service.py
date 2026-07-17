@@ -43,7 +43,8 @@ def _dtype_map(df: pd.DataFrame) -> dict[str, str]:
 
 def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dict], dict, list[dict]]:
     original_dtypes = _dtype_map(df)
-    original_missing = {col: _col_missing_pct(df, col) for col in df.columns}
+    original_missing_pct = {col: _col_missing_pct(df, col) for col in df.columns}
+    original_missing_count = {col: int(df[col].isna().sum()) for col in df.columns}
     logs: list[dict] = []
     column_changes: list[dict] = []
     total_rows = len(df)
@@ -96,10 +97,10 @@ def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dic
     for col in df.columns:
         after_dtype = str(df[col].dtype)
         before_dtype = original_dtypes.get(col, after_dtype)
-        before_miss = int(original_missing.get(col, 0) * total_rows)
+        before_miss = original_missing_count.get(col, 0)
         after_miss_count = int(df[col].isna().sum())
         after_miss_pct = _col_missing_pct(df, col)
-        before_miss_pct = float(original_missing.get(col, 0))
+        before_miss_pct = float(original_missing_pct.get(col, 0))
 
         col_log = {
             "column": col,
@@ -121,15 +122,15 @@ def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dic
             col_log["changes"].append(f"missing values reduced from {before_miss:,} to {after_miss_count:,}")
         column_changes.append(col_log)
 
-    missing_cols = set(original_missing.keys()) - set(df.columns)
+    missing_cols = set(original_missing_count.keys()) - set(df.columns)
     for col in missing_cols:
         column_changes.append({
             "column": col,
             "before_dtype": original_dtypes.get(col, "unknown"),
             "after_dtype": "dropped",
-            "before_missing": int(original_missing.get(col, 0) * total_rows),
+            "before_missing": original_missing_count.get(col, 0),
             "after_missing": 0,
-            "before_missing_pct": float(original_missing.get(col, 0)),
+            "before_missing_pct": float(original_missing_pct.get(col, 0)),
             "after_missing_pct": 0.0,
             "changes": ["column dropped entirely"],
         })
