@@ -58,3 +58,13 @@ export function useCancelJob() {
     },
   })
 }
+
+export function useSetBestModel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => trainingApi.setBest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+    },
+  })
+}

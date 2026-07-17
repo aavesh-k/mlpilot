@@ -32,7 +32,7 @@ def detect_problem_type(y: pd.Series) -> str:
         return "invalid"
     if y.dtype == "object" or y.dtype.name == "category" or unique_count <= 20:
         if pd.api.types.is_numeric_dtype(y):
-            if unique_count <= 20 and y.dropna().apply(float.is_integer).all():
+            if unique_count <= 20 and y.dropna().apply(lambda val: float(val).is_integer()).all():
                 return "classification"
         else:
             return "classification"
@@ -58,7 +58,7 @@ def check_class_balance(y: pd.Series) -> dict:
         "minority_pct": round(minority_pct, 4),
         "imbalance_ratio": round(imbalance_ratio, 4),
         "is_imbalanced": is_imbalanced,
-        "class_count": int(unique_count),
+        "class_count": int(y.nunique()),
     }
 
 

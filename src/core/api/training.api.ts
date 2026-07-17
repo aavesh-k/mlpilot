@@ -7,10 +7,12 @@ export interface ModelMetrics {
   precision: number
   recall: number
   roc_auc?: number
+  cv_mean_score?: number
 }
 
 export interface Model {
   id: string
+  job_id?: string
   dataset_id: string
   pipeline_id?: string
   name: string
@@ -27,7 +29,9 @@ export interface Model {
 
 export interface TrainingJob {
   id: string
-  model_id: string
+  model_id: string | null
+  model_ids?: string[]
+  pipeline_id?: string
   status: string
   progress: number
   log?: string
@@ -39,14 +43,13 @@ export interface TrainingJob {
 
 export const trainingApi = {
   async train(body: {
-    dataset_id: string
-    algorithm: string
-    pipeline_id?: string
-    target_column?: string
-    hyperparameters?: Record<string, unknown>
-    test_size?: number
-    random_seed?: number
-  }): Promise<{ model: Model; job: TrainingJob }> {
+    pipeline_id: string
+    algorithms: string[]
+    cv_folds?: number
+    primary_metric?: string
+    tuning_enabled?: boolean
+    name?: string
+  }): Promise<{ model: Model; models: Model[]; job: TrainingJob }> {
     const { data } = await apiClient.post('/training/', body)
     return data
   },
@@ -78,6 +81,11 @@ export const trainingApi = {
 
   async cancelJob(id: string): Promise<TrainingJob> {
     const { data } = await apiClient.post(`/training/jobs/${id}/cancel`)
+    return data
+  },
+
+  async setBest(id: string): Promise<Model> {
+    const { data } = await apiClient.post(`/training/models/${id}/set-best`)
     return data
   },
 }

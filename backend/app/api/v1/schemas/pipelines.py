@@ -36,3 +36,17 @@ class CreatePipelineSchema(BaseModel):
     feature_selection: FeatureSelectionConfigSchema = Field(default_factory=FeatureSelectionConfigSchema)
     use_smote: bool = False
     use_class_weight: bool = False
+
+
+class UpdatePipelineSchema(BaseModel):
+    dataset_id: str | None = None
+    target_column: str | None = None
+    problem_type: str | None = Field(default=None, pattern=r"^(classification|regression)$")
+    name: str | None = None
+    encoding: EncodingConfigSchema | None = None
+    scaling: ScalingConfigSchema | None = None
+    split: SplitConfigSchema | None = None
+    feature_selection: FeatureSelectionConfigSchema | None = None
+    use_smote: bool | None = None
+    use_class_weight: bool | None = None
+

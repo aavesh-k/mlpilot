@@ -11,7 +11,7 @@ from fastapi import APIRouter, UploadFile, File
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.storage import storage
-from app.api.v1.schemas.pipelines import CreatePipelineSchema
+from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 from app.services.preprocessing_service import (
     run_preprocessing,
     suggest_pipeline_config,
@@ -112,23 +112,31 @@ async def get_pipeline(pipeline_id: str) -> dict:
 
 
 @router.put("/{pipeline_id}")
-async def update_pipeline(pipeline_id: str, body: CreatePipelineSchema) -> dict:
+async def update_pipeline(pipeline_id: str, body: UpdatePipelineSchema) -> dict:
     pipeline = storage.get_pipeline(pipeline_id)
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Cannot update a running pipeline")
 
-    pipeline["target_column"] = body.target_column
-    pipeline["problem_type"] = body.problem_type or pipeline.get("problem_type")
+    if body.target_column is not None:
+        pipeline["target_column"] = body.target_column
+    if body.problem_type is not None:
+        pipeline["problem_type"] = body.problem_type
     if body.name is not None:
         pipeline["name"] = body.name
-    pipeline["encoding"] = body.encoding.model_dump()
-    pipeline["scaling"] = body.scaling.model_dump()
-    pipeline["split"] = body.split.model_dump()
-    pipeline["feature_selection"] = body.feature_selection.model_dump()
-    pipeline["use_smote"] = body.use_smote
-    pipeline["use_class_weight"] = body.use_class_weight
+    if body.encoding is not None:
+        pipeline["encoding"] = body.encoding.model_dump()
+    if body.scaling is not None:
+        pipeline["scaling"] = body.scaling.model_dump()
+    if body.split is not None:
+        pipeline["split"] = body.split.model_dump()
+    if body.feature_selection is not None:
+        pipeline["feature_selection"] = body.feature_selection.model_dump()
+    if body.use_smote is not None:
+        pipeline["use_smote"] = body.use_smote
+    if body.use_class_weight is not None:
+        pipeline["use_class_weight"] = body.use_class_weight
     pipeline["updated_at"] = datetime.now(UTC).isoformat()
     return storage.save_pipeline(pipeline)
 
@@ -147,7 +155,7 @@ async def delete_pipeline(pipeline_id: str):
 def _run_execution_background(pipeline: dict, eda_report: dict | None) -> None:
     try:
         config = {
-            "problem_type": pipeline["problem_type"],
+            "problem_type": pipeline.get("problem_type") or "classification",
             "encoding": pipeline.get("encoding", {}),
             "scaling": pipeline.get("scaling", {}),
             "split": pipeline.get("split", {}),

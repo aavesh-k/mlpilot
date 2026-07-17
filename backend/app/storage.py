@@ -11,8 +11,17 @@ from typing import Any
 
 class SafeEncoder(json.JSONEncoder):
     def default(self, obj: Any) -> Any:
+        import numpy as np
         if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
             return None
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.bool_):
+            return bool(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
         return super().default(obj)
 
 
