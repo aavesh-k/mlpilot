@@ -1,8 +1,19 @@
 import json
+import math
+import os
+import tempfile
+import threading
 import uuid
 from pathlib import Path
 from datetime import UTC, datetime
 from typing import Any
+
+
+class SafeEncoder(json.JSONEncoder):
+    def default(self, obj: Any) -> Any:
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return None
+        return super().default(obj)
 
 
 class JSONStorage:
@@ -10,8 +21,9 @@ class JSONStorage:
         self._base = Path(data_dir)
         self._base.mkdir(parents=True, exist_ok=True)
         self._file = self._base / "db.json"
+        self._lock = threading.Lock()
         if not self._file.exists():
-            self._file.write_text(json.dumps({
+            self._atomic_write({
                 "datasets": [],
                 "dataset_columns": {},
                 "pipelines": [],
@@ -19,13 +31,28 @@ class JSONStorage:
                 "training_jobs": [],
                 "experiments": [],
                 "settings": {},
-            }))
+            })
+
+    def _atomic_write(self, data: dict) -> None:
+        encoded = json.dumps(data, indent=2, cls=SafeEncoder)
+        fd, tmp_path = tempfile.mkstemp(dir=str(self._base), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(encoded)
+            os.replace(tmp_path, str(self._file))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     def _read(self) -> dict:
         return json.loads(self._file.read_text())
 
     def _write(self, data: dict) -> None:
-        self._file.write_text(json.dumps(data, indent=2, default=str))
+        with self._lock:
+            self._atomic_write(data)
 
     # --- Datasets ---
     def list_datasets(self) -> list[dict]:

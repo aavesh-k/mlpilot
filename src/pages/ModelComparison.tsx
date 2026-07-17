@@ -96,7 +96,7 @@ export default function ModelComparison() {
                 <td className="p-4 font-body text-sm">{m.metrics?.roc_auc?.toFixed(4) ?? '—'}</td>
                 <td className="p-4">
                   <a
-                    href={`${CONFIG.API_BASE_URL}/api/v1/training/models/${m.id}/download`}
+                    href={`${CONFIG.API_BASE_URL}/training/models/${m.id}/download`}
                     download
                     className="font-headline font-bold text-xs uppercase text-tertiary hover:text-primary underline underline-offset-2"
                   >

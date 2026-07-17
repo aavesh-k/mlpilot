@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.storage import storage
+from app.api.v1.schemas.settings import UpdateSettingsSchema
 
 router = APIRouter()
 
@@ -11,8 +12,8 @@ async def get_settings() -> dict:
 
 
 @router.put("/")
-async def update_settings(body: dict) -> dict:
+async def update_settings(body: UpdateSettingsSchema) -> dict:
     current = storage.get_settings()
-    merged = {**current, **body}
+    merged = {**current, **body.model_dump(exclude_none=True)}
     storage.save_settings(merged)
     return merged

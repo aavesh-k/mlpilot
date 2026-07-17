@@ -9,6 +9,7 @@ import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { formatDate } from '../shared/utils/format'
+import { createPipelineSchema } from '../shared/schemas/pipeline'
 import type { PipelineStep } from '../core/api/pipelines.api'
 
 const STEP_OPTIONS: { id: PipelineStep['step_type']; label: string; description: string }[] = [
@@ -150,6 +151,8 @@ export default function Preprocessing() {
   const [editPipelineId, setEditPipelineId] = useState<string | null>(null)
   const [editSteps, setEditSteps] = useState<PipelineStep[]>([])
   const [pipelineName, setPipelineName] = useState('')
+  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [validationError, setValidationError] = useState('')
 
   const { data: datasetsData } = useDatasets()
   const { data: pipesData, isLoading, error, refetch } = usePipelines(page)
@@ -166,21 +169,33 @@ export default function Preprocessing() {
     setEditPipelineId(null)
     setEditSteps([])
     setPipelineName('')
+    setSelectedDatasetId(firstDataset.id)
+    setValidationError('')
   }
 
   const handleEditPipeline = (p: typeof pipelines[0]) => {
     setEditPipelineId(p.id)
     setEditSteps(p.steps ?? [])
     setPipelineName(p.name)
+    setSelectedDatasetId(p.dataset_id)
+    setValidationError('')
   }
 
   const handleSave = () => {
+    setValidationError('')
+    const result = createPipelineSchema.safeParse({
+      dataset_id: selectedDatasetId,
+      name: pipelineName || undefined,
+      steps: editSteps,
+    })
+    if (!result.success) {
+      setValidationError(result.error.errors.map((e) => e.message).join('; '))
+      return
+    }
     if (editPipelineId) {
-      updatePipeline.mutate({ id: editPipelineId, body: { name: pipelineName, steps: editSteps } as any })
+      updatePipeline.mutate({ id: editPipelineId, body: { name: pipelineName, steps: editSteps } })
     } else {
-      const firstDataset = datasets[0]
-      if (!firstDataset) return
-      createPipeline.mutate({ dataset_id: firstDataset.id, name: pipelineName || 'Auto Pipeline', steps: editSteps })
+      createPipeline.mutate({ dataset_id: selectedDatasetId, name: pipelineName || 'Auto Pipeline', steps: editSteps })
     }
     setEditPipelineId(null)
     setEditSteps([])
@@ -214,6 +229,18 @@ export default function Preprocessing() {
       {editing && (
         <div className="mb-10">
           <div className="mb-4">
+            <label className="font-headline font-bold text-xs uppercase block mb-1">Dataset</label>
+            <select
+              value={selectedDatasetId}
+              onChange={(e) => setSelectedDatasetId(e.target.value)}
+              className="border-2 border-primary bg-surface p-3 w-full max-w-md font-body text-sm"
+            >
+              {datasets.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="mb-4">
             <label className="font-headline font-bold text-xs uppercase block mb-1">Pipeline Name</label>
             <input
               type="text"
@@ -223,8 +250,11 @@ export default function Preprocessing() {
               className="border-2 border-primary bg-surface p-3 w-full max-w-md font-body text-sm"
             />
           </div>
+          {validationError && (
+            <p className="text-secondary font-headline font-bold text-xs mb-3">{validationError}</p>
+          )}
           <PipelineBuilder steps={editSteps} onChange={setEditSteps} onSave={handleSave} saving={createPipeline.isPending || updatePipeline.isPending} />
-          <Button variant="ghost" size="sm" onClick={() => { setEditPipelineId(null); setEditSteps([]); setPipelineName('') }} className="mt-2">
+          <Button variant="ghost" size="sm" onClick={() => { setEditPipelineId(null); setEditSteps([]); setPipelineName(''); setValidationError('') }} className="mt-2">
             Cancel
           </Button>
         </div>

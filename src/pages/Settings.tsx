@@ -1,12 +1,26 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../core/api/client'
 import { PageHeader } from '../shared/components/PageHeader'
 import { Button } from '../shared/components/ui/button'
+import { Input } from '../shared/components/ui/input'
 import { ErrorState } from '../shared/components/ErrorState'
 import { LoadingSpinner } from '../shared/components/LoadingSpinner'
 
+const FIELD_META: Record<string, { label: string; type: string }> = {
+  api_endpoint: { label: 'API Endpoint', type: 'text' },
+  default_project: { label: 'Default Project', type: 'text' },
+  max_memory_gb: { label: 'Max Memory (GB)', type: 'number' },
+  max_runtime_minutes: { label: 'Max Runtime (minutes)', type: 'number' },
+  parallel_jobs: { label: 'Parallel Jobs', type: 'number' },
+  email_alerts: { label: 'Email Alerts', type: 'boolean' },
+  webhook_url: { label: 'Webhook URL', type: 'text' },
+}
+
 export default function Settings() {
   const queryClient = useQueryClient()
+  const [editing, setEditing] = useState<string | null>(null)
+  const [draft, setDraft] = useState<string>('')
 
   const { data: settings, isLoading, error, refetch } = useQuery({
     queryKey: ['settings'],
@@ -23,6 +37,7 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setEditing(null)
     },
   })
 
@@ -42,8 +57,37 @@ export default function Settings() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setEditing(null)
     },
   })
+
+  const startEdit = (key: string, currentValue: unknown) => {
+    setEditing(key)
+    setDraft(String(currentValue ?? ''))
+  }
+
+  const commitEdit = (key: string) => {
+    let parsed: unknown = draft
+    const meta = FIELD_META[key]
+    if (meta?.type === 'number') {
+      parsed = Number(draft)
+    } else if (meta?.type === 'boolean') {
+      parsed = draft === 'true'
+    }
+    saveMutation.mutate({ [key]: parsed })
+  }
+
+  const cancelEdit = () => {
+    setEditing(null)
+    setDraft('')
+  }
+
+  const formatDisplay = (key: string, value: unknown): string => {
+    if (key === 'max_memory_gb') return `${value} GB`
+    if (key === 'max_runtime_minutes') return `${value} minutes`
+    if (key === 'email_alerts') return value ? 'Enabled' : 'Disabled'
+    return String(value ?? '')
+  }
 
   if (isLoading) {
     return (
@@ -68,25 +112,15 @@ export default function Settings() {
   const sections = [
     {
       title: 'API Configuration',
-      fields: [
-        { label: 'API Endpoint', key: 'api_endpoint', value: settings.api_endpoint },
-        { label: 'Default Project', key: 'default_project', value: settings.default_project },
-      ],
+      keys: ['api_endpoint', 'default_project'],
     },
     {
       title: 'Resource Limits',
-      fields: [
-        { label: 'Max Memory', key: 'max_memory_gb', value: `${settings.max_memory_gb} GB` },
-        { label: 'Max Runtime', key: 'max_runtime_minutes', value: `${settings.max_runtime_minutes} minutes` },
-        { label: 'Parallel Jobs', key: 'parallel_jobs', value: String(settings.parallel_jobs) },
-      ],
+      keys: ['max_memory_gb', 'max_runtime_minutes', 'parallel_jobs'],
     },
     {
       title: 'Notifications',
-      fields: [
-        { label: 'Email Alerts', key: 'email_alerts', value: settings.email_alerts ? 'Enabled' : 'Disabled' },
-        { label: 'Webhook URL', key: 'webhook_url', value: settings.webhook_url },
-      ],
+      keys: ['email_alerts', 'webhook_url'],
     },
   ]
 
@@ -99,15 +133,49 @@ export default function Settings() {
           <div key={section.title} className="bg-surface border-2 border-primary p-8 neo-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-6">{section.title}</h3>
             <div className="space-y-4">
-              {section.fields.map((f) => (
-                <div key={f.label} className="flex items-center justify-between py-3 border-b border-primary last:border-b-0">
-                  <span className="font-headline font-bold text-xs uppercase text-on-surface-variant">{f.label}</span>
-                  <div className="flex items-center gap-3">
-                    <span className="font-body text-sm">{f.value}</span>
-                    <Button variant="ghost" size="sm">Edit</Button>
+              {section.keys.map((key) => {
+                const meta = FIELD_META[key]
+                const value = settings[key]
+                const isEditing = editing === key
+                return (
+                  <div key={key} className="flex items-center justify-between py-3 border-b border-primary last:border-b-0">
+                    <span className="font-headline font-bold text-xs uppercase text-on-surface-variant">{meta?.label ?? key}</span>
+                    <div className="flex items-center gap-3">
+                      {isEditing ? (
+                        <>
+                          {meta?.type === 'boolean' ? (
+                            <select
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              className="border border-primary bg-surface px-2 py-1 text-sm font-body"
+                            >
+                              <option value="true">Enabled</option>
+                              <option value="false">Disabled</option>
+                            </select>
+                          ) : (
+                            <input
+                              type={meta?.type ?? 'text'}
+                              value={draft}
+                              onChange={(e) => setDraft(e.target.value)}
+                              className="border-2 border-primary bg-surface p-2 text-sm font-body w-40"
+                              autoFocus
+                            />
+                          )}
+                          <Button variant="primary" size="sm" onClick={() => commitEdit(key)} disabled={saveMutation.isPending}>
+                            Save
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={cancelEdit}>Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-body text-sm">{formatDisplay(key, value)}</span>
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(key, value)}>Edit</Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         ))}
@@ -118,7 +186,7 @@ export default function Settings() {
             size="lg"
             className="flex-1"
             onClick={() => saveMutation.mutate(settings)}
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || editing !== null}
           >
             {saveMutation.isPending ? 'Saving...' : 'Save Configuration'}
           </Button>
@@ -127,7 +195,7 @@ export default function Settings() {
             size="lg"
             className="flex-1 bg-secondary"
             onClick={() => resetMutation.mutate()}
-            disabled={resetMutation.isPending}
+            disabled={resetMutation.isPending || editing !== null}
           >
             {resetMutation.isPending ? 'Resetting...' : 'Reset Defaults'}
           </Button>

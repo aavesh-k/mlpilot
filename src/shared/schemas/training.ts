@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const algorithms = ['random_forest', 'svm', 'logistic_regression'] as const
+const algorithms = ['random_forest', 'svm', 'logistic_regression', 'xgboost'] as const
 
 export const trainModelSchema = z.object({
   dataset_id: z.string().min(1, 'Dataset is required'),

@@ -1,4 +1,5 @@
 import asyncio
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -18,6 +19,7 @@ from sklearn.model_selection import train_test_split
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.storage import storage
+from app.api.v1.schemas.training import TrainModelSchema
 
 router = APIRouter()
 
@@ -49,8 +51,8 @@ ALGORITHMS = {
 }
 
 
-def _prepare_data(body: dict, dataset: dict) -> tuple:
-    pipeline_id = body.get("pipeline_id")
+def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
+    pipeline_id = body.pipeline_id
     if pipeline_id:
         pipeline = storage.get_pipeline(pipeline_id)
         if not pipeline or pipeline["status"] != "completed":
@@ -74,12 +76,9 @@ def _prepare_data(body: dict, dataset: dict) -> tuple:
         else:
             raise ValidationError("Unsupported format")
 
-        if "target" in body.get("target_column", "target"):
-            target_col = body.get("target_column", "target")
-            if target_col not in df.columns:
-                target_col = df.columns[-1]
-        else:
-            target_col = body.get("target_column", df.columns[-1])
+        target_col = body.target_column
+        if not target_col or target_col not in df.columns:
+            target_col = df.columns[-1]
 
         if target_col not in df.columns:
             raise ValidationError(f"Target column '{target_col}' not found")
@@ -93,8 +92,8 @@ def _prepare_data(body: dict, dataset: dict) -> tuple:
 
         train_df, test_df = train_test_split(
             pd.concat([X, y.rename(target_col)], axis=1),
-            test_size=body.get("test_size", 0.2),
-            random_state=body.get("random_seed", 42),
+            test_size=body.test_size,
+            random_state=body.random_seed,
         )
 
     target_col = [c for c in train_df.columns if c not in test_df.columns or True][-1]
@@ -109,6 +108,13 @@ def _prepare_data(body: dict, dataset: dict) -> tuple:
         raise ValidationError("Target column must have at least 2 classes")
 
     return X_train, y_train, X_test, y_test, pipeline_id
+
+
+def _append_log(job: dict, message: str) -> None:
+    timestamp = datetime.now(UTC).strftime("%H:%M:%S")
+    entry = f"[{timestamp}] {message}"
+    job["log"] = (job.get("log", "") + "\n" + entry).strip()
+    storage.save_job(job)
 
 
 def _run_training_background(
@@ -128,22 +134,30 @@ def _run_training_background(
     if not job:
         return
     job["status"] = "running"
-    job["progress"] = 10.0
-    storage.save_job(job)
+    job["progress"] = 5.0
+    _append_log(job, f"Starting training for {algorithm}")
 
     model_entry = storage.get_model(model_id)
     if not model_entry:
         return
 
     try:
-        clf = ALGORITHMS[algorithm](hyperparameters)
-        clf.fit(X_train, y_train)
+        start_time = time.perf_counter()
 
-        job["progress"] = 60.0
+        clf = ALGORITHMS[algorithm](hyperparameters)
+        _append_log(job, f"Initialized {algorithm} classifier")
+        job["progress"] = 15.0
+        storage.save_job(job)
+
+        clf.fit(X_train, y_train)
+        _append_log(job, "Model fitting complete")
+
+        job["progress"] = 50.0
         storage.save_job(job)
 
         y_pred = clf.predict(X_test)
         y_prob = clf.predict_proba(X_test) if hasattr(clf, "predict_proba") else None
+        _append_log(job, "Predictions generated")
 
         metrics = {
             "accuracy": round(float(accuracy_score(y_test, y_pred)), 4),
@@ -155,9 +169,12 @@ def _run_training_background(
         if y_prob is not None and len(np.unique(y_train)) == 2:
             metrics["roc_auc"] = round(float(roc_auc_score(y_test, y_prob[:, 1])), 4)
 
+        elapsed_ms = round((time.perf_counter() - start_time) * 1000, 2)
+        _append_log(job, f"Metrics computed in {elapsed_ms}ms")
+
         model_entry["metrics"] = metrics
         model_entry["status"] = "completed"
-        model_entry["training_duration_ms"] = 0
+        model_entry["training_duration_ms"] = elapsed_ms
 
         model_artifact_dir = settings.DATA_DIR / "models" / model_id
         model_artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -167,46 +184,45 @@ def _run_training_background(
         job["status"] = "completed"
         job["progress"] = 100.0
         job["completed_at"] = datetime.now(UTC).isoformat()
+        _append_log(job, "Training completed successfully")
 
         all_models = storage.list_models()
-        if all(m.get("metrics") for m in all_models if m["id"] != model_id):
-            best_acc = max((m["metrics"]["accuracy"] for m in all_models if m.get("metrics") and m["id"] != model_id), default=0)
-            if metrics["accuracy"] >= best_acc:
-                model_entry["is_best"] = True
+        completed_models = [m for m in all_models if m.get("metrics") and m["id"] != model_id]
+        if completed_models:
+            best_acc = max(m["metrics"]["accuracy"] for m in completed_models)
+            model_entry["is_best"] = metrics["accuracy"] > best_acc
+        else:
+            model_entry["is_best"] = True
     except Exception as e:
         model_entry["status"] = "failed"
         model_entry["error_message"] = str(e)
         job["status"] = "failed"
         job["error_message"] = str(e)
-
-    storage.save_model(model_entry)
-    storage.save_job(job)
+        _append_log(job, f"Training failed: {e}")
 
     storage.save_model(model_entry)
     storage.save_job(job)
 
 
 @router.post("/", status_code=201)
-async def train_model(body: dict, background_tasks: BackgroundTasks) -> dict:
-    dataset_id = body.get("dataset_id")
-    dataset = storage.get_dataset(dataset_id)
+async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks) -> dict:
+    dataset = storage.get_dataset(body.dataset_id)
     if not dataset:
-        raise NotFoundError("Dataset", dataset_id)
+        raise NotFoundError("Dataset", body.dataset_id)
 
-    algorithm = body.get("algorithm")
-    if algorithm not in ALGORITHMS:
-        raise ValidationError(f"Unsupported algorithm. Choose from: {', '.join(ALGORITHMS.keys())}")
-
-    X_train, y_train, X_test, y_test, pipeline_id = _prepare_data(body, dataset)
+    loop = asyncio.get_event_loop()
+    X_train, y_train, X_test, y_test, pipeline_id = await loop.run_in_executor(
+        None, _prepare_data, body, dataset
+    )
 
     model_id = str(uuid.uuid4())
     model_entry = {
         "id": model_id,
-        "dataset_id": dataset_id,
+        "dataset_id": body.dataset_id,
         "pipeline_id": pipeline_id,
-        "name": body.get("name", f"{algorithm} v1"),
-        "algorithm": algorithm,
-        "hyperparameters": body.get("hyperparameters", {}),
+        "name": body.name or f"{body.algorithm} v1",
+        "algorithm": body.algorithm,
+        "hyperparameters": body.hyperparameters,
         "status": "queued",
         "created_at": datetime.now(UTC).isoformat(),
     }
@@ -228,15 +244,15 @@ async def train_model(body: dict, background_tasks: BackgroundTasks) -> dict:
         _run_training_background,
         model_id,
         job_id,
-        algorithm,
-        body.get("hyperparameters", {}),
+        body.algorithm,
+        body.hyperparameters,
         X_train,
         y_train,
         X_test,
         y_test,
-        dataset_id,
+        body.dataset_id,
         pipeline_id,
-        body.get("name", f"{algorithm} v1"),
+        body.name or f"{body.algorithm} v1",
     )
 
     return {

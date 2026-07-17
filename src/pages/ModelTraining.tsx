@@ -9,6 +9,7 @@ import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { formatDate } from '../shared/utils/format'
+import { trainModelSchema } from '../shared/schemas/training'
 
 const ALGORITHMS = [
   { id: 'random_forest', label: 'Random Forest' },
@@ -20,6 +21,8 @@ const ALGORITHMS = [
 export default function ModelTraining() {
   const [page, setPage] = useState(1)
   const [selectedAlgo, setSelectedAlgo] = useState('random_forest')
+  const [selectedDatasetId, setSelectedDatasetId] = useState('')
+  const [validationError, setValidationError] = useState('')
   const { data: datasetsData } = useDatasets()
   const { data: jobsData, isLoading, error, refetch } = useJobs(page)
   const trainMutation = useTrainModel()
@@ -29,10 +32,17 @@ export default function ModelTraining() {
   const readyDatasets = datasets.filter((d) => d.status === 'ready')
 
   const handleTrain = () => {
-    const ds = readyDatasets[0]
-    if (!ds) return
+    setValidationError('')
+    const result = trainModelSchema.safeParse({
+      dataset_id: selectedDatasetId,
+      algorithm: selectedAlgo,
+    })
+    if (!result.success) {
+      setValidationError(result.error.errors.map((e) => e.message).join('; '))
+      return
+    }
     trainMutation.mutate(
-      { dataset_id: ds.id, algorithm: selectedAlgo },
+      { dataset_id: selectedDatasetId, algorithm: selectedAlgo },
       {
         onSuccess: () => setPage(1),
       },
@@ -74,14 +84,30 @@ export default function ModelTraining() {
       {readyDatasets.length > 0 && (
         <div className="bg-surface border-2 border-primary p-8 neo-shadow mb-10">
           <h3 className="font-headline font-black text-xl uppercase mb-4">Training Config</h3>
+          <div className="mb-4">
+            <label className="font-headline font-bold text-xs uppercase block mb-1">Dataset</label>
+            <select
+              value={selectedDatasetId}
+              onChange={(e) => setSelectedDatasetId(e.target.value)}
+              className="border-2 border-primary bg-surface p-3 w-full max-w-md font-body text-sm"
+            >
+              <option value="">Select a dataset…</option>
+              {readyDatasets.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
           <p className="text-sm text-on-surface-variant mb-4">
-            Dataset: <span className="font-bold">{readyDatasets[0]?.name}</span> · Algorithm: <span className="font-bold">{ALGORITHMS.find((a) => a.id === selectedAlgo)?.label}</span>
+            Algorithm: <span className="font-bold">{ALGORITHMS.find((a) => a.id === selectedAlgo)?.label}</span>
           </p>
+          {validationError && (
+            <p className="text-secondary font-headline font-bold text-xs mb-3">{validationError}</p>
+          )}
           <Button
             variant="primary"
             size="lg"
             onClick={handleTrain}
-            disabled={trainMutation.isPending}
+            disabled={trainMutation.isPending || !selectedDatasetId}
             className="w-full"
           >
             {trainMutation.isPending ? 'Training...' : 'Dispatch Training'}

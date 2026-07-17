@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -8,37 +9,25 @@ from fastapi import APIRouter
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.storage import storage
+from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 
 router = APIRouter()
 
-ALLOWED_STEPS = {"imputation", "encoding", "scaling", "train_test_split"}
-
 
 @router.post("/", status_code=201)
-async def create_pipeline(body: dict) -> dict:
-    dataset_id = body.get("dataset_id")
-    dataset = storage.get_dataset(dataset_id)
+async def create_pipeline(body: CreatePipelineSchema) -> dict:
+    dataset = storage.get_dataset(body.dataset_id)
     if not dataset:
-        raise NotFoundError("Dataset", dataset_id)
-
-    steps = body.get("steps", [])
-    if not steps:
-        raise ValidationError("Pipeline must have at least one step")
-    if len(steps) > 10:
-        raise ValidationError("Pipeline cannot have more than 10 steps")
-
-    for step in steps:
-        if step.get("step_type") not in ALLOWED_STEPS:
-            raise ValidationError(f"Invalid step type: {step.get('step_type')}")
+        raise NotFoundError("Dataset", body.dataset_id)
 
     pipeline = {
         "id": str(uuid.uuid4()),
-        "dataset_id": dataset_id,
-        "name": body.get("name", "Untitled Pipeline"),
+        "dataset_id": body.dataset_id,
+        "name": body.name or "Untitled Pipeline",
         "status": "draft",
-        "test_split_ratio": body.get("test_split_ratio", 0.2),
-        "random_seed": body.get("random_seed", 42),
-        "steps": steps,
+        "test_split_ratio": body.test_split_ratio,
+        "random_seed": body.random_seed,
+        "steps": [s.model_dump() for s in body.steps],
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -63,22 +52,21 @@ async def get_pipeline(pipeline_id: str) -> dict:
 
 
 @router.put("/{pipeline_id}")
-async def update_pipeline(pipeline_id: str, body: dict) -> dict:
+async def update_pipeline(pipeline_id: str, body: UpdatePipelineSchema) -> dict:
     pipeline = storage.get_pipeline(pipeline_id)
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Cannot update a running pipeline")
 
-    steps = body.get("steps", pipeline["steps"])
-    for step in steps:
-        if step.get("step_type") not in ALLOWED_STEPS:
-            raise ValidationError(f"Invalid step type: {step.get('step_type')}")
-
-    pipeline["name"] = body.get("name", pipeline["name"])
-    pipeline["steps"] = steps
-    pipeline["test_split_ratio"] = body.get("test_split_ratio", pipeline["test_split_ratio"])
-    pipeline["random_seed"] = body.get("random_seed", pipeline["random_seed"])
+    if body.name is not None:
+        pipeline["name"] = body.name
+    if body.steps is not None:
+        pipeline["steps"] = [s.model_dump() for s in body.steps]
+    if body.test_split_ratio is not None:
+        pipeline["test_split_ratio"] = body.test_split_ratio
+    if body.random_seed is not None:
+        pipeline["random_seed"] = body.random_seed
     pipeline["updated_at"] = datetime.now(UTC).isoformat()
     return storage.save_pipeline(pipeline)
 
@@ -94,17 +82,14 @@ async def delete_pipeline(pipeline_id: str):
     return None
 
 
-@router.post("/{pipeline_id}/execute")
-async def execute_pipeline(pipeline_id: str) -> dict:
+def _run_pipeline_background(pipeline_id: str) -> None:
     pipeline = storage.get_pipeline(pipeline_id)
     if not pipeline:
-        raise NotFoundError("Pipeline", pipeline_id)
-    if pipeline["status"] == "running":
-        raise ConflictError("Pipeline already running")
+        return
 
     dataset = storage.get_dataset(pipeline["dataset_id"])
     if not dataset:
-        raise NotFoundError("Source dataset", pipeline["dataset_id"])
+        return
 
     file_path = Path(dataset["file_path"])
     ext = f".{dataset['file_format']}"
@@ -113,11 +98,7 @@ async def execute_pipeline(pipeline_id: str) -> dict:
     elif ext == ".parquet":
         df = pd.read_parquet(file_path)
     else:
-        raise ValidationError("Unsupported dataset format for pipeline")
-
-    pipeline["status"] = "running"
-    pipeline["updated_at"] = datetime.now(UTC).isoformat()
-    storage.save_pipeline(pipeline)
+        return
 
     try:
         for step in pipeline["steps"]:
@@ -157,9 +138,6 @@ async def execute_pipeline(pipeline_id: str) -> dict:
                         mn, mx = df[c].min(), df[c].max()
                         df[c] = (df[c] - mn) / (mx - mn + 1e-8)
 
-            elif step_type == "train_test_split":
-                pass
-
         if any(s["step_type"] == "train_test_split" for s in pipeline["steps"]):
             ratio = pipeline["test_split_ratio"]
             train_df = df.sample(frac=1 - ratio, random_state=pipeline["random_seed"])
@@ -180,4 +158,25 @@ async def execute_pipeline(pipeline_id: str) -> dict:
 
     pipeline["updated_at"] = datetime.now(UTC).isoformat()
     storage.save_pipeline(pipeline)
-    return pipeline
+
+
+@router.post("/{pipeline_id}/execute")
+async def execute_pipeline(pipeline_id: str) -> dict:
+    pipeline = storage.get_pipeline(pipeline_id)
+    if not pipeline:
+        raise NotFoundError("Pipeline", pipeline_id)
+    if pipeline["status"] == "running":
+        raise ConflictError("Pipeline already running")
+
+    dataset = storage.get_dataset(pipeline["dataset_id"])
+    if not dataset:
+        raise NotFoundError("Source dataset", pipeline["dataset_id"])
+
+    pipeline["status"] = "running"
+    pipeline["updated_at"] = datetime.now(UTC).isoformat()
+    storage.save_pipeline(pipeline)
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _run_pipeline_background, pipeline_id)
+
+    return storage.get_pipeline(pipeline_id)
