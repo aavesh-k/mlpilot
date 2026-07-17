@@ -3,15 +3,61 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+import cloudpickle
+import numpy as np
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, UploadFile, File
 
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.storage import storage
-from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
+from app.api.v1.schemas.pipelines import CreatePipelineSchema
+from app.services.preprocessing_service import (
+    run_preprocessing,
+    suggest_pipeline_config,
+    detect_problem_type,
+    check_class_balance,
+)
+from app.core.io import read_dataframe
 
 router = APIRouter()
+
+
+@router.post("/suggest", status_code=200)
+async def get_pipeline_suggestions(dataset_id: str) -> dict:
+    dataset = storage.get_dataset(dataset_id)
+    if not dataset:
+        raise NotFoundError("Dataset", dataset_id)
+
+    eda_report = storage.get_eda_report(dataset_id)
+    suggestions = suggest_pipeline_config(dataset_id, eda_report)
+    return suggestions
+
+
+@router.post("/detect-target", status_code=200)
+async def detect_target_problem_type(dataset_id: str, target_column: str) -> dict:
+    dataset = storage.get_dataset(dataset_id)
+    if not dataset:
+        raise NotFoundError("Dataset", dataset_id)
+
+    df = read_dataframe(dataset)
+    if target_column not in df.columns:
+        raise ValidationError(f"Target column '{target_column}' not found")
+
+    y = df[target_column]
+    problem_type = detect_problem_type(y)
+    if problem_type == "invalid":
+        raise ValidationError(f"Target column '{target_column}' has fewer than 2 unique values")
+
+    imbalance = check_class_balance(y) if problem_type == "classification" else None
+
+    return {
+        "target_column": target_column,
+        "problem_type": problem_type,
+        "unique_values": int(y.nunique()),
+        "dtype": str(y.dtype),
+        "imbalance": imbalance,
+    }
 
 
 @router.post("/", status_code=201)
@@ -20,14 +66,28 @@ async def create_pipeline(body: CreatePipelineSchema) -> dict:
     if not dataset:
         raise NotFoundError("Dataset", body.dataset_id)
 
+    df = read_dataframe(dataset)
+    if body.target_column not in df.columns:
+        raise ValidationError(f"Target column '{body.target_column}' not found in dataset")
+
+    y = df[body.target_column]
+    problem_type = body.problem_type or detect_problem_type(y)
+    if problem_type == "invalid":
+        raise ValidationError(f"Target column '{body.target_column}' has fewer than 2 unique values")
+
     pipeline = {
         "id": str(uuid.uuid4()),
         "dataset_id": body.dataset_id,
-        "name": body.name or "Untitled Pipeline",
+        "target_column": body.target_column,
+        "problem_type": problem_type,
+        "name": body.name or f"Pipeline ({body.target_column})",
         "status": "draft",
-        "test_split_ratio": body.test_split_ratio,
-        "random_seed": body.random_seed,
-        "steps": [s.model_dump() for s in body.steps],
+        "encoding": body.encoding.model_dump(),
+        "scaling": body.scaling.model_dump(),
+        "split": body.split.model_dump(),
+        "feature_selection": body.feature_selection.model_dump(),
+        "use_smote": body.use_smote,
+        "use_class_weight": body.use_class_weight,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -52,21 +112,23 @@ async def get_pipeline(pipeline_id: str) -> dict:
 
 
 @router.put("/{pipeline_id}")
-async def update_pipeline(pipeline_id: str, body: UpdatePipelineSchema) -> dict:
+async def update_pipeline(pipeline_id: str, body: CreatePipelineSchema) -> dict:
     pipeline = storage.get_pipeline(pipeline_id)
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Cannot update a running pipeline")
 
+    pipeline["target_column"] = body.target_column
+    pipeline["problem_type"] = body.problem_type or pipeline.get("problem_type")
     if body.name is not None:
         pipeline["name"] = body.name
-    if body.steps is not None:
-        pipeline["steps"] = [s.model_dump() for s in body.steps]
-    if body.test_split_ratio is not None:
-        pipeline["test_split_ratio"] = body.test_split_ratio
-    if body.random_seed is not None:
-        pipeline["random_seed"] = body.random_seed
+    pipeline["encoding"] = body.encoding.model_dump()
+    pipeline["scaling"] = body.scaling.model_dump()
+    pipeline["split"] = body.split.model_dump()
+    pipeline["feature_selection"] = body.feature_selection.model_dump()
+    pipeline["use_smote"] = body.use_smote
+    pipeline["use_class_weight"] = body.use_class_weight
     pipeline["updated_at"] = datetime.now(UTC).isoformat()
     return storage.save_pipeline(pipeline)
 
@@ -82,82 +144,34 @@ async def delete_pipeline(pipeline_id: str):
     return None
 
 
-def _run_pipeline_background(pipeline_id: str) -> None:
-    pipeline = storage.get_pipeline(pipeline_id)
-    if not pipeline:
-        return
-
-    dataset = storage.get_dataset(pipeline["dataset_id"])
-    if not dataset:
-        return
-
-    file_path = Path(dataset["file_path"])
-    ext = f".{dataset['file_format']}"
-    if ext == ".csv":
-        df = pd.read_csv(file_path)
-    elif ext == ".parquet":
-        df = pd.read_parquet(file_path)
-    else:
-        return
-
+def _run_execution_background(pipeline: dict, eda_report: dict | None) -> None:
     try:
-        for step in pipeline["steps"]:
-            step_type = step["step_type"]
-            config = step.get("config", {})
-            cols = step.get("columns")
-
-            if step_type == "imputation":
-                strategy = config.get("strategy", "mean")
-                target = cols or df.select_dtypes(include=["number"]).columns.tolist()
-                for c in target:
-                    if strategy == "mean":
-                        df[c] = df[c].fillna(df[c].mean())
-                    elif strategy == "median":
-                        df[c] = df[c].fillna(df[c].median())
-                    elif strategy == "mode":
-                        df[c] = df[c].fillna(df[c].mode()[0] if not df[c].mode().empty else 0)
-
-            elif step_type == "encoding":
-                strategy = config.get("strategy", "one_hot")
-                target = cols or df.select_dtypes(include=["object"]).columns.tolist()
-                for c in target:
-                    if strategy == "one_hot":
-                        dummies = pd.get_dummies(df[c], prefix=c)
-                        df = pd.concat([df.drop(columns=[c]), dummies], axis=1)
-                    elif strategy == "label":
-                        df[c] = df[c].astype("category").cat.codes
-
-            elif step_type == "scaling":
-                strategy = config.get("strategy", "standard")
-                target = cols or df.select_dtypes(include=["number"]).columns.tolist()
-                for c in target:
-                    if strategy == "standard":
-                        mean, std = df[c].mean(), df[c].std()
-                        df[c] = (df[c] - mean) / (std + 1e-8)
-                    elif strategy == "minmax":
-                        mn, mx = df[c].min(), df[c].max()
-                        df[c] = (df[c] - mn) / (mx - mn + 1e-8)
-
-        if any(s["step_type"] == "train_test_split" for s in pipeline["steps"]):
-            ratio = pipeline["test_split_ratio"]
-            train_df = df.sample(frac=1 - ratio, random_state=pipeline["random_seed"])
-            test_df = df.drop(train_df.index)
-            processed_dir = settings.DATA_DIR / "processed" / pipeline["id"]
-            processed_dir.mkdir(parents=True, exist_ok=True)
-            train_df.to_parquet(processed_dir / "train.parquet")
-            test_df.to_parquet(processed_dir / "test.parquet")
-        else:
-            processed_dir = settings.DATA_DIR / "processed" / pipeline["id"]
-            processed_dir.mkdir(parents=True, exist_ok=True)
-            df.to_parquet(processed_dir / "full.parquet")
-
-        pipeline["status"] = "completed"
+        config = {
+            "problem_type": pipeline["problem_type"],
+            "encoding": pipeline.get("encoding", {}),
+            "scaling": pipeline.get("scaling", {}),
+            "split": pipeline.get("split", {}),
+            "feature_selection": pipeline.get("feature_selection", {}),
+            "use_smote": pipeline.get("use_smote", False),
+            "use_class_weight": pipeline.get("use_class_weight", False),
+        }
+        result = run_preprocessing(
+            dataset_id=pipeline["dataset_id"],
+            target_col=pipeline["target_column"],
+            config=config,
+            eda_report=eda_report,
+        )
+        result["id"] = pipeline["id"]
+        result["name"] = pipeline["name"]
+        result["status"] = "completed"
+        result["created_at"] = pipeline["created_at"]
+        result["updated_at"] = datetime.now(UTC).isoformat()
+        storage.save_pipeline(result)
     except Exception as e:
         pipeline["status"] = "failed"
         pipeline["error_message"] = str(e)
-
-    pipeline["updated_at"] = datetime.now(UTC).isoformat()
-    storage.save_pipeline(pipeline)
+        pipeline["updated_at"] = datetime.now(UTC).isoformat()
+        storage.save_pipeline(pipeline)
 
 
 @router.post("/{pipeline_id}/execute")
@@ -172,11 +186,71 @@ async def execute_pipeline(pipeline_id: str) -> dict:
     if not dataset:
         raise NotFoundError("Source dataset", pipeline["dataset_id"])
 
+    eda_report = storage.get_eda_report(pipeline["dataset_id"])
+
     pipeline["status"] = "running"
     pipeline["updated_at"] = datetime.now(UTC).isoformat()
     storage.save_pipeline(pipeline)
 
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _run_pipeline_background, pipeline_id)
+    await loop.run_in_executor(None, _run_execution_background, pipeline, eda_report)
 
     return storage.get_pipeline(pipeline_id)
+
+
+@router.post("/{pipeline_id}/score", status_code=200)
+async def score_pipeline(pipeline_id: str, file: UploadFile = File(...)) -> dict:
+    pipeline = storage.get_pipeline(pipeline_id)
+    if not pipeline:
+        raise NotFoundError("Pipeline", pipeline_id)
+    if pipeline.get("status") != "completed":
+        raise ValidationError("Pipeline must be completed before scoring")
+
+    artifact_path = pipeline.get("artifact_path")
+    if not artifact_path or not Path(artifact_path).exists():
+        raise NotFoundError("Pipeline artifact", pipeline_id)
+
+    try:
+        temp = Path(settings.DATA_DIR) / "tmp" / f"score_{pipeline_id}_{uuid.uuid4().hex}{Path(file.filename).suffix}"
+        temp.parent.mkdir(parents=True, exist_ok=True)
+        content = await file.read()
+        temp.write_bytes(content)
+
+        ext = temp.suffix.lower()
+        if ext == ".csv":
+            df = pd.read_csv(temp)
+        elif ext == ".parquet":
+            df = pd.read_parquet(temp)
+        elif ext == ".json":
+            df = pd.read_json(temp)
+        else:
+            raise ValidationError(f"Unsupported file format: {ext}")
+    finally:
+        if temp.exists():
+            temp.unlink()
+
+    target_col = pipeline.get("target_column")
+    if target_col and target_col in df.columns:
+        df = df.drop(columns=[target_col])
+
+    with open(artifact_path, "rb") as f:
+        fitted_pipeline = cloudpickle.load(f)
+
+    transformed = fitted_pipeline.transform(df)
+    if isinstance(transformed, np.ndarray):
+        try:
+            feature_names = fitted_pipeline.named_steps["preprocessor"].get_feature_names_out()
+        except Exception:
+            feature_names = [f"feature_{i}" for i in range(transformed.shape[1])]
+        result_df = pd.DataFrame(transformed, columns=feature_names)
+    else:
+        result_df = transformed
+
+    return {
+        "pipeline_id": pipeline_id,
+        "rows": len(result_df),
+        "features": len(result_df.columns),
+        "feature_names": list(result_df.columns),
+        "data": result_df.head(100).to_dict(orient="records"),
+        "download_url": None,
+    }

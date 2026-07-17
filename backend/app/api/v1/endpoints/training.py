@@ -52,11 +52,14 @@ ALGORITHMS = {
 
 
 def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
+    pipeline = None
     pipeline_id = body.pipeline_id
+    use_class_weight = False
     if pipeline_id:
         pipeline = storage.get_pipeline(pipeline_id)
-        if not pipeline or pipeline["status"] != "completed":
+        if not pipeline or pipeline.get("status") != "completed":
             raise ValidationError("Pipeline must be completed before training")
+        use_class_weight = pipeline.get("use_class_weight", False)
         processed_dir = settings.DATA_DIR / "processed" / pipeline_id
         train_path = processed_dir / "train.parquet"
         test_path = processed_dir / "test.parquet"
@@ -64,6 +67,9 @@ def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
             raise ValidationError("Processed data not found. Execute the pipeline first.")
         train_df = pd.read_parquet(train_path)
         test_df = pd.read_parquet(test_path)
+        target_col = pipeline.get("target_column")
+        if not target_col or target_col not in train_df.columns:
+            raise ValidationError(f"Target column '{target_col}' not found in processed data")
     else:
         file_path = Path(dataset["file_path"])
         ext = f".{dataset['file_format']}"
@@ -83,7 +89,6 @@ def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
         if target_col not in df.columns:
             raise ValidationError(f"Target column '{target_col}' not found")
 
-        df = df.dropna()
         X = df.drop(columns=[target_col]).select_dtypes(include=[np.number])
         y = df[target_col]
 
@@ -96,7 +101,6 @@ def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
             random_state=body.random_seed,
         )
 
-    target_col = [c for c in train_df.columns if c not in test_df.columns or True][-1]
     feature_cols = [c for c in train_df.columns if c != target_col]
 
     X_train = train_df[feature_cols].select_dtypes(include=[np.number]).values
@@ -107,7 +111,7 @@ def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
     if len(np.unique(y_train)) < 2:
         raise ValidationError("Target column must have at least 2 classes")
 
-    return X_train, y_train, X_test, y_test, pipeline_id
+    return X_train, y_train, X_test, y_test, pipeline_id, use_class_weight
 
 
 def _append_log(job: dict, message: str) -> None:
@@ -129,6 +133,7 @@ def _run_training_background(
     dataset_id: str,
     pipeline_id: str | None,
     name: str,
+    use_class_weight: bool = False,
 ) -> None:
     job = storage.get_job(job_id)
     if not job:
@@ -145,6 +150,16 @@ def _run_training_background(
         start_time = time.perf_counter()
 
         clf = ALGORITHMS[algorithm](hyperparameters)
+
+        if use_class_weight:
+            if algorithm == "xgboost":
+                classes, counts = np.unique(y_train, return_counts=True)
+                if len(classes) == 2:
+                    scale_pos_weight = counts[0] / counts[1]
+                    clf.set_params(scale_pos_weight=scale_pos_weight)
+            else:
+                clf.set_params(class_weight="balanced")
+
         _append_log(job, f"Initialized {algorithm} classifier")
         job["progress"] = 15.0
         storage.save_job(job)
@@ -211,7 +226,7 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
         raise NotFoundError("Dataset", body.dataset_id)
 
     loop = asyncio.get_event_loop()
-    X_train, y_train, X_test, y_test, pipeline_id = await loop.run_in_executor(
+    X_train, y_train, X_test, y_test, pipeline_id, use_class_weight = await loop.run_in_executor(
         None, _prepare_data, body, dataset
     )
 
@@ -253,6 +268,7 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
         body.dataset_id,
         pipeline_id,
         body.name or f"{body.algorithm} v1",
+        use_class_weight,
     )
 
     return {
@@ -305,8 +321,27 @@ async def download_model(model_id: str):
     file_path = model.get("file_path")
     if not file_path or not Path(file_path).exists():
         raise NotFoundError("Model artifact", model_id)
-    filename = f"{model['algorithm']}_{model_id[:8]}.pkl"
-    return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
+
+    pipeline_id = model.get("pipeline_id")
+    bundle_path = Path(file_path)
+    if pipeline_id:
+        pipeline = storage.get_pipeline(pipeline_id)
+        if pipeline and pipeline.get("artifact_path"):
+            pipeline_artifact = Path(pipeline["artifact_path"])
+            if pipeline_artifact.exists():
+                from zipfile import ZipFile
+                bundle_dir = settings.DATA_DIR / "models" / model_id
+                bundle_zip = bundle_dir / "bundle.zip"
+                with ZipFile(bundle_zip, "w") as zf:
+                    zf.write(file_path, "model.pkl")
+                    zf.write(str(pipeline_artifact), "pipeline.pkl")
+                    le_path = pipeline.get("label_encoder_path")
+                    if le_path and Path(le_path).exists():
+                        zf.write(le_path, "label_encoder.pkl")
+                bundle_path = bundle_zip
+
+    filename = f"{model['algorithm']}_{model_id[:8]}.zip" if bundle_path.suffix == ".zip" else f"{model['algorithm']}_{model_id[:8]}.pkl"
+    return FileResponse(str(bundle_path), media_type="application/octet-stream", filename=filename)
 
 
 @router.get("/jobs")
