@@ -467,9 +467,9 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
               Use Cleaned Data
             </Button>
             {downloadUrl && (
-              <a href={downloadUrl} download>
-                <Button variant="ghost">Download CSV</Button>
-              </a>
+              <Button variant="ghost" onClick={() => window.open(downloadUrl, '_blank')}>
+                Download CSV
+              </Button>
             )}
           </div>
         )}
