@@ -50,17 +50,24 @@ async def upload_dataset(file: UploadFile = File(...), name: str = Form(None)) -
 
     try:
         if ext == ".csv":
+            with open(file_path) as f:
+                line_count = sum(1 for _ in f) - 1
             df = pd.read_csv(file_path, nrows=10000)
+            row_count = max(line_count, 0)
         elif ext == ".parquet":
             df = pd.read_parquet(file_path)
+            row_count = len(df)
         elif ext == ".json":
             df = pd.read_json(file_path)
+            row_count = len(df)
         elif ext == ".xlsx":
             df = pd.read_excel(file_path)
+            row_count = len(df)
         else:
             df = pd.DataFrame()
+            row_count = 0
 
-        dataset["row_count"] = len(df) if not df.empty else 0
+        dataset["row_count"] = row_count
         dataset["column_count"] = len(df.columns) if not df.empty else 0
         dataset["status"] = "ready"
         storage.save_dataset(dataset)

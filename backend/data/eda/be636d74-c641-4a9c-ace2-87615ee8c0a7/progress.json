@@ -1,0 +1,6 @@
+{
+  "status": "failed",
+  "progress": 0.0,
+  "step": "[WinError 5] Access is denied: 'D:\\\\MLPilot\\\\backend\\\\data\\\\eda\\\\be636d74-c641-4a9c-ace2-87615ee8c0a7\\\\tmp25k2usqw.tmp' -> 'data\\\\eda\\\\be636d74-c641-4a9c-ace2-87615ee8c0a7\\\\progress.json'",
+  "error": "[WinError 5] Access is denied: 'D:\\\\MLPilot\\\\backend\\\\data\\\\eda\\\\be636d74-c641-4a9c-ace2-87615ee8c0a7\\\\tmp25k2usqw.tmp' -> 'data\\\\eda\\\\be636d74-c641-4a9c-ace2-87615ee8c0a7\\\\progress.json'"
+}

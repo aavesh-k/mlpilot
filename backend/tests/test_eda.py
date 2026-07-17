@@ -1,3 +1,4 @@
+import time
 import io
 
 from fastapi.testclient import TestClient
@@ -11,10 +12,18 @@ def test_run_eda_on_uploaded_dataset(client: TestClient) -> None:
     )
     ds_id = upload_resp.json()["id"]
 
-    response = client.get(f"/api/v1/datasets/{ds_id}/eda")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["dataset_id"] == ds_id
-    assert len(data["column_stats"]) == 3
-    assert len(data["findings"]) >= 0
-    assert "correlation_matrix" in data
+    for _ in range(20):
+        resp = client.get(f"/api/v1/datasets/{ds_id}/eda")
+        assert resp.status_code == 200
+        data = resp.json()
+        if data["status"] == "completed":
+            report = data["report"]
+            assert report["dataset_id"] == ds_id
+            assert len(report["columns"]) == 3
+            assert len(report["findings"]) >= 0
+            assert "correlation_matrix" in report
+            return
+        if data["status"] == "not_started":
+            client.post(f"/api/v1/datasets/{ds_id}/eda")
+        time.sleep(0.5)
+    assert False, "EDA did not complete in time"

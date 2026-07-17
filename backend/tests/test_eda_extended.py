@@ -16,11 +16,16 @@ def test_eda_with_multiple_dtypes(client: TestClient) -> None:
         files={"file": ("test.csv", io.BytesIO(content.encode()), "text/csv")},
     )
     ds_id = resp.json()["id"]
-    response = client.get(f"/api/v1/datasets/{ds_id}/eda")
-    assert response.status_code == 200
-    data = response.json()
-    assert len(data["column_stats"]) == 3
-    num_col = next(c for c in data["column_stats"] if c["name"] == "num")
+
+    # The columns endpoint runs EDA synchronously
+    col_resp = client.get(f"/api/v1/datasets/{ds_id}/columns")
+    assert col_resp.status_code == 200
+    cols = col_resp.json()["column_stats"]
+    assert len(cols) == 3
+
+    num_col = next(c for c in cols if c["name"] == "num")
     assert num_col["is_numeric"] is True
-    cat_col = next(c for c in data["column_stats"] if c["name"] == "cat")
+    assert num_col["mean"] is not None
+
+    cat_col = next(c for c in cols if c["name"] == "cat")
     assert cat_col["is_numeric"] is False

@@ -195,5 +195,53 @@ class JSONStorage:
         self._write(data)
         return settings
 
+    # --- EDA Reports ---
+    def _eda_dir(self, dataset_id: str) -> Path:
+        p = self._base / "eda" / dataset_id
+        p.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _atomic_json_write(self, path: Path, obj: dict) -> None:
+        encoded = json.dumps(obj, indent=2, cls=SafeEncoder)
+        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(encoded)
+            os.replace(tmp_path, str(path))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    def _read_json_file(self, path: Path) -> dict | None:
+        if not path.exists():
+            return None
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+
+    def save_eda_progress(self, dataset_id: str, progress: dict) -> None:
+        path = self._eda_dir(dataset_id) / "progress.json"
+        self._atomic_json_write(path, progress)
+
+    def get_eda_progress(self, dataset_id: str) -> dict | None:
+        return self._read_json_file(self._eda_dir(dataset_id) / "progress.json")
+
+    def save_eda_report(self, dataset_id: str, report: dict) -> None:
+        path = self._eda_dir(dataset_id) / "report.json"
+        self._atomic_json_write(path, report)
+
+    def get_eda_report(self, dataset_id: str) -> dict | None:
+        return self._read_json_file(self._eda_dir(dataset_id) / "report.json")
+
+    def delete_eda(self, dataset_id: str) -> None:
+        path = self._base / "eda" / dataset_id
+        if path.exists():
+            import shutil
+            shutil.rmtree(path)
+
 
 storage = JSONStorage()

@@ -1,0 +1,174 @@
+{
+  "dataset_id": "613d0216-d093-432c-9995-01157c1a729a",
+  "computed_at": "2026-07-17T18:23:34.881496",
+  "shape": {
+    "rows": 2,
+    "columns": 2
+  },
+  "memory_usage": {
+    "total_bytes": 164,
+    "formatted": "164.0 B"
+  },
+  "columns": [
+    {
+      "name": "a",
+      "dtype": "int64",
+      "ordinal_position": 1
+    },
+    {
+      "name": "b",
+      "dtype": "int64",
+      "ordinal_position": 2
+    }
+  ],
+  "head": [
+    {
+      "a": 1,
+      "b": 2
+    },
+    {
+      "a": 3,
+      "b": 4
+    }
+  ],
+  "tail": [
+    {
+      "a": 1,
+      "b": 2
+    },
+    {
+      "a": 3,
+      "b": 4
+    }
+  ],
+  "missingness": [],
+  "missingness_matrix": {
+    "columns": [
+      "a",
+      "b"
+    ],
+    "rows": 2,
+    "data": {
+      "a": [
+        0,
+        0
+      ],
+      "b": [
+        0,
+        0
+      ]
+    }
+  },
+  "numeric_summary": [
+    {
+      "column": "a",
+      "count": 2,
+      "mean": 2.0,
+      "median": 2.0,
+      "std": 1.414214,
+      "min": 1.0,
+      "max": 3.0,
+      "q1": 1.5,
+      "q3": 2.5,
+      "iqr": 1.0,
+      "skewness": null,
+      "kurtosis": null
+    },
+    {
+      "column": "b",
+      "count": 2,
+      "mean": 3.0,
+      "median": 3.0,
+      "std": 1.414214,
+      "min": 2.0,
+      "max": 4.0,
+      "q1": 2.5,
+      "q3": 3.5,
+      "iqr": 1.0,
+      "skewness": null,
+      "kurtosis": null
+    }
+  ],
+  "outliers": [
+    {
+      "column": "a",
+      "count": 0,
+      "percent": 0.0,
+      "lower_bound": 0.0,
+      "upper_bound": 4.0,
+      "stats": {
+        "min": 1.0,
+        "q1": 1.5,
+        "median": 2.0,
+        "q3": 2.5,
+        "max": 3.0
+      }
+    },
+    {
+      "column": "b",
+      "count": 0,
+      "percent": 0.0,
+      "lower_bound": 1.0,
+      "upper_bound": 5.0,
+      "stats": {
+        "min": 2.0,
+        "q1": 2.5,
+        "median": 3.0,
+        "q3": 3.5,
+        "max": 4.0
+      }
+    }
+  ],
+  "categorical_summary": [],
+  "correlation_matrix": {
+    "a": {
+      "a": 1.0,
+      "b": 1.0
+    },
+    "b": {
+      "a": 1.0,
+      "b": 1.0
+    }
+  },
+  "high_correlations": [
+    {
+      "col_a": "a",
+      "col_b": "b",
+      "value": 1.0
+    }
+  ],
+  "distribution_plots": [],
+  "duplicates": {
+    "count": 0,
+    "percent": 0.0
+  },
+  "data_type_issues": [],
+  "constant_columns": [],
+  "findings": [
+    {
+      "severity": "warning",
+      "title": "High Correlation",
+      "description": "'a' and 'b' show 1.00 correlation. Possible multicollinearity.",
+      "affected_columns": [
+        "a",
+        "b"
+      ]
+    },
+    {
+      "severity": "info",
+      "title": "Outliers Detected",
+      "description": "'a' has 0 outliers (0.0%).",
+      "affected_columns": [
+        "a"
+      ]
+    },
+    {
+      "severity": "info",
+      "title": "Outliers Detected",
+      "description": "'b' has 0 outliers (0.0%).",
+      "affected_columns": [
+        "b"
+      ]
+    }
+  ]
+}

@@ -9,10 +9,10 @@ interface SidebarProps {
 const navItems = [
   { to: "/dashboard", icon: "dashboard", label: "Overview" },
   { to: "/datasets", icon: "database", label: "Dataset" },
-  { to: "/training", icon: "model_training", label: "Training" },
   { to: "/preprocessing", icon: "process_chart", label: "Preprocessing" },
+  { to: "/training", icon: "model_training", label: "Training" },
   { to: "/compare", icon: "leaderboard", label: "Leaderboard" },
-  { to: "/eda", icon: "monitoring", label: "Visualizations" },
+  { to: "/visualizations", icon: "monitoring", label: "Visualization" },
   { to: "/results", icon: "description", label: "Reports" },
 ]
 
