@@ -159,6 +159,10 @@ export default function Cleaning() {
             setViewRunId(undefined)
             executeMutation.reset()
           }}
+          onUseCleanedData={() => {
+            const cleanedId = executeMutation.data?.dataset?.id
+            if (cleanedId) navigate(`/datasets/${cleanedId}`)
+          }}
         />
       )}
 
@@ -339,7 +343,7 @@ function ToggleStep({ label, description, enabled, onToggle, hideToggle }: {
   )
 }
 
-function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning }: {
+function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUseCleanedData }: {
   report: {
     steps: CleaningLogEntry[]
     before: SnapshotStats
@@ -351,6 +355,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning }: {
   onViewRun: (runId: string) => void
   latestRun?: { run_id: string }
   onNewCleaning: () => void
+  onUseCleanedData?: () => void
 }) {
   const stepBadge = (step: string) => {
     const variants: Record<string, 'success' | 'warning' | 'info' | 'danger'> = {
@@ -458,9 +463,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning }: {
           <div className="mt-8 flex gap-4">
             <Button
               variant="primary"
-              onClick={() => {
-                const dsId = (window as any).__cleaning_dataset_id
-              }}
+              onClick={onUseCleanedData}
             >
               Use Cleaned Data
             </Button>
