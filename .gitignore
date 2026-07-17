@@ -39,6 +39,13 @@ backend/mlpilot.db
 # Logs
 *.log
 
+# Scratch files
+Missing.txt
+Prompt0.txt
+
+# Pipeline artifacts
+backend/data/processed/
+
 # Coverage
 htmlcov/
 .coverage
