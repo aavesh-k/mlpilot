@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { CONFIG } from '../config'
 import type { PaginatedResponse } from '../types/api'
 
 export interface ColumnSuggestion {
@@ -105,5 +106,9 @@ export const cleaningApi = {
   async listRuns(datasetId: string): Promise<{ run_id: string; created_at: string; before: SnapshotStats; after: SnapshotStats; step_count: number }[]> {
     const { data } = await apiClient.get(`/datasets/${datasetId}/cleaning/runs`)
     return data
+  },
+
+  getDownloadUrl(datasetId: string, runId: string): string {
+    return `${CONFIG.API_BASE_URL}/datasets/${datasetId}/cleaning/download/${runId}`
   },
 }

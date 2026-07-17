@@ -9,7 +9,7 @@ import { LoadingSpinner, SkeletonTable } from '../shared/components/LoadingSpinn
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { formatPercentage, formatDate } from '../shared/utils/format'
-import type { ColumnSuggestion, CleaningLogEntry, ColumnChange, SnapshotStats } from '../core/api/cleaning.api'
+import { cleaningApi, type ColumnSuggestion, type CleaningLogEntry, type ColumnChange, type SnapshotStats } from '../core/api/cleaning.api'
 
 type MissingStrategy = 'drop_row' | 'drop_column' | 'mean' | 'median' | 'mode' | 'knn' | 'ffill' | 'bfill'
 type OutlierStrategy = 'winsorize' | 'remove' | 'leave'
@@ -163,6 +163,7 @@ export default function Cleaning() {
             const cleanedId = executeMutation.data?.dataset?.id
             if (cleanedId) navigate(`/datasets/${cleanedId}`)
           }}
+          downloadUrl={selectedId && report?.run_id ? cleaningApi.getDownloadUrl(selectedId, report.run_id) : undefined}
         />
       )}
 
@@ -343,7 +344,7 @@ function ToggleStep({ label, description, enabled, onToggle, hideToggle }: {
   )
 }
 
-function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUseCleanedData }: {
+function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUseCleanedData, downloadUrl }: {
   report: {
     steps: CleaningLogEntry[]
     before: SnapshotStats
@@ -356,6 +357,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
   latestRun?: { run_id: string }
   onNewCleaning: () => void
   onUseCleanedData?: () => void
+  downloadUrl?: string
 }) {
   const stepBadge = (step: string) => {
     const variants: Record<string, 'success' | 'warning' | 'info' | 'danger'> = {
@@ -461,12 +463,14 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
 
         {report.after.row_count > 0 && (
           <div className="mt-8 flex gap-4">
-            <Button
-              variant="primary"
-              onClick={onUseCleanedData}
-            >
+            <Button variant="primary" onClick={onUseCleanedData}>
               Use Cleaned Data
             </Button>
+            {downloadUrl && (
+              <a href={downloadUrl} download>
+                <Button variant="ghost">Download CSV</Button>
+              </a>
+            )}
           </div>
         )}
       </div>
