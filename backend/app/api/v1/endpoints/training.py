@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -5,10 +6,12 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import cloudpickle
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
+from fastapi.responses import FileResponse
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
 
@@ -35,20 +38,18 @@ ALGORITHMS = {
         max_iter=hp.get("max_iter", 1000),
         random_state=hp.get("random_state", 42),
     ),
+    "xgboost": lambda hp: XGBClassifier(
+        n_estimators=hp.get("n_estimators", 100),
+        max_depth=hp.get("max_depth", 6),
+        learning_rate=hp.get("learning_rate", 0.3),
+        random_state=hp.get("random_state", 42),
+        use_label_encoder=False,
+        eval_metric="logloss",
+    ),
 }
 
 
-@router.post("/", status_code=201)
-async def train_model(body: dict) -> dict:
-    dataset_id = body.get("dataset_id")
-    dataset = storage.get_dataset(dataset_id)
-    if not dataset:
-        raise NotFoundError("Dataset", dataset_id)
-
-    algorithm = body.get("algorithm")
-    if algorithm not in ALGORITHMS:
-        raise ValidationError(f"Unsupported algorithm. Choose from: {', '.join(ALGORITHMS.keys())}")
-
+def _prepare_data(body: dict, dataset: dict) -> tuple:
     pipeline_id = body.get("pipeline_id")
     if pipeline_id:
         pipeline = storage.get_pipeline(pipeline_id)
@@ -107,33 +108,39 @@ async def train_model(body: dict) -> dict:
     if len(np.unique(y_train)) < 2:
         raise ValidationError("Target column must have at least 2 classes")
 
-    model_id = str(uuid.uuid4())
-    model_entry = {
-        "id": model_id,
-        "dataset_id": dataset_id,
-        "pipeline_id": pipeline_id,
-        "name": body.get("name", f"{algorithm} v1"),
-        "algorithm": algorithm,
-        "hyperparameters": body.get("hyperparameters", {}),
-        "status": "training",
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-    storage.save_model(model_entry)
+    return X_train, y_train, X_test, y_test, pipeline_id
 
-    job_id = str(uuid.uuid4())
-    job = {
-        "id": job_id,
-        "model_id": model_id,
-        "status": "running",
-        "progress": 0.0,
-        "log": "",
-        "started_at": datetime.now(UTC).isoformat(),
-    }
+
+def _run_training_background(
+    model_id: str,
+    job_id: str,
+    algorithm: str,
+    hyperparameters: dict,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    dataset_id: str,
+    pipeline_id: str | None,
+    name: str,
+) -> None:
+    job = storage.get_job(job_id)
+    if not job:
+        return
+    job["status"] = "running"
+    job["progress"] = 10.0
     storage.save_job(job)
 
+    model_entry = storage.get_model(model_id)
+    if not model_entry:
+        return
+
     try:
-        clf = ALGORITHMS[algorithm](body.get("hyperparameters", {}))
+        clf = ALGORITHMS[algorithm](hyperparameters)
         clf.fit(X_train, y_train)
+
+        job["progress"] = 60.0
+        storage.save_job(job)
 
         y_pred = clf.predict(X_test)
         y_prob = clf.predict_proba(X_test) if hasattr(clf, "predict_proba") else None
@@ -175,6 +182,63 @@ async def train_model(body: dict) -> dict:
     storage.save_model(model_entry)
     storage.save_job(job)
 
+    storage.save_model(model_entry)
+    storage.save_job(job)
+
+
+@router.post("/", status_code=201)
+async def train_model(body: dict, background_tasks: BackgroundTasks) -> dict:
+    dataset_id = body.get("dataset_id")
+    dataset = storage.get_dataset(dataset_id)
+    if not dataset:
+        raise NotFoundError("Dataset", dataset_id)
+
+    algorithm = body.get("algorithm")
+    if algorithm not in ALGORITHMS:
+        raise ValidationError(f"Unsupported algorithm. Choose from: {', '.join(ALGORITHMS.keys())}")
+
+    X_train, y_train, X_test, y_test, pipeline_id = _prepare_data(body, dataset)
+
+    model_id = str(uuid.uuid4())
+    model_entry = {
+        "id": model_id,
+        "dataset_id": dataset_id,
+        "pipeline_id": pipeline_id,
+        "name": body.get("name", f"{algorithm} v1"),
+        "algorithm": algorithm,
+        "hyperparameters": body.get("hyperparameters", {}),
+        "status": "queued",
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    storage.save_model(model_entry)
+
+    job_id = str(uuid.uuid4())
+    job = {
+        "id": job_id,
+        "model_id": model_id,
+        "status": "queued",
+        "progress": 0.0,
+        "log": "",
+        "started_at": datetime.now(UTC).isoformat(),
+    }
+    storage.save_job(job)
+
+    background_tasks.add_task(
+        asyncio.to_thread,
+        _run_training_background,
+        model_id,
+        job_id,
+        algorithm,
+        body.get("hyperparameters", {}),
+        X_train,
+        y_train,
+        X_test,
+        y_test,
+        dataset_id,
+        pipeline_id,
+        body.get("name", f"{algorithm} v1"),
+    )
+
     return {
         "model": model_entry,
         "job": job,
@@ -215,6 +279,18 @@ async def get_model(model_id: str) -> dict:
     if not model:
         raise NotFoundError("Model", model_id)
     return model
+
+
+@router.get("/models/{model_id}/download")
+async def download_model(model_id: str):
+    model = storage.get_model(model_id)
+    if not model:
+        raise NotFoundError("Model", model_id)
+    file_path = model.get("file_path")
+    if not file_path or not Path(file_path).exists():
+        raise NotFoundError("Model artifact", model_id)
+    filename = f"{model['algorithm']}_{model_id[:8]}.pkl"
+    return FileResponse(file_path, media_type="application/octet-stream", filename=filename)
 
 
 @router.get("/jobs")

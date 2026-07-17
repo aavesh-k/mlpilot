@@ -36,3 +36,14 @@ export function useExecutePipeline() {
     },
   })
 }
+
+export function useUpdatePipeline() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Partial<import('../../../core/api/pipelines.api').Pipeline> }) =>
+      pipelinesApi.update(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines'] })
+    },
+  })
+}

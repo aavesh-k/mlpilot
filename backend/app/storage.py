@@ -18,6 +18,7 @@ class JSONStorage:
                 "models": [],
                 "training_jobs": [],
                 "experiments": [],
+                "settings": {},
             }))
 
     def _read(self) -> dict:
@@ -146,6 +147,26 @@ class JSONStorage:
         data["training_jobs"].append(job)
         self._write(data)
         return job
+
+
+    # --- Settings ---
+    def get_settings(self) -> dict:
+        data = self._read()
+        return data.get("settings", {
+            "api_endpoint": "/api/v1",
+            "default_project": "MLPilot",
+            "max_memory_gb": 32,
+            "max_runtime_minutes": 240,
+            "parallel_jobs": 3,
+            "email_alerts": True,
+            "webhook_url": "https://hooks.mlpilot.io/events",
+        })
+
+    def save_settings(self, settings: dict) -> dict:
+        data = self._read()
+        data["settings"] = settings
+        self._write(data)
+        return settings
 
 
 storage = JSONStorage()

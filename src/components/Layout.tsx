@@ -8,7 +8,7 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const hideSidebar = location.pathname === "/" || location.pathname === "/auth"
+  const hideSidebar = location.pathname === "/"
 
   return (
     <div className="flex h-screen overflow-hidden">

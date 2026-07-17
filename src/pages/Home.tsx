@@ -142,7 +142,7 @@ export default function Home() {
           Skip the boilerplate. Get to the insights. Deployment ready artifacts in minutes, not days.
         </p>
         <NavLink
-          to="/auth"
+          to="/dashboard"
           className="bg-primary text-white neo-border font-display font-black text-2xl uppercase px-12 py-6 neo-shadow hover:neo-shadow-active transition-all active:scale-95 inline-block w-full sm:w-auto"
         >
           Start Free Run

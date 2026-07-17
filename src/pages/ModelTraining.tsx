@@ -14,6 +14,7 @@ const ALGORITHMS = [
   { id: 'random_forest', label: 'Random Forest' },
   { id: 'svm', label: 'SVM' },
   { id: 'logistic_regression', label: 'Logistic Regression' },
+  { id: 'xgboost', label: 'XGBoost' },
 ]
 
 export default function ModelTraining() {

@@ -1,9 +1,9 @@
-import { useCompareModels } from '../modules/training/hooks/useTraining'
-import { useModels } from '../modules/training/hooks/useTraining'
+import { useCompareModels, useModels } from '../modules/training/hooks/useTraining'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
 import { SkeletonTable } from '../shared/components/LoadingSpinner'
+import { CONFIG } from '../core/config'
 
 export default function ModelComparison() {
   const { data: modelsData, isLoading, error, refetch } = useModels()
@@ -70,6 +70,7 @@ export default function ModelComparison() {
               <th className="p-4 font-headline font-bold text-xs uppercase">Precision</th>
               <th className="p-4 font-headline font-bold text-xs uppercase">Recall</th>
               <th className="p-4 font-headline font-bold text-xs uppercase">ROC-AUC</th>
+              <th className="p-4 font-headline font-bold text-xs uppercase">Download</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +94,15 @@ export default function ModelComparison() {
                 <td className="p-4 font-body text-sm">{m.metrics?.precision?.toFixed(4) ?? '—'}</td>
                 <td className="p-4 font-body text-sm">{m.metrics?.recall?.toFixed(4) ?? '—'}</td>
                 <td className="p-4 font-body text-sm">{m.metrics?.roc_auc?.toFixed(4) ?? '—'}</td>
+                <td className="p-4">
+                  <a
+                    href={`${CONFIG.API_BASE_URL}/api/v1/training/models/${m.id}/download`}
+                    download
+                    className="font-headline font-bold text-xs uppercase text-tertiary hover:text-primary underline underline-offset-2"
+                  >
+                    Download
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>

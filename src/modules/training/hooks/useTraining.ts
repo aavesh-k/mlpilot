@@ -39,6 +39,12 @@ export function useJobs(page = 1) {
   return useQuery({
     queryKey: ['jobs', page],
     queryFn: () => trainingApi.listJobs(page),
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (!data) return 3000
+      const hasActive = data.items.some((j) => j.status === 'queued' || j.status === 'running')
+      return hasActive ? 2000 : false
+    },
   })
 }
 
