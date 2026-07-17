@@ -1,6 +1,5 @@
 import { apiClient } from './client'
 import { CONFIG } from '../config'
-import type { PaginatedResponse } from '../types/api'
 
 export interface ColumnSuggestion {
   name: string

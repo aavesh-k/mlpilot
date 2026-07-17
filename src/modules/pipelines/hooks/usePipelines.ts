@@ -1,5 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { pipelinesApi, type PipelineStep } from '../../../core/api/pipelines.api'
+import { pipelinesApi } from '../../../core/api/pipelines.api'
+
+export function usePipelineSuggestions(datasetId: string | undefined) {
+  return useQuery({
+    queryKey: ['pipeline-suggestions', datasetId],
+    queryFn: () => pipelinesApi.suggest(datasetId!),
+    enabled: !!datasetId,
+  })
+}
+
+export function useTargetDetection(datasetId: string | undefined, targetColumn: string | undefined) {
+  return useQuery({
+    queryKey: ['target-detection', datasetId, targetColumn],
+    queryFn: () => pipelinesApi.detectTarget(datasetId!, targetColumn!),
+    enabled: !!datasetId && !!targetColumn,
+  })
+}
 
 export function usePipelines(page = 1) {
   return useQuery({
@@ -19,7 +35,7 @@ export function usePipeline(id: string | undefined) {
 export function useCreatePipeline() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { dataset_id: string; name?: string; steps: PipelineStep[] }) =>
+    mutationFn: (body: Parameters<typeof pipelinesApi.create>[0]) =>
       pipelinesApi.create(body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipelines'] })
@@ -40,7 +56,7 @@ export function useExecutePipeline() {
 export function useUpdatePipeline() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: Partial<import('../../../core/api/pipelines.api').Pipeline> }) =>
+    mutationFn: ({ id, body }: { id: string; body: Parameters<typeof pipelinesApi.update>[1] }) =>
       pipelinesApi.update(id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipelines'] })

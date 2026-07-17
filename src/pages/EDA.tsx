@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useEDA } from '../modules/datasets/hooks/useEDA'
+import { edaApi } from '../core/api/eda.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
-import { LoadingSpinner, SkeletonCard } from '../shared/components/LoadingSpinner'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
-import { formatFileSize } from '../shared/utils/format'
-import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot, Finding, DataTypeIssue, ConstantColumn, HighCorrelation } from '../core/api/eda.api'
+import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot, Finding, DataTypeIssue, ConstantColumn, HighCorrelation, MissingnessMatrix } from '../core/api/eda.api'
 
 export default function EDA() {
   const { data: datasetsData, isLoading: dsLoading } = useDatasets()
   const [selectedId, setSelectedId] = useState<string | undefined>()
-  const { status, report, startEDA, isProcessing } = useEDA(selectedId)
+  const { status, report, isProcessing } = useEDA(selectedId)
 
   const datasets = datasetsData?.items ?? []
   const readyDatasets = datasets.filter((d) => d.status === 'ready')
@@ -24,9 +23,9 @@ export default function EDA() {
 
   useEffect(() => {
     if (selectedId && status?.status === 'not_started') {
-      startEDA()
+      edaApi.startEDA(selectedId)
     }
-  }, [selectedId, status?.status, startEDA])
+  }, [selectedId, status?.status])
 
   const progressPct = status ? Math.round((status.progress ?? 0) * 100) : 0
 
@@ -59,7 +58,7 @@ export default function EDA() {
       )}
 
       {status?.status === 'failed' && (
-        <ErrorState title="EDA Failed" message={status.error ?? 'An error occurred during analysis.'} onRetry={startEDA} />
+        <ErrorState title="EDA Failed" message={status.error ?? 'An error occurred during analysis.'} onRetry={() => selectedId && edaApi.startEDA(selectedId)} />
       )}
 
       {report && !isProcessing && <EDAReportView report={report} />}
@@ -72,7 +71,7 @@ function EDAReportView({ report }: { report: EDAReport }) {
     <div className="space-y-10">
       <DatasetOverviewSection report={report} />
       <HeadTailSection head={report.head} tail={report.tail} columns={report.columns} />
-      <MissingnessSection missingness={report.missingness} matrix={report.missingness_matrix} totalRows={report.shape.rows} />
+      <MissingnessSection missingness={report.missingness} matrix={report.missingness_matrix} />
       <NumericSummarySection summary={report.numeric_summary} />
       <OutliersSection outliers={report.outliers} />
       <CategoricalSection categories={report.categorical_summary} />
@@ -184,7 +183,7 @@ function formatCellValue(val: unknown): string {
   return String(val)
 }
 
-function MissingnessSection({ missingness, matrix, totalRows }: { missingness: MissingRow[]; matrix: { columns: string[]; data: Record<string, number[]> }; totalRows: number }) {
+function MissingnessSection({ missingness, matrix }: { missingness: MissingRow[]; matrix: MissingnessMatrix }) {
   return (
     <div className="bg-surface border-2 border-primary p-6">
       <h3 className="font-headline font-black text-xl uppercase mb-4">Missing Values</h3>
@@ -231,7 +230,7 @@ function MissingnessSection({ missingness, matrix, totalRows }: { missingness: M
   )
 }
 
-function MissingnessHeatmap({ matrix }: { matrix: { columns: string[]; data: Record<string, number[]> } }) {
+function MissingnessHeatmap({ matrix }: { matrix: MissingnessMatrix }) {
   const cols = matrix.columns
   const rows = Math.min(matrix.rows, 50)
   if (rows === 0 || cols.length === 0) return <p className="text-on-surface-variant text-sm">No data</p>

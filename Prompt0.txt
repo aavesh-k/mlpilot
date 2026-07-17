@@ -1,0 +1,20 @@
+You are working on MLPilot, an AutoML web app. Users upload a dataset (CSV/Excel)
+and the app automatically does: EDA -> cleaning -> preprocessing -> model
+training (with target column selection) -> post-training visualization ->
+downloadable reports/artifacts.
+
+Current stack: 
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript, Tailwind CSS, Vite, TanStack React Query, React Router |
+| Backend | Python 3.12+, FastAPI, scikit-learn, pandas, numpy |
+| Storage | JSON file (`data/db.json`) |
+| ML | Random Forest, SVM, Logistic Regression |
+
+Before writing new code:
+1. Read the existing repo structure (list all files/folders).
+2. Identify what's already implemented for EDA, cleaning, preprocessing,
+   training, and reporting.
+3. Summarize what's missing or broken vs. the spec I'll give you next.
+Do not rewrite working code — extend it. Flag anything that looks fragile
+(no error handling, blocking calls, no validation) as you find it.

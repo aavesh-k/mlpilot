@@ -258,9 +258,8 @@ def _check_high_correlation(df: pd.DataFrame, threshold: float = 0.95) -> list[d
             if not (isinstance(val, float) and math.isnan(val)) and abs(val) > threshold:
                 var_a = df[col_a].var()
                 var_b = df[col_b].var()
-                keep.drop(
+                keep.discard(
                     col_a if var_a <= var_b else col_b,
-                    errors="ignore",
                 )
     dropped_cols = set(num_cols) - keep
     for col in dropped_cols:
@@ -273,6 +272,7 @@ def run_preprocessing(
     target_col: str,
     config: dict,
     eda_report: dict | None = None,
+    pipeline_id: str | None = None,
 ) -> dict:
     dataset = storage.get_dataset(dataset_id)
     if not dataset:
@@ -359,7 +359,7 @@ def run_preprocessing(
     else:
         feature_names_out = list(X_train_transformed.columns)
 
-    pipeline_id = str(uuid.uuid4())
+    pipeline_id = pipeline_id or str(uuid.uuid4())
     processed_dir = settings.DATA_DIR / "processed" / pipeline_id
     processed_dir.mkdir(parents=True, exist_ok=True)
 
@@ -398,15 +398,12 @@ def run_preprocessing(
         "fs_result": fs_report,
         "imbalance": imbalance_info,
         "pipeline_config": config,
-        "created_at": datetime.now(UTC).isoformat(),
-        "status": "completed",
         "train_path": str(processed_dir / "train.parquet"),
         "test_path": str(processed_dir / "test.parquet"),
         "artifact_path": str(artifact_path),
         "label_encoder_path": str(label_encoder_path) if label_encoder_path else None,
     }
 
-    storage.save_pipeline(result)
     return result
 
 

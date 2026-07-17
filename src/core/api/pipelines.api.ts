@@ -1,27 +1,114 @@
 import { apiClient } from './client'
 import type { PaginatedResponse } from '../types/api'
 
-export interface PipelineStep {
-  step_type: 'imputation' | 'encoding' | 'scaling' | 'train_test_split'
-  config?: Record<string, unknown>
-  columns?: string[]
+export interface EncodingConfig {
+  strategy: 'auto' | 'one_hot' | 'target' | 'frequency'
+  passthrough_columns?: string[]
+  scale_columns?: string[]
+}
+
+export interface ScalingConfig {
+  strategy: 'auto' | 'standard' | 'minmax' | 'robust'
+}
+
+export interface SplitConfig {
+  test_size: number
+  random_seed: number
+  stratify: boolean
+}
+
+export interface FeatureSelectionConfig {
+  enabled: boolean
+  drop_near_zero_variance: boolean
+  variance_threshold: number
+  drop_high_correlation: boolean
+  correlation_threshold: number
+}
+
+export interface ColumnSuggestion {
+  name: string
+  dtype: string
+  is_numeric: boolean
+  cardinality: number
+  missing_pct: number
+  suggested_role: string
+  suggested_encoding: string | null
+  suggested_scaling: string | null
+}
+
+export interface TargetDetectionResult {
+  target_column: string
+  problem_type: 'classification' | 'regression'
+  unique_values: number
+  dtype: string
+  imbalance: {
+    distribution: Record<string, { count: number; percent: number }>
+    majority_class: string | null
+    minority_class: string | null
+    majority_pct: number
+    minority_pct: number
+    imbalance_ratio: number
+    is_imbalanced: boolean
+    class_count: number
+  } | null
 }
 
 export interface Pipeline {
   id: string
   dataset_id: string
+  target_column: string
+  problem_type: string
   name: string
   status: string
-  test_split_ratio: number
-  random_seed: number
-  steps: PipelineStep[]
+  encoding: EncodingConfig
+  scaling: ScalingConfig
+  split: SplitConfig
+  feature_selection: FeatureSelectionConfig
+  use_smote: boolean
+  use_class_weight: boolean
   error_message?: string
+  train_rows?: number
+  test_rows?: number
+  feature_count?: number
+  column_notes?: Record<string, string>
+  dropped_columns?: string[]
+  fs_result?: {
+    near_zero_variance: { column: string; reason: string }[]
+    high_correlation: { column: string; reason: string }[]
+  }
+  imbalance?: TargetDetectionResult['imbalance']
+  train_path?: string
+  test_path?: string
+  artifact_path?: string
   created_at: string
   updated_at: string
 }
 
 export const pipelinesApi = {
-  async create(body: { dataset_id: string; name?: string; steps: PipelineStep[]; test_split_ratio?: number; random_seed?: number }): Promise<Pipeline> {
+  async suggest(datasetId: string): Promise<{ columns: ColumnSuggestion[] }> {
+    const { data } = await apiClient.post('/pipelines/suggest', null, { params: { dataset_id: datasetId } })
+    return data
+  },
+
+  async detectTarget(datasetId: string, targetColumn: string): Promise<TargetDetectionResult> {
+    const { data } = await apiClient.post('/pipelines/detect-target', null, {
+      params: { dataset_id: datasetId, target_column: targetColumn },
+    })
+    return data
+  },
+
+  async create(body: {
+    dataset_id: string
+    target_column: string
+    problem_type?: string
+    name?: string
+    encoding?: EncodingConfig
+    scaling?: ScalingConfig
+    split?: SplitConfig
+    feature_selection?: FeatureSelectionConfig
+    use_smote?: boolean
+    use_class_weight?: boolean
+  }): Promise<Pipeline> {
     const { data } = await apiClient.post('/pipelines/', body)
     return data
   },

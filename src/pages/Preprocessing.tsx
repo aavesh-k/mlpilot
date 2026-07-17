@@ -76,13 +76,14 @@ export default function Preprocessing() {
     if (targetDetectionResult) {
       setProblemType(targetDetectionResult.problem_type)
     }
-  }, [targetDetectionResult])
+  }, [targetDetectionResult, targetColumn])
 
   const handleSelectTarget = useCallback((col: string) => {
+    if (col === targetColumn) return
     setTargetColumn(col)
     setProblemType(null)
     setProblemTypeOverride(null)
-  }, [])
+  }, [targetColumn])
 
   const handleCreateNew = useCallback(() => {
     const first = cleanedDatasets[0]

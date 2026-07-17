@@ -96,7 +96,7 @@ function RawEDA({ report }: { report: EDAReport }) {
 
       <HeadTailSection head={report.head} tail={report.tail} columns={report.columns.map((c) => c.name)} />
 
-      <MissingnessSection missingness={report.missingness} totalRows={report.shape.rows} />
+      <MissingnessSection missingness={report.missingness} />
 
       <NumericSummarySection summary={report.numeric_summary} />
 
@@ -213,7 +213,7 @@ function formatCellValue(val: unknown): string {
   return String(val)
 }
 
-function MissingnessSection({ missingness, totalRows }: { missingness: MissingRow[]; totalRows: number }) {
+function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
   return (
     <div className="bg-surface border-2 border-primary p-6">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Missing Values</h3>

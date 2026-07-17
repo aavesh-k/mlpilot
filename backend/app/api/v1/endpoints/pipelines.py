@@ -160,13 +160,12 @@ def _run_execution_background(pipeline: dict, eda_report: dict | None) -> None:
             target_col=pipeline["target_column"],
             config=config,
             eda_report=eda_report,
+            pipeline_id=pipeline["id"],
         )
-        result["id"] = pipeline["id"]
-        result["name"] = pipeline["name"]
-        result["status"] = "completed"
-        result["created_at"] = pipeline["created_at"]
-        result["updated_at"] = datetime.now(UTC).isoformat()
-        storage.save_pipeline(result)
+        pipeline.update(result)
+        pipeline["status"] = "completed"
+        pipeline["updated_at"] = datetime.now(UTC).isoformat()
+        storage.save_pipeline(pipeline)
     except Exception as e:
         pipeline["status"] = "failed"
         pipeline["error_message"] = str(e)

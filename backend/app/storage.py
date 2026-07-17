@@ -56,7 +56,7 @@ class JSONStorage:
 
     # --- Datasets ---
     def list_datasets(self) -> list[dict]:
-        return self._read().get("datasets", [])
+        return list(reversed(self._read().get("datasets", [])))
 
     def get_dataset(self, dataset_id: str) -> dict | None:
         for d in self._read()["datasets"]:
@@ -96,7 +96,7 @@ class JSONStorage:
 
     # --- Pipelines ---
     def list_pipelines(self) -> list[dict]:
-        return self._read().get("pipelines", [])
+        return list(reversed(self._read().get("pipelines", [])))
 
     def get_pipeline(self, pipeline_id: str) -> dict | None:
         for p in self._read()["pipelines"]:
@@ -126,7 +126,7 @@ class JSONStorage:
 
     # --- Models ---
     def list_models(self) -> list[dict]:
-        return self._read().get("models", [])
+        return list(reversed(self._read().get("models", [])))
 
     def get_model(self, model_id: str) -> dict | None:
         for m in self._read()["models"]:
@@ -156,7 +156,7 @@ class JSONStorage:
 
     # --- Training Jobs ---
     def list_jobs(self) -> list[dict]:
-        return self._read().get("training_jobs", [])
+        return list(reversed(self._read().get("training_jobs", [])))
 
     def get_job(self, job_id: str) -> dict | None:
         for j in self._read()["training_jobs"]:

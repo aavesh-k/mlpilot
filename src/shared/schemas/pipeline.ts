@@ -1,22 +1,40 @@
 import { z } from 'zod'
 
-const stepTypes = ['imputation', 'encoding', 'scaling', 'train_test_split'] as const
+export const encodingConfigSchema = z.object({
+  strategy: z.enum(['auto', 'one_hot', 'target', 'frequency']).default('auto'),
+  passthrough_columns: z.array(z.string()).optional(),
+  scale_columns: z.array(z.string()).optional(),
+})
 
-export const pipelineStepSchema = z.object({
-  step_type: z.enum(stepTypes, { message: 'Invalid step type' }),
-  config: z.record(z.unknown()).optional().default({}),
-  columns: z.array(z.string()).optional(),
+export const scalingConfigSchema = z.object({
+  strategy: z.enum(['auto', 'standard', 'minmax', 'robust']).default('auto'),
+})
+
+export const splitConfigSchema = z.object({
+  test_size: z.number().min(0).max(1).default(0.2),
+  random_seed: z.number().int().default(42),
+  stratify: z.boolean().default(true),
+})
+
+export const featureSelectionConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  drop_near_zero_variance: z.boolean().default(false),
+  variance_threshold: z.number().min(0).default(0.01),
+  drop_high_correlation: z.boolean().default(false),
+  correlation_threshold: z.number().min(0).max(1).default(0.95),
 })
 
 export const createPipelineSchema = z.object({
   dataset_id: z.string().min(1, 'Dataset is required'),
-  name: z.string().min(1, 'Name is required').max(255).optional(),
-  steps: z
-    .array(pipelineStepSchema)
-    .min(1, 'At least one step is required')
-    .max(10, 'Maximum 10 steps allowed'),
-  test_split_ratio: z.number().min(0).max(1).optional().default(0.2),
-  random_seed: z.number().int().optional().default(42),
+  target_column: z.string().min(1, 'Target column is required'),
+  problem_type: z.enum(['classification', 'regression']).optional(),
+  name: z.string().max(255).optional(),
+  encoding: encodingConfigSchema.optional().default({ strategy: 'auto' }),
+  scaling: scalingConfigSchema.optional().default({ strategy: 'auto' }),
+  split: splitConfigSchema.optional().default({ test_size: 0.2, random_seed: 42, stratify: true }),
+  feature_selection: featureSelectionConfigSchema.optional().default({ enabled: false, drop_near_zero_variance: false, variance_threshold: 0.01, drop_high_correlation: false, correlation_threshold: 0.95 }),
+  use_smote: z.boolean().optional().default(false),
+  use_class_weight: z.boolean().optional().default(false),
 })
 
 export type CreatePipelineFormData = z.infer<typeof createPipelineSchema>

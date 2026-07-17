@@ -3,7 +3,7 @@ import { useModels } from '../modules/training/hooks/useTraining'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
-import { LoadingSpinner, SkeletonCard } from '../shared/components/LoadingSpinner'
+import { SkeletonCard } from '../shared/components/LoadingSpinner'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 
