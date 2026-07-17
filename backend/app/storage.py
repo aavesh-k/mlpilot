@@ -70,7 +70,8 @@ class JSONStorage:
             return json.loads(self._file.read_text())
 
     def _write(self, data: dict) -> None:
-        self._atomic_write(data)
+        with self._lock:
+            self._atomic_write(data)
 
     # --- Datasets ---
     def list_datasets(self, session_id: str = None) -> list[dict]:

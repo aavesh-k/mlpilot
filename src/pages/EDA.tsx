@@ -69,6 +69,7 @@ export default function EDA() {
 function EDAReportView({ report }: { report: EDAReport }) {
   return (
     <div className="space-y-10">
+      <AutomatedInsightsSection findings={report.findings} />
       <DatasetOverviewSection report={report} />
       <HeadTailSection head={report.head} tail={report.tail} columns={report.columns} />
       <MissingnessSection missingness={report.missingness} matrix={report.missingness_matrix} />
@@ -85,6 +86,57 @@ function EDAReportView({ report }: { report: EDAReport }) {
       <DataTypeIssuesSection issues={report.data_type_issues} />
       <ConstantColumnsSection columns={report.constant_columns} />
       <FindingsSection findings={report.findings} />
+    </div>
+  )
+}
+
+function AutomatedInsightsSection({ findings }: { findings: any[] }) {
+  if (!findings || findings.length === 0) return null
+
+  // Sort findings by severity priority: critical -> warning -> info
+  const sortedFindings = [...findings].sort((a, b) => {
+    const priority = { critical: 0, warning: 1, info: 2 }
+    const pa = priority[a.severity as keyof typeof priority] ?? 3
+    const pb = priority[b.severity as keyof typeof priority] ?? 3
+    return pa - pb
+  })
+
+  return (
+    <div className="bg-surface border-2 border-primary p-6 neo-shadow space-y-4">
+      <h3 className="font-headline font-black text-xl uppercase tracking-tight flex items-center gap-2">
+        <span>💡 Automated Data Science Insights</span>
+      </h3>
+      <p className="text-xs font-body text-on-surface-variant">
+        Automated recommendations generated from dataset characteristics, outliers, correlations, and skewness profile.
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {sortedFindings.map((finding, idx) => {
+          const isCritical = finding.severity === 'critical'
+          const isWarning = finding.severity === 'warning'
+          const badgeVariant = isCritical ? 'danger' : isWarning ? 'warning' : 'info'
+          const borderClass = isCritical ? 'border-red-500 bg-red-50/50' : isWarning ? 'border-amber-500 bg-amber-50/50' : 'border-blue-500 bg-blue-50/50'
+          const textClass = isCritical ? 'text-red-950' : isWarning ? 'text-amber-950' : 'text-blue-950'
+
+          return (
+            <div key={idx} className={`border-2 p-4 neo-shadow-sm flex flex-col justify-between ${borderClass} ${textClass}`}>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-headline font-black text-sm uppercase tracking-tight">{finding.title}</span>
+                  <Badge variant={badgeVariant} className="text-[9px] font-bold uppercase">{finding.severity}</Badge>
+                </div>
+                <p className="text-xs font-body mb-3">{finding.description}</p>
+              </div>
+              {finding.recommendation && (
+                <div className="mt-auto pt-3 border-t border-primary/10">
+                  <p className="font-headline font-bold text-[9px] uppercase tracking-wider text-on-surface-variant mb-1">Recommendation</p>
+                  <p className="text-[11px] font-body italic font-bold">{finding.recommendation}</p>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

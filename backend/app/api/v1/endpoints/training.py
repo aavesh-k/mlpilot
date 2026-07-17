@@ -1784,3 +1784,253 @@ async def export_html_report(
 </html>
 '''
     return HTMLResponse(content=html_content, status_code=200)
+
+
+# --- Advanced AutoML Features Endpoints ---
+
+from fastapi import Query, UploadFile, File
+from fastapi.responses import FileResponse
+import uuid
+import shutil
+from app.services.explainability_service import calculate_waterfall_explanation
+from sklearn.pipeline import Pipeline as SklearnPipeline
+
+
+@router.get("/models/{model_id}/explain")
+async def explain_model(
+    model_id: str,
+    row_idx: int = 0,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    model = storage.get_model(model_id, session_id=session_id)
+    if not model:
+        raise NotFoundError("Model", model_id)
+
+    pipeline_id = model.get("pipeline_id")
+    dataset_id = model.get("dataset_id")
+    target_col = model.get("target_column")
+
+    # Load dataset / test dataset to explain
+    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
+    test_path = pipeline.get("test_path") if pipeline else None
+    
+    if test_path and Path(test_path).exists():
+        df = pd.read_parquet(test_path) if test_path.endswith(".parquet") else pd.read_csv(test_path)
+    else:
+        dataset = storage.get_dataset(dataset_id, session_id=session_id)
+        if not dataset:
+            raise NotFoundError("Dataset", dataset_id)
+        df = read_dataframe(dataset)
+
+    if target_col and target_col in df.columns:
+        df = df.drop(columns=[target_col])
+
+    if df.empty:
+        raise ValidationError("Dataset is empty")
+    if row_idx < 0 or row_idx >= len(df):
+        raise ValidationError(f"row_idx {row_idx} is out of bounds (0 to {len(df)-1})")
+
+    # Load fitted inference pipeline bundle
+    with open(model["file_path"], "rb") as f:
+        bundle = cloudpickle.load(f)
+
+    # Calculate baseline inputs (median for numeric, mode for categorical)
+    baseline_dict = {}
+    for col in df.columns:
+        if pd.api.types.is_numeric_dtype(df[col]):
+            baseline_dict[col] = float(df[col].median())
+        else:
+            mode_vals = df[col].mode()
+            baseline_dict[col] = mode_vals.iloc[0] if not mode_vals.empty else ""
+    baseline_df = pd.DataFrame([baseline_dict])
+
+    sample_df = df.iloc[[row_idx]].copy().reset_index(drop=True)
+
+    # Determine problem type and class index
+    problem_type = pipeline.get("problem_type", "classification") if pipeline else "classification"
+    target_class_idx = 1
+    if problem_type == "classification" and hasattr(bundle, "classes_"):
+        # Check classes
+        classes = list(bundle.classes_)
+        # Use first class index or predict label's index
+        try:
+            pred_label = bundle.predict(sample_df)[0]
+            target_class_idx = classes.index(pred_label)
+        except Exception:
+            target_class_idx = 1 if len(classes) > 1 else 0
+
+    local_expl = calculate_waterfall_explanation(
+        bundle, sample_df, baseline_df, problem_type=problem_type, target_class_idx=target_class_idx
+    )
+
+    # Extract global feature importances from pipeline estimator
+    global_importances = []
+    try:
+        if isinstance(bundle, SklearnPipeline) and "model" in bundle.named_steps:
+            estimator = bundle.named_steps["model"]
+            preprocessor = bundle.named_steps["preprocessor"]
+            try:
+                features = list(preprocessor.get_feature_names_out())
+            except Exception:
+                features = list(df.columns)
+        else:
+            estimator = bundle
+            features = list(df.columns)
+
+        importances = []
+        if hasattr(estimator, "feature_importances_"):
+            importances = list(estimator.feature_importances_)
+        elif hasattr(estimator, "coef_"):
+            if len(estimator.coef_.shape) > 1:
+                importances = list(np.abs(estimator.coef_).mean(axis=0))
+            else:
+                importances = list(np.abs(estimator.coef_))
+
+        if importances and len(importances) == len(features):
+            global_importances = [{"feature": f, "importance": float(imp)} for f, imp in zip(features, importances)]
+            global_importances.sort(key=lambda x: x["importance"], reverse=True)
+    except Exception as e:
+        logger.warning(f"Could not extract global feature importances: {e}")
+
+    return {
+        "model_id": model_id,
+        "row_idx": row_idx,
+        "problem_type": problem_type,
+        "local_explanation": local_expl,
+        "global_importance": global_importances[:20]  # top 20
+    }
+
+
+@router.post("/models/{model_id}/predict")
+async def predict_model(
+    model_id: str,
+    file: UploadFile = File(...),
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    model = storage.get_model(model_id, session_id=session_id)
+    if not model:
+        raise NotFoundError("Model", model_id)
+
+    # Write temp file and load dataframe
+    temp_dir = settings.DATA_DIR / "tmp"
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_path = temp_dir / f"pred_{model_id}_{uuid.uuid4().hex}{Path(file.filename).suffix}"
+    
+    try:
+        content = await file.read()
+        temp_path.write_bytes(content)
+        
+        ext = temp_path.suffix.lower()
+        if ext == ".csv":
+            df = pd.read_csv(temp_path)
+        elif ext == ".parquet":
+            df = pd.read_parquet(temp_path)
+        elif ext == ".json":
+            df = pd.read_json(temp_path)
+        elif ext in (".xls", ".xlsx"):
+            df = pd.read_excel(temp_path)
+        else:
+            raise ValidationError(f"Unsupported file format: {ext}")
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+    if df.empty:
+        raise ValidationError("Uploaded dataset is empty")
+
+    original_df = df.copy()
+
+    # Drop target column from input features if present
+    target_col = model.get("target_column")
+    if target_col and target_col in df.columns:
+        df = df.drop(columns=[target_col])
+
+    # Load bundle
+    with open(model["file_path"], "rb") as f:
+        bundle = cloudpickle.load(f)
+
+    # Perform predictions
+    preds = bundle.predict(df)
+    original_df["prediction"] = preds
+
+    # Try predicting probabilities
+    if hasattr(bundle, "predict_proba"):
+        try:
+            probas = bundle.predict_proba(df)
+            confidences = probas.max(axis=1)
+            original_df["confidence"] = confidences
+        except Exception:
+            pass
+
+    # Save to predictions directory
+    pred_dir = settings.DATA_DIR / "predictions"
+    pred_dir.mkdir(parents=True, exist_ok=True)
+    pred_filename = f"predictions_{model_id[:8]}_{uuid.uuid4().hex[:6]}.csv"
+    output_path = pred_dir / pred_filename
+    original_df.to_csv(output_path, index=False)
+
+    return {
+        "model_id": model_id,
+        "rows": len(original_df),
+        "columns": list(original_df.columns),
+        "data": original_df.head(100).replace({np.nan: None}).to_dict(orient="records"),
+        "download_filename": pred_filename
+    }
+
+
+@router.get("/predictions/download")
+async def download_predictions(
+    filename: str
+):
+    pred_path = settings.DATA_DIR / "predictions" / filename
+    if not pred_path.exists() or ".." in filename:
+        raise NotFoundError("Predictions file", filename)
+    return FileResponse(
+        str(pred_path),
+        media_type="text/csv",
+        filename=filename
+    )
+
+
+@router.get("/compare")
+@router.get("/models/compare")
+async def compare_models(
+    ids: list[str] = Query(...),
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    models_list = []
+    actual_ids = []
+    for item in ids:
+        if "," in item:
+            actual_ids.extend(item.split(","))
+        else:
+            actual_ids.append(item)
+
+    for m_id in actual_ids:
+        model = storage.get_model(m_id, session_id=session_id)
+        if not model:
+            continue
+            
+        pipeline_id = model.get("pipeline_id")
+        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
+        
+        models_list.append({
+            "id": model["id"],
+            "name": model["name"],
+            "algorithm": model["algorithm"],
+            "status": model["status"],
+            "metrics": model.get("metrics", {}),
+            "hyperparameters": model.get("hyperparameters", {}),
+            "pipeline": {
+                "encoding": pipeline.get("encoding", {}) if pipeline else None,
+                "scaling": pipeline.get("scaling", {}) if pipeline else None,
+                "feature_selection": pipeline.get("feature_selection", {}) if pipeline else None,
+                "problem_type": pipeline.get("problem_type") if pipeline else None,
+                "use_smote": pipeline.get("use_smote", False) if pipeline else False,
+                "use_class_weight": pipeline.get("use_class_weight", False) if pipeline else False,
+            } if pipeline else None,
+            "training_time": model.get("training_time", 0.0),
+            "created_at": model.get("created_at")
+        })
+
+    return {"models": models_list}

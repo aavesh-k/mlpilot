@@ -65,7 +65,7 @@ def compute_eda(dataset_id: str, df: pd.DataFrame, progress_callback: Callable |
     findings = _generate_findings(
         shape_info, missingness, corr_data["high_pairs"],
         outliers, categorical_summary, duplicates,
-        constant_columns, data_type_issues,
+        constant_columns, data_type_issues, numeric_summary,
     )
 
     rp("Complete", 1.0)
@@ -390,6 +390,7 @@ def _generate_findings(
     duplicates: dict,
     constant_cols: list[dict],
     dtype_issues: list[dict],
+    numeric_summary: list[dict],
 ) -> list[dict]:
     findings = []
 
@@ -401,6 +402,7 @@ def _generate_findings(
             "title": "Missing Values",
             "description": f"'{m['column']}' has {pct:.1f}% missing values ({m['count']:,} rows).",
             "affected_columns": [m["column"]],
+            "recommendation": "Select KNN Imputer, FFill/BFill, or Median imputation in data cleaning."
         })
 
     for hc in high_corrs:
@@ -409,6 +411,7 @@ def _generate_findings(
             "title": "High Correlation",
             "description": f"'{hc['col_a']}' and '{hc['col_b']}' show {hc['value']:.2f} correlation. Possible multicollinearity.",
             "affected_columns": [hc["col_a"], hc["col_b"]],
+            "recommendation": "Enable Feature Selection and Correlation Thresholding in preprocessing to remove redundant columns."
         })
 
     for o in outliers:
@@ -419,6 +422,7 @@ def _generate_findings(
             "title": "Outliers Detected",
             "description": f"'{o['column']}' has {o['count']:,} outliers ({pct:.1f}%).",
             "affected_columns": [o["column"]],
+            "recommendation": "Enable Winsorization or Outlier Removal in data cleaning to limit extreme values."
         })
 
     for cat in categorical:
@@ -428,6 +432,7 @@ def _generate_findings(
                 "title": "High Cardinality",
                 "description": f"'{cat['column']}' has {cat['cardinality']:,} unique values. May be an ID or free-text column.",
                 "affected_columns": [cat["column"]],
+                "recommendation": "Consider Target Encoding or Frequency Encoding instead of One-Hot Encoding to prevent high-dimensional sparse representations."
             })
 
     if duplicates["count"] > 0:
@@ -438,6 +443,7 @@ def _generate_findings(
             "title": "Duplicate Rows",
             "description": f"Found {duplicates['count']:,} duplicate rows ({pct:.1f}% of data).",
             "affected_columns": [],
+            "recommendation": "Enable Duplicate Row Removal in the cleaning config step."
         })
 
     for cc in constant_cols:
@@ -446,6 +452,7 @@ def _generate_findings(
             "title": "Constant/Near-Constant Column",
             "description": f"'{cc['column']}' has {cc['percent_same']*100:.1f}% same value. Candidate for removal.",
             "affected_columns": [cc["column"]],
+            "recommendation": "Enable Drop Constant Columns in the cleaning config step."
         })
 
     for dt in dtype_issues:
@@ -454,6 +461,18 @@ def _generate_findings(
             "title": "Data Type Issue",
             "description": dt["issue"],
             "affected_columns": [dt["column"]],
+            "recommendation": "Enable Fix Data Type Issues in the cleaning config step."
         })
+
+    for num in numeric_summary:
+        skew = num.get("skewness")
+        if skew is not None and abs(skew) > 1.5:
+            findings.append({
+                "severity": "warning",
+                "title": "High Skewness",
+                "description": f"'{num['column']}' is highly skewed (skewness = {skew:.2f}).",
+                "affected_columns": [num["column"]],
+                "recommendation": "Apply a Log or Power Scaling transform in the preprocessing config step."
+            })
 
     return findings

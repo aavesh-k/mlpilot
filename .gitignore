@@ -45,6 +45,8 @@ Prompt0.txt
 
 # Pipeline artifacts
 backend/data/processed/
+backend/data/predictions/
+backend/data/recipes/
 
 # Coverage
 htmlcov/
