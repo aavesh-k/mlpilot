@@ -195,11 +195,16 @@ async def list_cleaning_runs(dataset_id: str) -> list[dict]:
 
 @router.get("/{dataset_id}/cleaning/download/{run_id}")
 async def download_cleaned_data(dataset_id: str, run_id: str):
+    dataset = storage.get_dataset(dataset_id)
+    if not dataset:
+        raise NotFoundError("Dataset", dataset_id)
     path = storage.get_cleaned_data_path(dataset_id, run_id)
     if not path.exists():
         raise NotFoundError("Cleaned data", run_id)
+    safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in dataset["name"])
+    safe_name = safe_name.strip().replace(" ", "_") or "dataset"
     return FileResponse(
         path,
         media_type="text/csv",
-        filename=f"cleaned_{run_id[:8]}.csv",
+        filename=f"cleaned_{safe_name}.csv",
     )

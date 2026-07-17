@@ -29,6 +29,8 @@ data/datasets/
 data/models/
 backend/data/datasets/
 backend/data/models/
+backend/data/cleaning/
+backend/data/eda/
 data/db.json
 backend/data/db.json
 backend/*.db

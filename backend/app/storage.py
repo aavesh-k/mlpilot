@@ -282,7 +282,7 @@ class JSONStorage:
         return runs
 
     def get_cleaned_data_path(self, dataset_id: str, run_id: str) -> Path:
-        return self._cleaning_dir(dataset_id, run_id) / "cleaned.parquet"
+        return self._cleaning_dir(dataset_id, run_id) / "cleaned.csv"
 
     def delete_cleaning_run(self, dataset_id: str, run_id: str) -> None:
         path = self._cleaning_dir(dataset_id, run_id)
