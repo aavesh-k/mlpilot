@@ -68,3 +68,11 @@ export function useSetBestModel() {
     },
   })
 }
+
+export function useModelPlots(modelId: string | undefined) {
+  return useQuery({
+    queryKey: ['model-plots', modelId],
+    queryFn: () => trainingApi.getPlots(modelId!),
+    enabled: !!modelId,
+  })
+}

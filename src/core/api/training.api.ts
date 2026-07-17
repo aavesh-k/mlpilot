@@ -88,4 +88,56 @@ export const trainingApi = {
     const { data } = await apiClient.post(`/training/models/${id}/set-best`)
     return data
   },
+
+  async getPlots(modelId: string): Promise<ModelPlotsResponse> {
+    const { data } = await apiClient.get(`/training/models/${modelId}/plots`)
+    return data
+  },
+}
+
+export interface ClassificationPlots {
+  confusion_matrix: {
+    classes: string[]
+    matrix: number[][]
+  }
+  roc_curve: Record<string, { fpr: number[]; tpr: number[]; auc: number }> | { fpr: number[]; tpr: number[]; auc: number }
+  pr_curve?: Record<string, { precision: number[]; recall: number[]; ap: number }> | { precision: number[]; recall: number[]; ap: number }
+  feature_importance: { feature: string; importance: number }[]
+  classification_report: Record<string, any>
+}
+
+export interface RegressionPlots {
+  pred_vs_actual: {
+    actual: number[]
+    predicted: number[]
+  }
+  residuals: {
+    predicted: number[]
+    residuals: number[]
+  }
+  error_distribution: {
+    counts: number[]
+    bin_centers: number[]
+  }
+  feature_importance: { feature: string; importance: number }[]
+}
+
+export interface ModelComparisonItem {
+  id: string
+  name: string
+  algorithm: string
+  metrics: Record<string, number>
+  is_best: boolean
+}
+
+export interface ModelPlotsResponse {
+  problem_type: 'classification' | 'regression'
+  classification?: ClassificationPlots
+  regression?: RegressionPlots
+  learning_curve: {
+    train_sizes: number[]
+    train_scores: number[]
+    val_scores: number[]
+  }
+  model_comparison: ModelComparisonItem[]
 }

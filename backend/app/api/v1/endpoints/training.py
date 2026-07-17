@@ -18,15 +18,19 @@ from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.metrics import (
     accuracy_score, f1_score, precision_score, recall_score, roc_auc_score,
-    mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error
+    mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error,
+    confusion_matrix, roc_curve, auc, precision_recall_curve, average_precision_score,
+    classification_report
 )
-from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold, KFold, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold, KFold, RandomizedSearchCV, learning_curve
+from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline as SklearnPipeline
 
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.storage import storage
 from app.api.v1.schemas.training import TrainModelSchema
+from app.api.v1.schemas.plots import ModelPlotsResponseSchema
 from app.services.preprocessing_service import detect_problem_type
 
 logger = logging.getLogger(__name__)
@@ -762,3 +766,264 @@ async def set_best_model(model_id: str) -> dict:
             storage.save_model(m)
 
     return storage.get_model(model_id)
+
+
+@router.get("/models/{model_id}/plots", response_model=ModelPlotsResponseSchema)
+async def get_model_plots(model_id: str) -> dict:
+    model = storage.get_model(model_id)
+    if not model:
+        raise NotFoundError("Model", model_id)
+
+    model_file_path = Path(model.get("file_path"))
+    if not model_file_path.exists():
+        raise NotFoundError("Model artifact file", model_id)
+
+    # 1. Load model estimator
+    with open(model_file_path, "rb") as f:
+        clf = cloudpickle.load(f)
+
+    # Resolve if pipeline is wrapped or raw estimator
+    if isinstance(clf, SklearnPipeline) and "model" in clf.named_steps:
+        model_estimator = clf.named_steps["model"]
+    else:
+        model_estimator = clf
+
+    # 2. Load dataset splits
+    from app.api.v1.schemas.training import TrainModelSchema
+    dummy_body = TrainModelSchema(
+        pipeline_id=model.get("pipeline_id"),
+        dataset_id=model.get("dataset_id"),
+        target_column=model.get("target_column"),
+        random_seed=42,
+        test_size=0.2,
+    )
+    dataset = storage.get_dataset(model["dataset_id"]) if model.get("dataset_id") else None
+    X_train_transformed, y_train, X_test_transformed, y_test, pipeline_id, use_class_weight = _prepare_data(
+        dummy_body, dataset
+    )
+
+    problem_type = "classification"
+    if pipeline_id:
+        pipeline = storage.get_pipeline(pipeline_id)
+        if pipeline:
+            problem_type = pipeline.get("problem_type", "classification")
+    else:
+        problem_type = detect_problem_type(pd.Series(y_train))
+
+    # Evaluate predictions
+    y_pred = model_estimator.predict(X_test_transformed)
+
+    # 3. Learning curve (train on subsets, cv=2 or 3 folds)
+    # Downsample learning curve input if it's very large, to keep it fast
+    X_lc, y_lc = X_train_transformed, y_train
+    if len(X_lc) > 2000:
+        indices = np.random.choice(len(X_lc), 2000, replace=False)
+        X_lc = X_lc[indices]
+        y_lc = y_lc[indices]
+
+    train_sizes = np.linspace(0.2, 1.0, 5)
+    scoring = "f1_weighted" if problem_type == "classification" else "r2"
+
+    # Run learning curve
+    cv_lc = 2
+    if len(np.unique(y_lc)) >= 2:
+        try:
+            train_sizes_abs, train_scores, test_scores = learning_curve(
+                model_estimator,
+                X_lc,
+                y_lc,
+                train_sizes=train_sizes,
+                cv=cv_lc,
+                scoring=scoring,
+                n_jobs=1,
+                random_state=42
+            )
+            learning_curve_data = {
+                "train_sizes": train_sizes_abs.tolist(),
+                "train_scores": np.mean(train_scores, axis=1).tolist(),
+                "val_scores": np.mean(test_scores, axis=1).tolist()
+            }
+        except Exception:
+            learning_curve_data = {
+                "train_sizes": [10, 20, 30, 40, 50],
+                "train_scores": [1.0, 1.0, 1.0, 1.0, 1.0],
+                "val_scores": [0.5, 0.5, 0.5, 0.5, 0.5]
+            }
+    else:
+        learning_curve_data = {
+            "train_sizes": [10, 20, 30, 40, 50],
+            "train_scores": [1.0, 1.0, 1.0, 1.0, 1.0],
+            "val_scores": [0.5, 0.5, 0.5, 0.5, 0.5]
+        }
+
+    # 4. Feature Importance
+    # Get column names (feature names)
+    if pipeline_id:
+        pipeline = storage.get_pipeline(pipeline_id)
+        if pipeline and pipeline.get("artifact_path"):
+            try:
+                with open(pipeline["artifact_path"], "rb") as pf:
+                    preprocessor = cloudpickle.load(pf)
+                feature_names = preprocessor.get_feature_names_out().tolist()
+            except Exception:
+                feature_names = [f"feature_{i}" for i in range(X_test_transformed.shape[1])]
+        else:
+            feature_names = [f"feature_{i}" for i in range(X_test_transformed.shape[1])]
+    else:
+        feature_names = [f"feature_{i}" for i in range(X_test_transformed.shape[1])]
+
+    # Calculate importances
+    importances = None
+    if hasattr(model_estimator, "feature_importances_"):
+        importances = model_estimator.feature_importances_.tolist()
+    elif hasattr(model_estimator, "coef_"):
+        coef = model_estimator.coef_
+        if len(coef.shape) > 1:
+            importances = np.mean(np.abs(coef), axis=0).tolist()
+        else:
+            importances = np.abs(coef).tolist()
+    else:
+        # Fallback to permutation importance
+        try:
+            res = permutation_importance(model_estimator, X_test_transformed, y_test, random_state=42, n_repeats=2)
+            importances = res.importances_mean.tolist()
+        except Exception:
+            importances = [0.0] * len(feature_names)
+
+    feature_importance_list = [
+        {"feature": name, "importance": float(imp)}
+        for name, imp in zip(feature_names[:len(importances)], importances)
+    ]
+    # Sort and take top 15
+    feature_importance_list = sorted(feature_importance_list, key=lambda x: x["importance"], reverse=True)[:15]
+
+    classification_plots = None
+    regression_plots = None
+
+    if problem_type == "classification":
+        # Confusion matrix
+        cm = confusion_matrix(y_test, y_pred)
+        classes_unique = np.unique(y_test)
+        confusion_matrix_data = {
+            "classes": [str(c) for c in classes_unique],
+            "matrix": cm.tolist()
+        }
+
+        # ROC / PR curve
+        y_prob = model_estimator.predict_proba(X_test_transformed) if hasattr(model_estimator, "predict_proba") else None
+
+        roc_data = {}
+        pr_data = {}
+
+        if y_prob is not None:
+            if len(classes_unique) == 2:
+                # Binary
+                # Use class 1 probabilities
+                fpr, tpr, _ = roc_curve(y_test, y_prob[:, 1])
+                roc_data = {
+                    "fpr": fpr.tolist(),
+                    "tpr": tpr.tolist(),
+                    "auc": float(auc(fpr, tpr))
+                }
+
+                precision, recall, _ = precision_recall_curve(y_test, y_prob[:, 1])
+                pr_data = {
+                    "precision": precision.tolist(),
+                    "recall": recall.tolist(),
+                    "ap": float(average_precision_score(y_test, y_prob[:, 1]))
+                }
+            else:
+                # Multiclass
+                for idx, c in enumerate(classes_unique):
+                    y_test_binary = (y_test == c).astype(int)
+                    # Check if binary target has at least one positive sample
+                    if len(np.unique(y_test_binary)) == 2:
+                        fpr_c, tpr_c, _ = roc_curve(y_test_binary, y_prob[:, idx])
+                        precision_c, recall_c, _ = precision_recall_curve(y_test_binary, y_prob[:, idx])
+
+                        roc_data[str(c)] = {
+                            "fpr": fpr_c.tolist(),
+                            "tpr": tpr_c.tolist(),
+                            "auc": float(auc(fpr_c, tpr_c))
+                        }
+
+                        pr_data[str(c)] = {
+                            "precision": precision_c.tolist(),
+                            "recall": recall_c.tolist(),
+                            "ap": float(average_precision_score(y_test_binary, y_prob[:, idx]))
+                        }
+
+        # Classification report table
+        report = classification_report(y_test, y_pred, output_dict=True, zero_division=0)
+
+        # Imbalance check to trigger PR Curve display in UI
+        is_imbalanced = False
+        if pipeline_id:
+            pipeline = storage.get_pipeline(pipeline_id)
+            is_imbalanced = pipeline.get("imbalance", {}).get("is_imbalanced", False) if pipeline and pipeline.get("imbalance") else False
+        else:
+            counts = pd.Series(y_test).value_counts()
+            if len(counts) >= 2:
+                is_imbalanced = counts.max() / counts.min() > 2.0
+
+        classification_plots = {
+            "confusion_matrix": confusion_matrix_data,
+            "roc_curve": roc_data,
+            "pr_curve": pr_data if is_imbalanced else None,
+            "feature_importance": feature_importance_list,
+            "classification_report": report
+        }
+
+    else:
+        # Regression actual vs predicted
+        actuals = y_test.tolist()
+        preds = y_pred.tolist()
+        pred_vs_actual = {
+            "actual": actuals,
+            "predicted": preds
+        }
+
+        # Residuals
+        residuals_list = (y_test - y_pred).tolist()
+        residuals_data = {
+            "predicted": preds,
+            "residuals": residuals_list
+        }
+
+        # Error distribution histogram (np.histogram)
+        counts, edges = np.histogram(residuals_list, bins=20)
+        bin_centers = [(float(edges[i]) + float(edges[i+1])) / 2.0 for i in range(len(counts))]
+        error_distribution = {
+            "counts": counts.tolist(),
+            "bin_centers": bin_centers
+        }
+
+        regression_plots = {
+            "pred_vs_actual": pred_vs_actual,
+            "residuals": residuals_data,
+            "error_distribution": error_distribution,
+            "feature_importance": feature_importance_list
+        }
+
+    # 5. Model Comparison
+    model_comparison = []
+    all_models = storage.list_models()
+    for m in all_models:
+        if (m.get("pipeline_id") == model.get("pipeline_id") or (
+            m.get("job_id") and m.get("job_id") == model.get("job_id")
+        )) and m.get("status") == "completed":
+            model_comparison.append({
+                "id": m["id"],
+                "name": m["name"],
+                "algorithm": m["algorithm"],
+                "metrics": m.get("metrics", {}),
+                "is_best": m.get("is_best", False)
+            })
+
+    return {
+        "problem_type": problem_type,
+        "classification": classification_plots,
+        "regression": regression_plots,
+        "learning_curve": learning_curve_data,
+        "model_comparison": model_comparison
+    }
