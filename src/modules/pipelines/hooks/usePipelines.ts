@@ -21,6 +21,11 @@ export function usePipelines(page = 1) {
   return useQuery({
     queryKey: ['pipelines', page],
     queryFn: () => pipelinesApi.list(page),
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? []
+      const hasRunning = items.some((p: any) => p.status === 'running')
+      return hasRunning ? 1000 : false
+    }
   })
 }
 

@@ -4,8 +4,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
+from app.api.v1.endpoints.datasets import get_session_id
 
 from app.api.v1.schemas.cleaning import ColumnSuggestion, CleaningSuggestions, RunCleaningSchema
 from app.core.config import settings
@@ -57,8 +58,11 @@ def _smart_outlier_default(df: pd.DataFrame, col: str, outlier_pct: float) -> st
 
 
 @router.get("/{dataset_id}/cleaning/suggestions")
-async def get_cleaning_suggestions(dataset_id: str) -> CleaningSuggestions:
-    dataset = storage.get_dataset(dataset_id)
+async def get_cleaning_suggestions(
+    dataset_id: str,
+    session_id: str = Depends(get_session_id)
+) -> CleaningSuggestions:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -106,8 +110,12 @@ async def get_cleaning_suggestions(dataset_id: str) -> CleaningSuggestions:
 
 
 @router.post("/{dataset_id}/cleaning/execute", status_code=201)
-async def execute_cleaning(dataset_id: str, body: RunCleaningSchema) -> dict:
-    dataset = storage.get_dataset(dataset_id)
+async def execute_cleaning(
+    dataset_id: str,
+    body: RunCleaningSchema,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -166,6 +174,7 @@ async def execute_cleaning(dataset_id: str, body: RunCleaningSchema) -> dict:
         "cleaning_run_id": run_id,
         "is_cleaned": True,
         "status": "ready",
+        "session_id": session_id,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -178,7 +187,14 @@ async def execute_cleaning(dataset_id: str, body: RunCleaningSchema) -> dict:
 
 
 @router.get("/{dataset_id}/cleaning/report/{run_id}")
-async def get_cleaning_report(dataset_id: str, run_id: str) -> dict:
+async def get_cleaning_report(
+    dataset_id: str,
+    run_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    if not dataset:
+        raise NotFoundError("Dataset", dataset_id)
     report = storage.get_cleaning_report(dataset_id, run_id)
     if not report:
         raise NotFoundError("Cleaning report", run_id)
@@ -186,16 +202,23 @@ async def get_cleaning_report(dataset_id: str, run_id: str) -> dict:
 
 
 @router.get("/{dataset_id}/cleaning/runs")
-async def list_cleaning_runs(dataset_id: str) -> list[dict]:
-    dataset = storage.get_dataset(dataset_id)
+async def list_cleaning_runs(
+    dataset_id: str,
+    session_id: str = Depends(get_session_id)
+) -> list[dict]:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     return storage.list_cleaning_runs(dataset_id)
 
 
 @router.get("/{dataset_id}/cleaning/download/{run_id}")
-async def download_cleaned_data(dataset_id: str, run_id: str):
-    dataset = storage.get_dataset(dataset_id)
+async def download_cleaned_data(
+    dataset_id: str,
+    run_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     path = storage.get_cleaned_data_path(dataset_id, run_id)

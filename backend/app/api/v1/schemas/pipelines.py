@@ -15,6 +15,8 @@ class SplitConfigSchema(BaseModel):
     test_size: float = Field(default=0.2, ge=0, le=1)
     random_seed: int = Field(default=42, ge=0)
     stratify: bool = True
+    strategy: str = Field(default="random", pattern=r"^(random|chronological)$")
+    datetime_column: str | None = None
 
 
 class FeatureSelectionConfigSchema(BaseModel):

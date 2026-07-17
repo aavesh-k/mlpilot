@@ -9,8 +9,9 @@ from typing import Any
 import pandas as pd
 import numpy as np
 import cloudpickle
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
+from app.api.v1.endpoints.datasets import get_session_id
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
@@ -533,7 +534,11 @@ def _run_multi_training_background(
 
 
 @router.post("/", status_code=201)
-async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks) -> dict:
+async def train_model(
+    body: TrainModelSchema,
+    background_tasks: BackgroundTasks,
+    session_id: str = Depends(get_session_id)
+) -> dict:
     # Resolve target dataset or pipeline
     pipeline_id = body.pipeline_id
     dataset_id = body.dataset_id
@@ -543,19 +548,19 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
     # If pipeline_id provided, fetch problem_type from it. Else default classification.
     problem_type = "classification"
     if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id)
+        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
         if not pipeline:
             raise NotFoundError("Pipeline", pipeline_id)
         problem_type = pipeline.get("problem_type", "classification")
         dataset_id = pipeline["dataset_id"]
     elif dataset_id:
-        dataset = storage.get_dataset(dataset_id)
+        dataset = storage.get_dataset(dataset_id, session_id=session_id)
         if not dataset:
             raise NotFoundError("Dataset", dataset_id)
     else:
         raise ValidationError("Either pipeline_id or dataset_id must be provided")
 
-    dataset = storage.get_dataset(dataset_id)
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
 
     # Read train/test splits
     loop = asyncio.get_event_loop()
@@ -601,6 +606,7 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
             "algorithm": algo,
             "hyperparameters": {},
             "status": "queued",
+            "session_id": session_id,
             "created_at": datetime.now(UTC).isoformat(),
         }
         storage.save_model(m_entry)
@@ -614,6 +620,7 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
         "status": "queued",
         "progress": 0.0,
         "log": "",
+        "session_id": session_id,
         "started_at": datetime.now(UTC).isoformat(),
     }
     storage.save_job(job)
@@ -645,8 +652,12 @@ async def train_model(body: TrainModelSchema, background_tasks: BackgroundTasks)
 
 
 @router.get("/models")
-async def list_models(page: int = 1, per_page: int = 20) -> dict:
-    all_models = storage.list_models()
+async def list_models(
+    page: int = 1,
+    per_page: int = 20,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    all_models = storage.list_models(session_id=session_id)
     total = len(all_models)
     start = (page - 1) * per_page
     items = all_models[start:start + per_page]
@@ -654,12 +665,15 @@ async def list_models(page: int = 1, per_page: int = 20) -> dict:
 
 
 @router.get("/models/compare")
-async def compare_models(ids: str = "") -> list[dict]:
+async def compare_models(
+    ids: str = "",
+    session_id: str = Depends(get_session_id)
+) -> list[dict]:
     if not ids:
         raise ValidationError("Provide model ids: ?ids=id1,id2,id3")
 
     model_ids = [m_id.strip() for m_id in ids.split(",")]
-    all_models = storage.list_models()
+    all_models = storage.list_models(session_id=session_id)
     selected = [m for m in all_models if m["id"] in model_ids]
 
     if not selected:
@@ -673,16 +687,22 @@ async def compare_models(ids: str = "") -> list[dict]:
 
 
 @router.get("/models/{model_id}")
-async def get_model(model_id: str) -> dict:
-    model = storage.get_model(model_id)
+async def get_model(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
     return model
 
 
 @router.get("/models/{model_id}/download")
-async def download_model(model_id: str):
-    model = storage.get_model(model_id)
+async def download_model(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
     file_path = model.get("file_path")
@@ -692,7 +712,7 @@ async def download_model(model_id: str):
     pipeline_id = model.get("pipeline_id")
     bundle_path = Path(file_path)
     if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id)
+        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
         if pipeline and pipeline.get("artifact_path"):
             pipeline_artifact = Path(pipeline["artifact_path"])
             if pipeline_artifact.exists():
@@ -712,8 +732,12 @@ async def download_model(model_id: str):
 
 
 @router.get("/jobs")
-async def list_jobs(page: int = 1, per_page: int = 20) -> dict:
-    all_jobs = storage.list_jobs()
+async def list_jobs(
+    page: int = 1,
+    per_page: int = 20,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    all_jobs = storage.list_jobs(session_id=session_id)
     total = len(all_jobs)
     start = (page - 1) * per_page
     items = all_jobs[start:start + per_page]
@@ -721,16 +745,22 @@ async def list_jobs(page: int = 1, per_page: int = 20) -> dict:
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str) -> dict:
-    job = storage.get_job(job_id)
+async def get_job(
+    job_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    job = storage.get_job(job_id, session_id=session_id)
     if not job:
         raise NotFoundError("Job", job_id)
     return job
 
 
 @router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str) -> dict:
-    job = storage.get_job(job_id)
+async def cancel_job(
+    job_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    job = storage.get_job(job_id, session_id=session_id)
     if not job:
         raise NotFoundError("Job", job_id)
     if job["status"] not in ("queued", "running"):
@@ -741,7 +771,7 @@ async def cancel_job(job_id: str) -> dict:
     storage.save_job(job)
 
     # Cancel all models associated with this job
-    all_models = storage.list_models()
+    all_models = storage.list_models(session_id=session_id)
     for model in all_models:
         if model.get("job_id") == job_id or model.get("id") == job.get("model_id"):
             model["status"] = "cancelled"
@@ -751,13 +781,16 @@ async def cancel_job(job_id: str) -> dict:
 
 
 @router.post("/models/{model_id}/set-best")
-async def set_best_model(model_id: str) -> dict:
-    model = storage.get_model(model_id)
+async def set_best_model(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
     # Unset all other models in the same job or pipeline
-    all_models = storage.list_models()
+    all_models = storage.list_models(session_id=session_id)
     for m in all_models:
         if m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -769,8 +802,11 @@ async def set_best_model(model_id: str) -> dict:
 
 
 @router.get("/models/{model_id}/plots", response_model=ModelPlotsResponseSchema)
-async def get_model_plots(model_id: str) -> dict:
-    model = storage.get_model(model_id)
+async def get_model_plots(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1007,7 +1043,7 @@ async def get_model_plots(model_id: str) -> dict:
 
     # 5. Model Comparison
     model_comparison = []
-    all_models = storage.list_models()
+    all_models = storage.list_models(session_id=session_id)
     for m in all_models:
         if (m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -1030,8 +1066,11 @@ async def get_model_plots(model_id: str) -> dict:
 
 
 @router.get("/models/{model_id}/export/cleaned")
-async def export_cleaned_dataset(model_id: str):
-    model = storage.get_model(model_id)
+async def export_cleaned_dataset(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1039,7 +1078,7 @@ async def export_cleaned_dataset(model_id: str):
     if not dataset_id:
         raise ValidationError("Model is not associated with any dataset")
 
-    dataset = storage.get_dataset(dataset_id)
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -1068,8 +1107,11 @@ async def export_cleaned_dataset(model_id: str):
 
 
 @router.get("/models/{model_id}/export/preprocessed")
-async def export_preprocessed_dataset(model_id: str):
-    model = storage.get_model(model_id)
+async def export_preprocessed_dataset(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1110,16 +1152,19 @@ async def export_preprocessed_dataset(model_id: str):
 
 
 @router.get("/models/{model_id}/export/recipe")
-async def export_reproducibility_recipe(model_id: str):
-    model = storage.get_model(model_id)
+async def export_reproducibility_recipe(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
     dataset_id = model.get("dataset_id")
     pipeline_id = model.get("pipeline_id")
 
-    dataset = storage.get_dataset(dataset_id) if dataset_id else None
-    pipeline = storage.get_pipeline(pipeline_id) if pipeline_id else None
+    dataset = storage.get_dataset(dataset_id, session_id=session_id) if dataset_id else None
+    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
 
     # Load cleaning configuration if cleaned dataset was used
     cleaning_config = {}
@@ -1294,16 +1339,19 @@ if __name__ == "__main__":
 from fastapi.responses import HTMLResponse
 
 @router.get("/models/{model_id}/export/report", response_class=HTMLResponse)
-async def export_html_report(model_id: str):
-    model = storage.get_model(model_id)
+async def export_html_report(
+    model_id: str,
+    session_id: str = Depends(get_session_id)
+):
+    model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
 
     dataset_id = model.get("dataset_id")
     pipeline_id = model.get("pipeline_id")
 
-    dataset = storage.get_dataset(dataset_id) if dataset_id else None
-    pipeline = storage.get_pipeline(pipeline_id) if pipeline_id else None
+    dataset = storage.get_dataset(dataset_id, session_id=session_id) if dataset_id else None
+    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
 
     cleaning_report = None
     if dataset and dataset.get("is_cleaned") and dataset.get("cleaning_run_id"):
@@ -1312,7 +1360,7 @@ async def export_html_report(model_id: str):
         cleaning_report = storage.get_cleaning_report(source_id, run_id)
 
     leaderboard = []
-    all_models = storage.list_models()
+    all_models = storage.list_models(session_id=session_id)
     for m in all_models:
         if (m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -1336,7 +1384,7 @@ async def export_html_report(model_id: str):
         reverse=not is_lower
     )
 
-    plots = await get_model_plots(model_id)
+    plots = await get_model_plots(model_id, session_id=session_id)
 
     import matplotlib
     matplotlib.use('Agg')

@@ -43,6 +43,8 @@ export default function Preprocessing() {
   const [testSize, setTestSize] = useState(0.2)
   const [stratify, setStratify] = useState(true)
   const [randomSeed, setRandomSeed] = useState(42)
+  const [splitStrategy, setSplitStrategy] = useState<'random' | 'chronological'>('random')
+  const [datetimeColumn, setDatetimeColumn] = useState<string | null>(null)
 
   const [fsEnabled, setFsEnabled] = useState(false)
   const [fsDropLowVar, setFsDropLowVar] = useState(false)
@@ -103,6 +105,8 @@ export default function Preprocessing() {
     setTestSize(0.2)
     setStratify(true)
     setRandomSeed(42)
+    setSplitStrategy('random')
+    setDatetimeColumn(null)
     setFsEnabled(false)
     setFsDropLowVar(false)
     setFsVarThreshold(0.01)
@@ -125,6 +129,8 @@ export default function Preprocessing() {
     setTestSize(p.split?.test_size ?? 0.2)
     setStratify(p.split?.stratify ?? true)
     setRandomSeed(p.split?.random_seed ?? 42)
+    setSplitStrategy(p.split?.strategy ?? 'random')
+    setDatetimeColumn(p.split?.datetime_column ?? null)
     setFsEnabled(p.feature_selection?.enabled ?? false)
     setFsDropLowVar(p.feature_selection?.drop_near_zero_variance ?? false)
     setFsVarThreshold(p.feature_selection?.variance_threshold ?? 0.01)
@@ -151,7 +157,13 @@ export default function Preprocessing() {
       name: pipelineName || undefined,
       encoding: { strategy: encodingStrategy, passthrough_columns: passthroughCols.length > 0 ? passthroughCols : undefined, scale_columns: scaleCols } as EncodingConfig,
       scaling: { strategy: scalingStrategy } as ScalingConfig,
-      split: { test_size: testSize, random_seed: randomSeed, stratify: isClassification ? stratify : false } as SplitConfig,
+      split: {
+        test_size: testSize,
+        random_seed: randomSeed,
+        stratify: isClassification ? stratify : false,
+        strategy: splitStrategy,
+        datetime_column: splitStrategy === 'chronological' ? datetimeColumn : null,
+      } as SplitConfig,
       feature_selection: {
         enabled: fsEnabled,
         drop_near_zero_variance: fsDropLowVar,
@@ -185,7 +197,7 @@ export default function Preprocessing() {
         },
       })
     }
-  }, [selectedDatasetId, targetColumn, resolvedProblemType, pipelineName, encodingStrategy, passthroughCols, scaleCols, scalingStrategy, testSize, randomSeed, isClassification, stratify, fsEnabled, fsDropLowVar, fsVarThreshold, fsDropHighCorr, fsCorrThreshold, useSmote, useClassWeight, editPipelineId, createPipeline, executePipeline, updatePipeline, refetch])
+  }, [selectedDatasetId, targetColumn, resolvedProblemType, pipelineName, encodingStrategy, passthroughCols, scaleCols, scalingStrategy, testSize, randomSeed, isClassification, stratify, splitStrategy, datetimeColumn, fsEnabled, fsDropLowVar, fsVarThreshold, fsDropHighCorr, fsCorrThreshold, useSmote, useClassWeight, editPipelineId, createPipeline, executePipeline, updatePipeline, refetch])
 
   const statusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
@@ -267,6 +279,10 @@ export default function Preprocessing() {
               onStratifyChange={setStratify}
               randomSeed={randomSeed}
               onRandomSeedChange={setRandomSeed}
+              splitStrategy={splitStrategy}
+              onSplitStrategyChange={setSplitStrategy}
+              datetimeColumn={datetimeColumn}
+              onDatetimeColumnChange={setDatetimeColumn}
               fsEnabled={fsEnabled}
               onFsEnabledChange={setFsEnabled}
               fsDropLowVar={fsDropLowVar}
@@ -527,6 +543,7 @@ function ConfigStep({
   passthroughCols, onPassthroughChange, scaleCols, onScaleColsChange,
   scalingStrategy, onScalingStrategyChange,
   testSize, onTestSizeChange, stratify, onStratifyChange, randomSeed, onRandomSeedChange,
+  splitStrategy, onSplitStrategyChange, datetimeColumn, onDatetimeColumnChange,
   fsEnabled, onFsEnabledChange, fsDropLowVar, onFsDropLowVarChange, fsVarThreshold, onFsVarThresholdChange,
   fsDropHighCorr, onFsDropHighCorrChange, fsCorrThreshold, onFsCorrThresholdChange,
   useSmote, onUseSmoteChange, useClassWeight, onUseClassWeightChange,
@@ -550,6 +567,10 @@ function ConfigStep({
   onStratifyChange: (v: boolean) => void
   randomSeed: number
   onRandomSeedChange: (v: number) => void
+  splitStrategy: 'random' | 'chronological'
+  onSplitStrategyChange: (v: 'random' | 'chronological') => void
+  datetimeColumn: string | null
+  onDatetimeColumnChange: (v: string | null) => void
   fsEnabled: boolean
   onFsEnabledChange: (v: boolean) => void
   fsDropLowVar: boolean
@@ -662,7 +683,46 @@ function ConfigStep({
         </Section>
 
         <Section label="Train / Test Split" description="Divide data for training and evaluation">
+          {targetDetectionResult?.datetime_columns && targetDetectionResult.datetime_columns.length > 0 && (
+            <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4 text-xs text-yellow-800">
+              <p className="font-headline font-black text-[10px] uppercase mb-1">⚠️ Time Series Leakage Warning</p>
+              We detected datetime column(s) (<strong>{targetDetectionResult.datetime_columns.join(', ')}</strong>) in the dataset.
+              Performing a random train/test split on time-ordered data can leak future information into the training set.
+              We strongly recommend selecting <strong>Chronological Split</strong>.
+            </div>
+          )}
+
           <div className="flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-headline font-bold uppercase">Split Strategy:</span>
+              <select
+                value={splitStrategy}
+                onChange={(e) => onSplitStrategyChange(e.target.value as 'random' | 'chronological')}
+                className="border-2 border-primary bg-surface px-3 py-2 text-xs font-body"
+              >
+                <option value="random">Random Split</option>
+                {targetDetectionResult?.datetime_columns && targetDetectionResult.datetime_columns.length > 0 && (
+                  <option value="chronological">Chronological Split</option>
+                )}
+              </select>
+            </div>
+
+            {splitStrategy === 'chronological' && targetDetectionResult?.datetime_columns && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-headline font-bold uppercase">Sort Column:</span>
+                <select
+                  value={datetimeColumn || ''}
+                  onChange={(e) => onDatetimeColumnChange(e.target.value || null)}
+                  className="border-2 border-primary bg-surface px-3 py-2 text-xs font-body"
+                >
+                  <option value="">-- Select Column --</option>
+                  {targetDetectionResult.datetime_columns.map(col => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div className="flex items-center gap-3">
               <span className="text-xs font-headline font-bold uppercase">Test Size:</span>
               <input
@@ -676,16 +736,18 @@ function ConfigStep({
               />
               <span className="font-headline font-bold text-sm">{Math.round(testSize * 100)}% test</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-headline font-bold uppercase">Seed:</span>
-              <input
-                type="number"
-                value={randomSeed}
-                onChange={(e) => onRandomSeedChange(parseInt(e.target.value) || 0)}
-                className="border border-primary bg-surface px-2 py-1 w-20 text-sm font-body"
-              />
-            </div>
-            {isClassification && (
+            {splitStrategy === 'random' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-headline font-bold uppercase">Seed:</span>
+                <input
+                  type="number"
+                  value={randomSeed}
+                  onChange={(e) => onRandomSeedChange(parseInt(e.target.value) || 0)}
+                  className="border border-primary bg-surface px-2 py-1 w-20 text-sm font-body"
+                />
+              </div>
+            )}
+            {isClassification && splitStrategy === 'random' && (
               <label className="flex items-center gap-2 text-xs font-headline font-bold uppercase cursor-pointer">
                 <input type="checkbox" checked={stratify} onChange={(e) => onStratifyChange(e.target.checked)} className="w-4 h-4" />
                 Stratified Split

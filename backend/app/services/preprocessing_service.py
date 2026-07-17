@@ -45,18 +45,18 @@ def check_class_balance(y: pd.Series) -> dict:
     distribution = {}
     for k, v in vc.items():
         label = str(k)
-        distribution[label] = {"count": int(v), "percent": round(v / total, 4)}
-    majority_pct = vc.iloc[0] / total if total > 0 else 0
-    minority_pct = vc.iloc[-1] / total if total > 0 else 0
+        distribution[label] = {"count": int(v), "percent": float(round(v / total, 4))}
+    majority_pct = float(vc.iloc[0] / total if total > 0 else 0)
+    minority_pct = float(vc.iloc[-1] / total if total > 0 else 0)
     imbalance_ratio = majority_pct / minority_pct if minority_pct > 0 else float("inf")
-    is_imbalanced = imbalance_ratio > 2.0
+    is_imbalanced = bool(imbalance_ratio > 2.0)
     return {
         "distribution": distribution,
         "majority_class": str(vc.index[0]) if len(vc) > 0 else None,
         "minority_class": str(vc.index[-1]) if len(vc) > 0 else None,
-        "majority_pct": round(majority_pct, 4),
-        "minority_pct": round(minority_pct, 4),
-        "imbalance_ratio": round(imbalance_ratio, 4),
+        "majority_pct": float(round(majority_pct, 4)),
+        "minority_pct": float(round(minority_pct, 4)),
+        "imbalance_ratio": float(round(imbalance_ratio, 4)) if not np.isinf(imbalance_ratio) else 999.0,
         "is_imbalanced": is_imbalanced,
         "class_count": int(y.nunique()),
     }
@@ -332,14 +332,31 @@ def run_preprocessing(
         y_encoded,
     )
 
+    split_strategy = split_config.get("strategy", "random")
+    datetime_col = split_config.get("datetime_column")
+
     if test_size > 0:
-        stratify_arg = stratify
-        X_train, X_test, y_train, y_test = sk_train_test_split(
-            X, y,
-            test_size=test_size,
-            random_state=random_seed,
-            stratify=stratify_arg,
-        )
+        if split_strategy == "chronological" and datetime_col and datetime_col in df.columns:
+            # Chronological sequential split
+            temp_dt = pd.to_datetime(df[datetime_col], errors="coerce")
+            sort_indices = temp_dt.sort_values().index
+            
+            X_sorted = X.loc[sort_indices]
+            y_sorted = y.loc[sort_indices]
+            
+            split_idx = int(len(df) * (1 - test_size))
+            X_train = X_sorted.iloc[:split_idx]
+            X_test = X_sorted.iloc[split_idx:]
+            y_train = y_sorted.iloc[:split_idx]
+            y_test = y_sorted.iloc[split_idx:]
+        else:
+            stratify_arg = stratify
+            X_train, X_test, y_train, y_test = sk_train_test_split(
+                X, y,
+                test_size=test_size,
+                random_state=random_seed,
+                stratify=stratify_arg,
+            )
     else:
         X_train, X_test, y_train, y_test = X, X.iloc[:0], y, y.iloc[:0]
 

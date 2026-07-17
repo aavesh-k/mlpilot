@@ -48,7 +48,16 @@ class JSONStorage:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(encoded)
-            os.replace(tmp_path, str(self._file))
+            
+            import time
+            for i in range(5):
+                try:
+                    os.replace(tmp_path, str(self._file))
+                    break
+                except OSError:
+                    if i == 4:
+                        raise
+                    time.sleep(0.05)
         except Exception:
             try:
                 os.unlink(tmp_path)
@@ -57,19 +66,24 @@ class JSONStorage:
             raise
 
     def _read(self) -> dict:
-        return json.loads(self._file.read_text())
+        with self._lock:
+            return json.loads(self._file.read_text())
 
     def _write(self, data: dict) -> None:
-        with self._lock:
-            self._atomic_write(data)
+        self._atomic_write(data)
 
     # --- Datasets ---
-    def list_datasets(self) -> list[dict]:
-        return list(reversed(self._read().get("datasets", [])))
+    def list_datasets(self, session_id: str = None) -> list[dict]:
+        all_ds = self._read().get("datasets", [])
+        if session_id:
+            all_ds = [d for d in all_ds if d.get("session_id") == session_id]
+        return list(reversed(all_ds))
 
-    def get_dataset(self, dataset_id: str) -> dict | None:
+    def get_dataset(self, dataset_id: str, session_id: str = None) -> dict | None:
         for d in self._read()["datasets"]:
             if d["id"] == dataset_id:
+                if session_id and d.get("session_id") != session_id:
+                    return None
                 return d
         return None
 
@@ -104,12 +118,17 @@ class JSONStorage:
         self._write(data)
 
     # --- Pipelines ---
-    def list_pipelines(self) -> list[dict]:
-        return list(reversed(self._read().get("pipelines", [])))
+    def list_pipelines(self, session_id: str = None) -> list[dict]:
+        all_pipes = self._read().get("pipelines", [])
+        if session_id:
+            all_pipes = [p for p in all_pipes if p.get("session_id") == session_id]
+        return list(reversed(all_pipes))
 
-    def get_pipeline(self, pipeline_id: str) -> dict | None:
+    def get_pipeline(self, pipeline_id: str, session_id: str = None) -> dict | None:
         for p in self._read()["pipelines"]:
             if p["id"] == pipeline_id:
+                if session_id and p.get("session_id") != session_id:
+                    return None
                 return p
         return None
 
@@ -134,12 +153,17 @@ class JSONStorage:
         return False
 
     # --- Models ---
-    def list_models(self) -> list[dict]:
-        return list(reversed(self._read().get("models", [])))
+    def list_models(self, session_id: str = None) -> list[dict]:
+        all_models = self._read().get("models", [])
+        if session_id:
+            all_models = [m for m in all_models if m.get("session_id") == session_id]
+        return list(reversed(all_models))
 
-    def get_model(self, model_id: str) -> dict | None:
+    def get_model(self, model_id: str, session_id: str = None) -> dict | None:
         for m in self._read()["models"]:
             if m["id"] == model_id:
+                if session_id and m.get("session_id") != session_id:
+                    return None
                 return m
         return None
 
@@ -164,12 +188,17 @@ class JSONStorage:
         return False
 
     # --- Training Jobs ---
-    def list_jobs(self) -> list[dict]:
-        return list(reversed(self._read().get("training_jobs", [])))
+    def list_jobs(self, session_id: str = None) -> list[dict]:
+        all_jobs = self._read().get("training_jobs", [])
+        if session_id:
+            all_jobs = [j for j in all_jobs if j.get("session_id") == session_id]
+        return list(reversed(all_jobs))
 
-    def get_job(self, job_id: str) -> dict | None:
+    def get_job(self, job_id: str, session_id: str = None) -> dict | None:
         for j in self._read()["training_jobs"]:
             if j["id"] == job_id:
+                if session_id and j.get("session_id") != session_id:
+                    return None
                 return j
         return None
 

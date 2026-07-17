@@ -15,6 +15,8 @@ export interface SplitConfig {
   test_size: number
   random_seed: number
   stratify: boolean
+  strategy?: 'random' | 'chronological'
+  datetime_column?: string | null
 }
 
 export interface FeatureSelectionConfig {
@@ -51,6 +53,7 @@ export interface TargetDetectionResult {
     is_imbalanced: boolean
     class_count: number
   } | null
+  datetime_columns?: string[]
 }
 
 export interface Pipeline {

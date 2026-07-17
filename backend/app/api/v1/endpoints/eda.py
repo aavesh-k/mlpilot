@@ -3,7 +3,8 @@ import time
 from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from app.api.v1.endpoints.datasets import get_session_id
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.services.eda_service import compute_eda
@@ -81,8 +82,11 @@ def _run_eda_background(dataset_id: str):
 
 
 @router.post("/{dataset_id}/eda")
-async def start_eda(dataset_id: str) -> dict:
-    dataset = storage.get_dataset(dataset_id)
+async def start_eda(
+    dataset_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     if dataset["status"] != "ready":
@@ -132,8 +136,11 @@ def _extract_column_stats(report: dict) -> list[dict]:
 
 
 @router.get("/{dataset_id}/eda")
-async def get_eda_status(dataset_id: str) -> dict:
-    dataset = storage.get_dataset(dataset_id)
+async def get_eda_status(
+    dataset_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -154,8 +161,11 @@ async def get_eda_status(dataset_id: str) -> dict:
 
 
 @router.get("/{dataset_id}/columns")
-async def get_columns(dataset_id: str) -> dict:
-    dataset = storage.get_dataset(dataset_id)
+async def get_columns(
+    dataset_id: str,
+    session_id: str = Depends(get_session_id)
+) -> dict:
+    dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
