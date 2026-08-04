@@ -1,8 +1,8 @@
 import logging
+import shutil
 import threading
 import time
-import shutil
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -60,7 +60,7 @@ def run_auto_cleanup(max_age_days: int = 7):
                     parent_dir = file_path.parent
                     if parent_dir.exists() and parent_dir.name == ds["id"]:
                         shutil.rmtree(parent_dir, ignore_errors=True)
-                    
+
                     storage.delete_dataset(ds["id"])
 
             # 2. Clean expired Models
@@ -78,7 +78,7 @@ def run_auto_cleanup(max_age_days: int = 7):
                     parent_dir = file_path.parent
                     if parent_dir.exists() and parent_dir.name == m["id"]:
                         shutil.rmtree(parent_dir, ignore_errors=True)
-                    
+
                     storage.delete_model(m["id"])
 
             logger.info("Auto-cleanup run complete.")

@@ -100,17 +100,21 @@ Read MILESTONES.md.
 
 **Milestone 1: Core Pipeline** — Full end-to-end ML workflow (dataset upload → EDA → preprocessing → training → comparison). Simplified architecture: JSON file storage, no auth, no database. All endpoints verified working, frontend builds clean.
 
-## Current Milestone
+**Milestone 3: Polish & DX** — Tests, error handling, loading/error/empty states, pagination, README, CI pipeline.
 
-**Milestone 1: Core Pipeline** — Verified complete.
+**Milestone 4: Advanced Features** — Cleaning module, async EDA, AutoML (10 algorithms, CV, tuning), diagnostic plots, SHAP explainability, prediction/scoring, export hub, session isolation, settings API. Backend fully `ruff check` clean; 54 backend tests + 50 frontend tests all green.
+
+Auth (Milestone 2) is deferred and should NOT be implemented yet — the current focus is ML workflow depth and polish.
 
 ## Next Milestone
 
-**Milestone 3: Polish & DX** — Tests, error handling, loading/error/empty states, pagination, README, CI pipeline.
+None planned. Milestones 1, 3, and 4 are complete. Follow-up candidates if new work is requested:
 
-Auth (Milestone 2) is deferred to after polish, per user preference.
+- Milestone 2: Auth & Multi-User (still deferred)
+- Asset bundling: Vite code-splitting (single 951 kB chunk warning)
+- Remaining cosmetic lint warnings (3 oxlint warnings), FastAPI `on_event` → lifespan migration, SVC `probability` → `CalibratedClassifierCV` migration
 
-Continue only from the current milestone.
+Continue current work; keep the backend ruff-clean and all tests passing.
 
 ---
 

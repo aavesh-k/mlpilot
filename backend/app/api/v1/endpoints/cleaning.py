@@ -2,13 +2,12 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
-from app.api.v1.endpoints.datasets import get_session_id
 
-from app.api.v1.schemas.cleaning import ColumnSuggestion, CleaningSuggestions, RunCleaningSchema
+from app.api.v1.endpoints.datasets import get_session_id
+from app.api.v1.schemas.cleaning import CleaningSuggestions, ColumnSuggestion, RunCleaningSchema
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.services.cleaning_service import run_cleaning
@@ -36,7 +35,7 @@ def _read_dataframe(dataset: dict) -> pd.DataFrame:
         else:
             raise ValidationError("Unsupported format")
     except Exception as e:
-        raise ValidationError(f"Failed to read dataset: {e}")
+        raise ValidationError(f"Failed to read dataset: {e}") from None
 
 
 def _smart_missing_default(df: pd.DataFrame, col: str, missing_pct: float) -> str:
@@ -49,7 +48,7 @@ def _smart_missing_default(df: pd.DataFrame, col: str, missing_pct: float) -> st
     return "mode"
 
 
-def _smart_outlier_default(df: pd.DataFrame, col: str, outlier_pct: float) -> str:
+def _smart_outlier_default(_df: pd.DataFrame, _col: str, outlier_pct: float) -> str:
     if outlier_pct > 0.2:
         return "leave"
     if outlier_pct > 0.05:

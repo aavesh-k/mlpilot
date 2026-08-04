@@ -23,4 +23,4 @@ def read_dataframe(dataset: dict) -> pd.DataFrame:
         else:
             raise ValidationError("Unsupported format")
     except Exception as e:
-        raise ValidationError(f"Failed to read dataset: {e}")
+        raise ValidationError(f"Failed to read dataset: {e}") from None

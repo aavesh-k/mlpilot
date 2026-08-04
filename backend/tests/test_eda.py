@@ -1,5 +1,5 @@
-import time
 import io
+import time
 
 from fastapi.testclient import TestClient
 
@@ -26,4 +26,4 @@ def test_run_eda_on_uploaded_dataset(client: TestClient) -> None:
         if data["status"] == "not_started":
             client.post(f"/api/v1/datasets/{ds_id}/eda")
         time.sleep(0.5)
-    assert False, "EDA did not complete in time"
+    raise AssertionError("EDA did not complete in time")

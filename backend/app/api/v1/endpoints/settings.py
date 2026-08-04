@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
-from app.storage import storage
 from app.api.v1.schemas.settings import UpdateSettingsSchema
+from app.storage import storage
 
 router = APIRouter()
 

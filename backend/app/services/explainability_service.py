@@ -1,5 +1,5 @@
-import math
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -16,7 +16,7 @@ def calculate_waterfall_explanation(
     Guarantees that the sum of attributions equals the total prediction difference.
     """
     columns = list(sample_df.columns)
-    
+
     # 1. Evaluate baseline prediction
     if problem_type == "classification":
         try:
@@ -35,7 +35,7 @@ def calculate_waterfall_explanation(
 
     for col in columns:
         current_df[col] = sample_df[col].values[0]
-        
+
         # Predict at this step
         if problem_type == "classification":
             try:
@@ -47,24 +47,24 @@ def calculate_waterfall_explanation(
         else:
             pred = pipeline.predict(current_df)
             y_val = float(pred[0])
-        
+
         y_steps.append(y_val)
 
     # 2. Compute attributions as difference of consecutive step predictions
     features_contrib = []
     for i, col in enumerate(columns):
         contrib = y_steps[i + 1] - y_steps[i]
-        
+
         # Get baseline and target display values
         base_val = baseline_df[col].values[0]
         target_val = sample_df[col].values[0]
-        
+
         # Handle numpy type serialization
         if isinstance(base_val, (np.integer, np.floating)):
             base_val = float(base_val) if isinstance(base_val, np.floating) else int(base_val)
         else:
             base_val = str(base_val)
-            
+
         if isinstance(target_val, (np.integer, np.floating)):
             target_val = float(target_val) if isinstance(target_val, np.floating) else int(target_val)
         else:

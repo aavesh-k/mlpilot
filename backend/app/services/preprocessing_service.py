@@ -1,26 +1,23 @@
-import uuid
 import math
-from datetime import UTC, datetime
-from pathlib import Path
+import uuid
 from typing import Any
 
+import cloudpickle
 import numpy as np
 import pandas as pd
+from imblearn.over_sampling import SMOTE
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.model_selection import train_test_split as sk_train_test_split
-from sklearn.preprocessing import (
-    StandardScaler,
-    MinMaxScaler,
-    RobustScaler,
-    OneHotEncoder,
-    LabelEncoder,
-    FunctionTransformer,
-)
 from sklearn.pipeline import Pipeline
-from imblearn.over_sampling import SMOTE
-import cloudpickle
+from sklearn.preprocessing import (
+    FunctionTransformer,
+    LabelEncoder,
+    MinMaxScaler,
+    OneHotEncoder,
+    RobustScaler,
+    StandardScaler,
+)
 
 from app.core.config import settings
 from app.storage import storage
@@ -62,7 +59,7 @@ def check_class_balance(y: pd.Series) -> dict:
     }
 
 
-def suggest_encoding_strategy(col: pd.Series, cardinality: int, problem_type: str, y: pd.Series) -> str:
+def suggest_encoding_strategy(_col: pd.Series, cardinality: int, problem_type: str, y: pd.Series) -> str:
     if cardinality <= 10:
         return "one_hot"
     if cardinality <= 50:
@@ -173,10 +170,9 @@ def _build_preprocessing_pipeline(
             if eda_report:
                 outliers_list = eda_report.get("outliers", [])
                 for o in outliers_list:
-                    if any(c == o["column"] for c in scale_cols):
-                        if o.get("count", 0) > 0 and o.get("percent", 0) > 0.05:
-                            has_outliers = True
-                            break
+                    if any(c == o["column"] for c in scale_cols) and o.get("count", 0) > 0 and o.get("percent", 0) > 0.05:
+                        has_outliers = True
+                        break
             scaler = RobustScaler() if has_outliers else StandardScaler()
         elif scaling_strategy == "standard":
             scaler = StandardScaler()
@@ -221,7 +217,7 @@ class _TargetEncoder:
         self.y_encoded = y_encoded
         self.mapping_: dict = {}
 
-    def fit(self, X: pd.DataFrame, y: pd.Series | None = None) -> "_TargetEncoder":
+    def fit(self, X: pd.DataFrame, _y: pd.Series | None = None) -> "_TargetEncoder":
         self.mapping_ = X.groupby(self.column)[self.column].apply(
             lambda x: np.mean(self.y_encoded[x.index]) if len(x) > 0 else 0
         ).to_dict()
@@ -301,7 +297,6 @@ def run_preprocessing(
     y_encoded = None
     if problem_type == "classification":
         y_encoded, label_encoder = _encode_target(y)
-        le_path = None
 
     imbalance_info = None
     if problem_type == "classification":
@@ -340,10 +335,10 @@ def run_preprocessing(
             # Chronological sequential split
             temp_dt = pd.to_datetime(df[datetime_col], errors="coerce")
             sort_indices = temp_dt.sort_values().index
-            
+
             X_sorted = X.loc[sort_indices]
             y_sorted = y.loc[sort_indices]
-            
+
             split_idx = int(len(df) * (1 - test_size))
             X_train = X_sorted.iloc[:split_idx]
             X_test = X_sorted.iloc[split_idx:]

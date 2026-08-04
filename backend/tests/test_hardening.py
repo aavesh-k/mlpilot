@@ -1,5 +1,6 @@
 import io
 import time
+
 from fastapi.testclient import TestClient
 
 
@@ -82,7 +83,7 @@ def test_chronological_split_strategy(client: TestClient) -> None:
     # Execute pipeline
     exec_resp = client.post(f"/api/v1/pipelines/{pipe_id}/execute")
     assert exec_resp.status_code == 200
-    
+
     # Wait for non-blocking execute to finish
     deadline = time.time() + 5.0
     while time.time() < deadline:
@@ -90,7 +91,7 @@ def test_chronological_split_strategy(client: TestClient) -> None:
         if status_resp.json()["status"] == "completed":
             break
         time.sleep(0.1)
-    
+
     pipeline = client.get(f"/api/v1/pipelines/{pipe_id}").json()
     assert pipeline["status"] == "completed"
 

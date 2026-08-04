@@ -1,33 +1,34 @@
+from typing import Any
+
 from pydantic import BaseModel
-from typing import Any, Dict, List, Optional
 
 
 class ClassificationPlotsSchema(BaseModel):
-    confusion_matrix: Dict[str, Any]
-    roc_curve: Dict[str, Any]
-    pr_curve: Optional[Dict[str, Any]] = None
-    feature_importance: List[Dict[str, Any]]
-    classification_report: Dict[str, Any]
+    confusion_matrix: dict[str, Any]
+    roc_curve: dict[str, Any]
+    pr_curve: dict[str, Any] | None = None
+    feature_importance: list[dict[str, Any]]
+    classification_report: dict[str, Any]
 
 
 class RegressionPlotsSchema(BaseModel):
-    pred_vs_actual: Dict[str, Any]
-    residuals: Dict[str, Any]
-    error_distribution: Dict[str, Any]
-    feature_importance: List[Dict[str, Any]]
+    pred_vs_actual: dict[str, Any]
+    residuals: dict[str, Any]
+    error_distribution: dict[str, Any]
+    feature_importance: list[dict[str, Any]]
 
 
 class ModelComparisonItemSchema(BaseModel):
     id: str
     name: str
     algorithm: str
-    metrics: Dict[str, Any]
+    metrics: dict[str, Any]
     is_best: bool
 
 
 class ModelPlotsResponseSchema(BaseModel):
     problem_type: str
-    classification: Optional[ClassificationPlotsSchema] = None
-    regression: Optional[RegressionPlotsSchema] = None
-    learning_curve: Dict[str, Any]
-    model_comparison: List[ModelComparisonItemSchema]
+    classification: ClassificationPlotsSchema | None = None
+    regression: RegressionPlotsSchema | None = None
+    learning_curve: dict[str, Any]
+    model_comparison: list[ModelComparisonItemSchema]

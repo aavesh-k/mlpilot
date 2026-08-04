@@ -1,41 +1,90 @@
 import asyncio
+import logging
+import threading
 import time
 import uuid
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-import numpy as np
 import cloudpickle
-from fastapi import APIRouter, BackgroundTasks, Depends
-from fastapi.responses import FileResponse
-from app.api.v1.endpoints.datasets import get_session_id
+import numpy as np
+import pandas as pd
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.svm import SVC
-from sklearn.linear_model import LogisticRegression, LinearRegression, Ridge, Lasso
-from sklearn.neighbors import KNeighborsClassifier
-from xgboost import XGBClassifier, XGBRegressor
-from sklearn.metrics import (
-    accuracy_score, f1_score, precision_score, recall_score, roc_auc_score,
-    mean_squared_error, mean_absolute_error, r2_score, mean_absolute_percentage_error,
-    confusion_matrix, roc_curve, auc, precision_recall_curve, average_precision_score,
-    classification_report
-)
-from sklearn.model_selection import train_test_split, cross_validate, StratifiedKFold, KFold, RandomizedSearchCV, learning_curve
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
+from sklearn.metrics import (
+    accuracy_score,
+    auc,
+    average_precision_score,
+    classification_report,
+    confusion_matrix,
+    f1_score,
+    mean_absolute_error,
+    mean_absolute_percentage_error,
+    mean_squared_error,
+    precision_recall_curve,
+    precision_score,
+    r2_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
+from sklearn.model_selection import (
+    KFold,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    cross_validate,
+    learning_curve,
+    train_test_split,
+)
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline as SklearnPipeline
+from sklearn.svm import SVC
+from xgboost import XGBClassifier, XGBRegressor
 
+from app.api.v1.endpoints.datasets import get_session_id
+from app.api.v1.schemas.plots import ModelPlotsResponseSchema
+from app.api.v1.schemas.training import TrainModelSchema
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.storage import storage
-from app.api.v1.schemas.training import TrainModelSchema
-from app.api.v1.schemas.plots import ModelPlotsResponseSchema
+from app.core.io import read_dataframe
+from app.services.explainability_service import calculate_waterfall_explanation
 from app.services.preprocessing_service import detect_problem_type
+from app.storage import storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+_cancel_events: dict[str, threading.Event] = {}
+_cancel_events_lock = threading.Lock()
+
+
+def _register_cancel_event(job_id: str) -> threading.Event:
+    event = threading.Event()
+    with _cancel_events_lock:
+        _cancel_events[job_id] = event
+    return event
+
+
+def _request_cancel(job_id: str) -> None:
+    with _cancel_events_lock:
+        event = _cancel_events.get(job_id)
+    if event is not None:
+        event.set()
+
+
+def _is_cancelled(job_id: str) -> bool:
+    with _cancel_events_lock:
+        event = _cancel_events.get(job_id)
+    return event is not None and event.is_set()
+
+
+def _unregister_cancel_event(job_id: str) -> None:
+    with _cancel_events_lock:
+        _cancel_events.pop(job_id, None)
 
 ALGORITHMS = {
     # Classification
@@ -66,9 +115,9 @@ ALGORITHMS = {
     "knn": lambda hp: KNeighborsClassifier(
         n_neighbors=hp.get("n_neighbors", 5),
     ),
-    
+
     # Regression
-    "linear_regression": lambda hp: LinearRegression(),
+    "linear_regression": lambda _hp: LinearRegression(),
     "ridge": lambda hp: Ridge(
         alpha=hp.get("alpha", 1.0),
         random_state=hp.get("random_state", 42),
@@ -132,7 +181,7 @@ PARAM_GRIDS = {
 def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
     pipeline_id = body.pipeline_id
     use_class_weight = False
-    
+
     if pipeline_id:
         pipeline = storage.get_pipeline(pipeline_id)
         if not pipeline or pipeline.get("status") != "completed":
@@ -208,31 +257,31 @@ def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, pr
     else:
         cv = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
         scoring = ["r2", "neg_root_mean_squared_error"]
-        
+
     scores = cross_validate(clf, X_train, y_train, cv=cv, scoring=scoring, n_jobs=1)
-    
+
     cv_results = {}
     for metric in scoring:
         key = f"test_{metric}"
         if key in scores:
             cv_results[metric] = float(np.mean(scores[key]))
-            
+
     if "neg_root_mean_squared_error" in cv_results:
         cv_results["rmse"] = -cv_results.pop("neg_root_mean_squared_error")
-        
+
     return cv_results
 
 
 def _evaluate_model(clf: Any, X_test: np.ndarray, y_test: np.ndarray, problem_type: str) -> dict:
     y_pred = clf.predict(X_test)
-    
+
     metrics = {}
     if problem_type == "classification":
         metrics["accuracy"] = float(accuracy_score(y_test, y_pred))
         metrics["precision"] = float(precision_score(y_test, y_pred, average="weighted", zero_division=0))
         metrics["recall"] = float(recall_score(y_test, y_pred, average="weighted", zero_division=0))
         metrics["f1_score"] = float(f1_score(y_test, y_pred, average="weighted", zero_division=0))
-        
+
         if hasattr(clf, "predict_proba"):
             try:
                 y_prob = clf.predict_proba(X_test)
@@ -249,14 +298,14 @@ def _evaluate_model(clf: Any, X_test: np.ndarray, y_test: np.ndarray, problem_ty
         metrics["mae"] = float(mean_absolute_error(y_test, y_pred))
         metrics["r2"] = float(r2_score(y_test, y_pred))
         metrics["mape"] = float(mean_absolute_percentage_error(y_test, y_pred))
-        
+
     return {k: round(v, 4) for k, v in metrics.items()}
 
 
 def _run_multi_training_background(
     job_id: str,
     pipeline_id: str | None,
-    dataset_id: str,
+    _dataset_id: str,
     selected_algos: list[str],
     cv_folds: int,
     primary_metric: str | None,
@@ -272,7 +321,14 @@ def _run_multi_training_background(
     job = storage.get_job(job_id)
     if not job:
         return
-        
+
+    _register_cancel_event(job_id)
+
+    # Job was cancelled before the worker started
+    if job.get("status") == "cancelled":
+        _unregister_cancel_event(job_id)
+        return
+
     job["status"] = "running"
     job["progress"] = 5.0
     _append_log(job, f"Starting multi-model training pipeline. Folds: {cv_folds}, Tuning: {tuning_enabled}")
@@ -285,7 +341,7 @@ def _run_multi_training_background(
             problem_type = pipeline.get("problem_type", "classification")
     else:
         problem_type = detect_problem_type(pd.Series(y_train))
-        
+
     _append_log(job, f"Problem type detected: {problem_type}")
 
     # Set default primary metric if none selected
@@ -298,14 +354,19 @@ def _run_multi_training_background(
 
     total_algos = len(selected_algos)
     for idx, algo in enumerate(selected_algos):
+        if _is_cancelled(job_id):
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=idx)
+            _unregister_cancel_event(job_id)
+            return
+
         model_id = model_ids_map[algo]
         model_entry = storage.get_model(model_id)
         if not model_entry:
             continue
-            
+
         model_entry["status"] = "running"
         storage.save_model(model_entry)
-        
+
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
         job["progress"] = round(job_progress_base, 1)
         _append_log(job, f"[{idx + 1}/{total_algos}] Training baseline {algo}...")
@@ -314,7 +375,7 @@ def _run_multi_training_background(
         try:
             start_time = time.perf_counter()
             clf = ALGORITHMS[algo]({})
-            
+
             # Apply class weights if configured
             if use_class_weight:
                 if algo == "xgboost" or algo == "xgboost_regressor":
@@ -329,7 +390,7 @@ def _run_multi_training_background(
             # Cross validation
             _append_log(job, f"Running {cv_folds}-fold cross validation for {algo}...")
             cv_results = _run_cross_validation(clf, X_train, y_train, problem_type, cv_folds)
-            
+
             # Log CV results
             cv_log_str = ", ".join(f"{k}={v:.4f}" for k, v in cv_results.items())
             _append_log(job, f"{algo} CV results: {cv_log_str}")
@@ -354,7 +415,8 @@ def _run_multi_training_background(
             # Save basic model artifact
             model_artifact_dir = settings.DATA_DIR / "models" / model_id
             model_artifact_dir.mkdir(parents=True, exist_ok=True)
-            cloudpickle.dump(clf, open(model_artifact_dir / "model.pkl", "wb"))
+            with open(model_artifact_dir / "model.pkl", "wb") as mf:
+                cloudpickle.dump(clf, mf)
             model_entry["file_path"] = str(model_artifact_dir / "model.pkl")
             storage.save_model(model_entry)
 
@@ -375,10 +437,16 @@ def _run_multi_training_background(
         job["error_message"] = "All models failed to train"
         _append_log(job, "Job completed with failures: no models trained successfully.")
         storage.save_job(job)
+        _unregister_cancel_event(job_id)
         return
 
     # Hyperparameter Tuning Step
     if tuning_enabled and len(completed_models_metrics) >= 1:
+        if _is_cancelled(job_id):
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
+            _unregister_cancel_event(job_id)
+            return
+
         job["progress"] = 70.0
         _append_log(job, "Ranking models to select top candidates for hyperparameter tuning...")
         storage.save_job(job)
@@ -395,8 +463,13 @@ def _run_multi_training_background(
         # Tune top 2 models (or up to 3 if available)
         top_to_tune = sorted_algos[:min(len(sorted_algos), 3)]
         _append_log(job, f"Selected top models for tuning: {', '.join(top_to_tune)}")
-        
+
         for t_idx, algo in enumerate(top_to_tune):
+            if _is_cancelled(job_id):
+                _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
+                _unregister_cancel_event(job_id)
+                return
+
             model_id = model_ids_map[algo]
             model_entry = storage.get_model(model_id)
             if not model_entry:
@@ -415,8 +488,12 @@ def _run_multi_training_background(
             try:
                 base_clf = completed_estimators[algo]
                 scoring = "f1_weighted" if problem_type == "classification" else "r2"
-                cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=random_seed) if problem_type == "classification" else KFold(n_splits=3, shuffle=True, random_state=random_seed)
-                
+                cv = (
+                    StratifiedKFold(n_splits=3, shuffle=True, random_state=random_seed)
+                    if problem_type == "classification"
+                    else KFold(n_splits=3, shuffle=True, random_state=random_seed)
+                )
+
                 search = RandomizedSearchCV(
                     estimator=base_clf,
                     param_distributions=param_grid,
@@ -427,17 +504,16 @@ def _run_multi_training_background(
                     n_jobs=1
                 )
                 search.fit(X_train, y_train)
-                
+
                 tuned_clf = search.best_estimator_
-                tuned_params = search.best_params_
 
                 # Evaluate tuned model
                 tuned_metrics = _evaluate_model(tuned_clf, X_test, y_test, problem_type)
-                
+
                 # Check if tuned model outperforms or equals the baseline
                 baseline_val = completed_models_metrics[algo].get(primary_metric, 0.0)
                 tuned_val = tuned_metrics.get(primary_metric, 0.0)
-                
+
                 improved = False
                 if lower_better:
                     if tuned_val < baseline_val:
@@ -450,15 +526,16 @@ def _run_multi_training_background(
                     _append_log(job, f"Tuned {algo} improved {primary_metric} from {baseline_val:.4f} to {tuned_val:.4f}!")
                     completed_models_metrics[algo] = tuned_metrics
                     completed_estimators[algo] = tuned_clf
-                    
+
                     # Update DB entry
                     model_entry["metrics"] = tuned_metrics
                     model_entry["hyperparameters"] = tuned_clf.get_params()
                     model_entry["name"] = f"{algo.replace('_', ' ').title()} (Tuned)"
-                    
+
                     # Overwrite file
                     model_artifact_dir = settings.DATA_DIR / "models" / model_id
-                    cloudpickle.dump(tuned_clf, open(model_artifact_dir / "model.pkl", "wb"))
+                    with open(model_artifact_dir / "model.pkl", "wb") as mf:
+                        cloudpickle.dump(tuned_clf, mf)
                     storage.save_model(model_entry)
                 else:
                     _append_log(job, f"Tuned {algo} ({tuned_val:.4f}) did not improve baseline ({baseline_val:.4f}). Keeping baseline.")
@@ -468,17 +545,23 @@ def _run_multi_training_background(
                 _append_log(job, f"Hyperparameter tuning failed for {algo}: {e}")
 
     # Build final Leaderboard and serialize win bundles
+    if _is_cancelled(job_id):
+        _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
+        _unregister_cancel_event(job_id)
+        return
+
     _append_log(job, "Finalizing Leaderboard and bundling preprocessing pipelines...")
-    
+
     # Reload model data to get latest metrics (including tuned ones)
     final_models = [storage.get_model(model_ids_map[algo]) for algo in selected_algos]
     completed_final_models = [m for m in final_models if m and m.get("status") == "completed"]
-    
+
     if not completed_final_models:
         job["status"] = "failed"
         job["error_message"] = "No models completed successfully"
         _append_log(job, "Job failed: all models failed validation/training.")
         storage.save_job(job)
+        _unregister_cancel_event(job_id)
         return
 
     lower_better = primary_metric in ("rmse", "mae", "mape")
@@ -495,23 +578,23 @@ def _run_multi_training_background(
             try:
                 with open(pipeline["artifact_path"], "rb") as pf:
                     preprocessor = cloudpickle.load(pf)
-                
+
                 for m_entry in completed_final_models:
                     m_id = m_entry["id"]
                     m_algo = m_entry["algorithm"]
                     fitted_estimator = completed_estimators[m_algo]
-                    
+
                     # Create combined pipeline
                     inference_bundle = SklearnPipeline([
                         ("preprocessor", preprocessor),
                         ("model", fitted_estimator)
                     ])
-                    
+
                     # Overwrite model.pkl with inference_bundle
                     m_file_path = Path(settings.DATA_DIR) / "models" / m_id / "model.pkl"
                     with open(m_file_path, "wb") as f:
                         cloudpickle.dump(inference_bundle, f)
-                    
+
                     _append_log(job, f"Bundled preprocessor pipeline successfully with {m_algo}")
             except Exception as e:
                 logger.exception("Failed to bundle preprocessor pipeline")
@@ -520,7 +603,7 @@ def _run_multi_training_background(
     # Identify best model
     best_model_entry = sorted_completed[0]
     best_model_id = best_model_entry["id"]
-    
+
     for m in completed_final_models:
         m["is_best"] = (m["id"] == best_model_id)
         storage.save_model(m)
@@ -530,6 +613,26 @@ def _run_multi_training_background(
     job["progress"] = 100.0
     job["completed_at"] = datetime.now(UTC).isoformat()
     _append_log(job, f"Automated training job complete. Leaderboard winner: {best_model_entry['name']}!")
+    storage.save_job(job)
+    _unregister_cancel_event(job_id)
+
+
+def _cancel_remaining_models(
+    job: dict,
+    selected_algos: list[str],
+    model_ids_map: dict[str, str],
+    from_index: int = 0,
+) -> None:
+    """Mark all not-yet-finished models of a job as cancelled and finalize the job."""
+    for algo in selected_algos[from_index:]:
+        model_entry = storage.get_model(model_ids_map[algo])
+        if model_entry and model_entry.get("status") not in ("completed", "cancelled"):
+            model_entry["status"] = "cancelled"
+            storage.save_model(model_entry)
+
+    _append_log(job, "Job cancelled by user. Stopping training.")
+    job["status"] = "cancelled"
+    job["completed_at"] = datetime.now(UTC).isoformat()
     storage.save_job(job)
 
 
@@ -596,7 +699,7 @@ async def train_model(
     for algo in selected_algos:
         m_id = str(uuid.uuid4())
         model_ids_map[algo] = m_id
-        
+
         m_entry = {
             "id": m_id,
             "job_id": job_id,
@@ -665,25 +768,53 @@ async def list_models(
 
 
 @router.get("/models/compare")
+@router.get("/compare")
 async def compare_models(
-    ids: str = "",
+    ids: list[str] = Query(...),
     session_id: str = Depends(get_session_id)
-) -> list[dict]:
-    if not ids:
-        raise ValidationError("Provide model ids: ?ids=id1,id2,id3")
+) -> dict:
+    models_list = []
+    actual_ids = []
+    for item in ids:
+        if "," in item:
+            actual_ids.extend(item.split(","))
+        else:
+            actual_ids.append(item)
 
-    model_ids = [m_id.strip() for m_id in ids.split(",")]
-    all_models = storage.list_models(session_id=session_id)
-    selected = [m for m in all_models if m["id"] in model_ids]
+    for m_id in actual_ids:
+        model = storage.get_model(m_id, session_id=session_id)
+        if not model:
+            continue
 
-    if not selected:
-        raise NotFoundError("Model", ids)
+        pipeline_id = model.get("pipeline_id")
+        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
 
-    best_acc = max((m.get("metrics", {}).get("accuracy", 0) for m in selected), default=0)
-    for m in selected:
+        models_list.append({
+            "id": model["id"],
+            "name": model["name"],
+            "algorithm": model["algorithm"],
+            "status": model["status"],
+            "metrics": model.get("metrics", {}),
+            "hyperparameters": model.get("hyperparameters", {}),
+            "pipeline": {
+                "encoding": pipeline.get("encoding", {}) if pipeline else None,
+                "scaling": pipeline.get("scaling", {}) if pipeline else None,
+                "feature_selection": pipeline.get("feature_selection", {}) if pipeline else None,
+                "problem_type": pipeline.get("problem_type") if pipeline else None,
+                "use_smote": pipeline.get("use_smote", False) if pipeline else False,
+                "use_class_weight": pipeline.get("use_class_weight", False) if pipeline else False,
+            } if pipeline else None,
+            "training_time": model.get("training_time", 0.0),
+            "created_at": model.get("created_at")
+        })
+
+    # Mark best model and sort by accuracy (leaderboard order)
+    best_acc = max((m.get("metrics", {}).get("accuracy", 0) for m in models_list), default=0)
+    for m in models_list:
         m["is_best"] = m.get("metrics", {}).get("accuracy", 0) >= best_acc
+    models_list.sort(key=lambda m: m.get("metrics", {}).get("accuracy", 0), reverse=True)
 
-    return sorted(selected, key=lambda m: m.get("metrics", {}).get("accuracy", 0), reverse=True)
+    return {"models": models_list}
 
 
 @router.get("/models/{model_id}")
@@ -766,6 +897,9 @@ async def cancel_job(
     if job["status"] not in ("queued", "running"):
         raise ConflictError(f"Job is '{job['status']}', cannot cancel")
 
+    # Signal the background worker to stop cooperatively
+    _request_cancel(job_id)
+
     job["status"] = "cancelled"
     job["completed_at"] = datetime.now(UTC).isoformat()
     storage.save_job(job)
@@ -819,10 +953,7 @@ async def get_model_plots(
         clf = cloudpickle.load(f)
 
     # Resolve if pipeline is wrapped or raw estimator
-    if isinstance(clf, SklearnPipeline) and "model" in clf.named_steps:
-        model_estimator = clf.named_steps["model"]
-    else:
-        model_estimator = clf
+    model_estimator = clf.named_steps["model"] if isinstance(clf, SklearnPipeline) and "model" in clf.named_steps else clf
 
     # 2. Load dataset splits
     from app.api.v1.schemas.training import TrainModelSchema
@@ -914,10 +1045,11 @@ async def get_model_plots(
         importances = model_estimator.feature_importances_.tolist()
     elif hasattr(model_estimator, "coef_"):
         coef = model_estimator.coef_
-        if len(coef.shape) > 1:
-            importances = np.mean(np.abs(coef), axis=0).tolist()
-        else:
-            importances = np.abs(coef).tolist()
+        importances = (
+            np.mean(np.abs(coef), axis=0).tolist()
+            if len(coef.shape) > 1
+            else np.abs(coef).tolist()
+        )
     else:
         # Fallback to permutation importance
         try:
@@ -928,7 +1060,7 @@ async def get_model_plots(
 
     feature_importance_list = [
         {"feature": name, "importance": float(imp)}
-        for name, imp in zip(feature_names[:len(importances)], importances)
+        for name, imp in zip(feature_names[:len(importances)], importances, strict=False)
     ]
     # Sort and take top 15
     feature_importance_list = sorted(feature_importance_list, key=lambda x: x["importance"], reverse=True)[:15]
@@ -1091,9 +1223,11 @@ async def export_cleaned_dataset(
         filename = f"{Path(filename).stem}.csv"
 
     if file_path.suffix != ".csv":
-        from app.core.io import read_dataframe
-        from fastapi.responses import Response
         import io
+
+        from fastapi.responses import Response
+
+        from app.core.io import read_dataframe
         df = read_dataframe(dataset)
         stream = io.StringIO()
         df.to_csv(stream, index=False)
@@ -1126,7 +1260,6 @@ async def export_preprocessed_dataset(
     if not train_path.exists():
         raise NotFoundError("Preprocessed train split", str(train_path))
 
-    import tempfile
     import zipfile
 
     temp_zip = processed_dir / "preprocessed_splits.zip"
@@ -1176,7 +1309,6 @@ async def export_reproducibility_recipe(
             cleaning_config = cleaning_report.get("config", {})
 
     pipeline_config = pipeline if pipeline else {}
-    algorithm = model.get("algorithm", "random_forest")
     params = model.get("hyperparameters", {})
     target_col = model.get("target_column", "target")
 
@@ -1201,7 +1333,7 @@ async def export_reproducibility_recipe(
         "cleaning_configuration": cleaning_config
     }
 
-    recipe_py = f'''# Standalone AutoML Inference Recipe
+    recipe_py = '''# Standalone AutoML Inference Recipe
 # Generated by MLPilot
 #
 # This script loads raw data, applies data cleaning & preprocessing pipeline,
@@ -1255,7 +1387,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
             elif strat == "drop":
                 recipe_py += f"    q1 = df['{col}'].quantile(0.25)\n"
                 recipe_py += f"    q3 = df['{col}'].quantile(0.75)\n"
-                recipe_py += f"    iqr = q3 - q1\n"
+                recipe_py += "    iqr = q3 - q1\n"
                 recipe_py += f"    df = df[~((df['{col}'] < (q1 - 1.5 * iqr)) | (df['{col}'] > (q3 + 1.5 * iqr)))]\n"
         recipe_py += '\n'
 
@@ -1316,9 +1448,9 @@ if __name__ == "__main__":
     main()
 '''
 
-    import tempfile
-    import zipfile
     import json
+    import zipfile
+
     from app.storage import SafeEncoder
 
     recipe_dir = settings.DATA_DIR / "recipes"
@@ -1335,8 +1467,6 @@ if __name__ == "__main__":
         filename=f"recipe_{model_id[:8]}.zip"
     )
 
-
-from fastapi.responses import HTMLResponse
 
 @router.get("/models/{model_id}/export/report", response_class=HTMLResponse)
 async def export_html_report(
@@ -1388,10 +1518,12 @@ async def export_html_report(
 
     import matplotlib
     matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
-    import io
     import base64
+    import io
     import json
+
+    import matplotlib.pyplot as plt
+
     from app.storage import SafeEncoder
 
     def fig_to_b64(fig):
@@ -1439,7 +1571,7 @@ async def export_html_report(
 
     if problem_type == "classification" and plots.get("classification"):
         cls = plots["classification"]
-        
+
         cm_data = cls["confusion_matrix"]
         cm_arr = np.array(cm_data["matrix"])
         classes = cm_data["classes"]
@@ -1460,7 +1592,7 @@ async def export_html_report(
 
         roc_data = cls["roc_curve"]
         fig, ax = plt.subplots(figsize=(6, 4))
-        is_multi = not ('fpr' in roc_data)
+        is_multi = 'fpr' not in roc_data
         if is_multi:
             for c, d in roc_data.items():
                 ax.plot(d["fpr"], d["tpr"], label=f"Class {c} (AUC={d['auc']:.2f})")
@@ -1477,7 +1609,7 @@ async def export_html_report(
         if cls.get("pr_curve"):
             pr_data = cls["pr_curve"]
             fig, ax = plt.subplots(figsize=(6, 4))
-            is_multi = not ('precision' in pr_data)
+            is_multi = 'precision' not in pr_data
             if is_multi:
                 for c, d in pr_data.items():
                     ax.plot(d["recall"], d["precision"], label=f"Class {c} (AP={d['ap']:.2f})")
@@ -1517,7 +1649,19 @@ async def export_html_report(
         ax.set_ylabel('Frequency')
         error_dist_img = fig_to_b64(fig)
 
-    metrics_list_str = "".join(f"<li><strong>{k.replace('_', ' ').upper()}:</strong> {v:.4f}</li>" for k, v in model.get("metrics", {}).items() if k != "cv_mean_score")
+    metrics_list_str = "".join(
+        f"<li><strong>{k.replace('_', ' ').upper()}:</strong> {v:.4f}</li>"
+        for k, v in model.get("metrics", {}).items()
+        if k != "cv_mean_score"
+    )
+
+    leaderboard_rows = "".join(
+        f"<tr {'class=\"highlight\"' if m['id'] == model_id else ''}><td>{idx+1}</td>"
+        f"<td>{m['name']} {'👑' if m['id'] == model_id else ''}</td>"
+        f"<td>{m['algorithm'].replace('_', ' ')}</td>"
+        f"<td>{m.get('metrics', {}).get('cv_mean_score', '—')}</td></tr>"
+        for idx, m in enumerate(leaderboard)
+    )
 
     html_content = f'''<!DOCTYPE html>
 <html>
@@ -1615,7 +1759,7 @@ async def export_html_report(
             border: 2px solid #1c1917;
             font-size: 10px;
         }}
-        
+
         .plot-container {{
             display: flex;
             justify-content: center;
@@ -1629,7 +1773,7 @@ async def export_html_report(
             max-width: 100%;
             height: auto;
         }}
-        
+
         .print-btn {{
             position: fixed;
             top: 20px;
@@ -1648,7 +1792,7 @@ async def export_html_report(
             transform: translate(1px, 1px);
             box-shadow: 2px 2px 0px #1c1917;
         }}
-        
+
         @media print {{
             .print-btn {{
                 display: none;
@@ -1666,7 +1810,7 @@ async def export_html_report(
 </head>
 <body>
     <button class="print-btn" onclick="window.print()">Print Report / PDF</button>
-    
+
     <div class="container">
         <div class="header">
             <h1>MLPilot Executive AutoML Report</h1>
@@ -1676,12 +1820,13 @@ async def export_html_report(
         <div class="card">
             <h3 class="card-title">Executive Summary</h3>
             <div class="highlight-box">
-                An AutoML pipeline was executed to model <strong>{model.get("target_column")}</strong> on the <strong>{dataset["name"] if dataset else "Dataset"}</strong> dataset. 
-                The modeling run was treated as a <strong>{problem_type.upper()}</strong> task. 
+                An AutoML pipeline was executed to model <strong>{model.get("target_column")}</strong> on the
+                <strong>{dataset["name"] if dataset else "Dataset"}</strong> dataset.
+                The modeling run was treated as a <strong>{problem_type.upper()}</strong> task.
                 Out of all candidate models evaluated, the <strong>{model["name"]}</strong> achieved optimal performance.
             </div>
             <p>
-                The model was selected based on validation scores compiled across holdout test splits. 
+                The model was selected based on validation scores compiled across holdout test splits.
                 It achieves the following performance metrics:
             </p>
             <ul>
@@ -1720,11 +1865,14 @@ async def export_html_report(
                     </tr>
                 </tbody>
             </table>
-            
+
             {f"""
             <h4>Cleaning Steps Executed</h4>
             <ul>
-                {"".join(f"<li><strong>{step['step']}:</strong> {step['description']} (Affected {step['rows_affected']} rows)</li>" for step in cleaning_report["steps"])}
+                {"".join(
+                    f"<li><strong>{step['step']}:</strong> {step['description']} (Affected {step['rows_affected']} rows)</li>"
+                    for step in cleaning_report["steps"]
+                )}
             </ul>
             """ if cleaning_report and cleaning_report.get("steps") else ""}
         </div>
@@ -1756,14 +1904,15 @@ async def export_html_report(
                     </tr>
                 </thead>
                 <tbody>
-                    {"".join(f"<tr {'class=\"highlight\"' if m['id'] == model_id else ''}><td>{idx+1}</td><td>{m['name']} {'👑' if m['id'] == model_id else ''}</td><td>{m['algorithm'].replace('_', ' ')}</td><td>{m.get('metrics', {}).get('cv_mean_score', '—')}</td></tr>" for idx, m in enumerate(leaderboard))}
+                    {leaderboard_rows}
                 </tbody>
             </table>
         </div>
 
         <div class="card">
             <h3 class="card-title">Trained Model Hyperparameters</h3>
-            <pre style="background: #fafaf9; border: 1px solid #1c1917; padding: 12px; font-size: 11px; overflow-x: auto;">{json.dumps(model.get("hyperparameters", {}), indent=2, cls=SafeEncoder)}</pre>
+            <pre style="background: #fafaf9; border: 1px solid #1c1917; padding: 12px; font-size: 11px;
+                    overflow-x: auto;">{json.dumps(model.get("hyperparameters", {}), indent=2, cls=SafeEncoder)}</pre>
         </div>
 
         <div class="card">
@@ -1786,16 +1935,6 @@ async def export_html_report(
     return HTMLResponse(content=html_content, status_code=200)
 
 
-# --- Advanced AutoML Features Endpoints ---
-
-from fastapi import Query, UploadFile, File
-from fastapi.responses import FileResponse
-import uuid
-import shutil
-from app.services.explainability_service import calculate_waterfall_explanation
-from sklearn.pipeline import Pipeline as SklearnPipeline
-
-
 @router.get("/models/{model_id}/explain")
 async def explain_model(
     model_id: str,
@@ -1813,7 +1952,7 @@ async def explain_model(
     # Load dataset / test dataset to explain
     pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
     test_path = pipeline.get("test_path") if pipeline else None
-    
+
     if test_path and Path(test_path).exists():
         df = pd.read_parquet(test_path) if test_path.endswith(".parquet") else pd.read_csv(test_path)
     else:
@@ -1881,13 +2020,14 @@ async def explain_model(
         if hasattr(estimator, "feature_importances_"):
             importances = list(estimator.feature_importances_)
         elif hasattr(estimator, "coef_"):
-            if len(estimator.coef_.shape) > 1:
-                importances = list(np.abs(estimator.coef_).mean(axis=0))
-            else:
-                importances = list(np.abs(estimator.coef_))
+            importances = (
+                list(np.abs(estimator.coef_).mean(axis=0))
+                if len(estimator.coef_.shape) > 1
+                else list(np.abs(estimator.coef_))
+            )
 
         if importances and len(importances) == len(features):
-            global_importances = [{"feature": f, "importance": float(imp)} for f, imp in zip(features, importances)]
+            global_importances = [{"feature": f, "importance": float(imp)} for f, imp in zip(features, importances, strict=False)]
             global_importances.sort(key=lambda x: x["importance"], reverse=True)
     except Exception as e:
         logger.warning(f"Could not extract global feature importances: {e}")
@@ -1915,11 +2055,11 @@ async def predict_model(
     temp_dir = settings.DATA_DIR / "tmp"
     temp_dir.mkdir(parents=True, exist_ok=True)
     temp_path = temp_dir / f"pred_{model_id}_{uuid.uuid4().hex}{Path(file.filename).suffix}"
-    
+
     try:
         content = await file.read()
         temp_path.write_bytes(content)
-        
+
         ext = temp_path.suffix.lower()
         if ext == ".csv":
             df = pd.read_csv(temp_path)
@@ -1990,47 +2130,3 @@ async def download_predictions(
         media_type="text/csv",
         filename=filename
     )
-
-
-@router.get("/compare")
-@router.get("/models/compare")
-async def compare_models(
-    ids: list[str] = Query(...),
-    session_id: str = Depends(get_session_id)
-) -> dict:
-    models_list = []
-    actual_ids = []
-    for item in ids:
-        if "," in item:
-            actual_ids.extend(item.split(","))
-        else:
-            actual_ids.append(item)
-
-    for m_id in actual_ids:
-        model = storage.get_model(m_id, session_id=session_id)
-        if not model:
-            continue
-            
-        pipeline_id = model.get("pipeline_id")
-        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
-        
-        models_list.append({
-            "id": model["id"],
-            "name": model["name"],
-            "algorithm": model["algorithm"],
-            "status": model["status"],
-            "metrics": model.get("metrics", {}),
-            "hyperparameters": model.get("hyperparameters", {}),
-            "pipeline": {
-                "encoding": pipeline.get("encoding", {}) if pipeline else None,
-                "scaling": pipeline.get("scaling", {}) if pipeline else None,
-                "feature_selection": pipeline.get("feature_selection", {}) if pipeline else None,
-                "problem_type": pipeline.get("problem_type") if pipeline else None,
-                "use_smote": pipeline.get("use_smote", False) if pipeline else False,
-                "use_class_weight": pipeline.get("use_class_weight", False) if pipeline else False,
-            } if pipeline else None,
-            "training_time": model.get("training_time", 0.0),
-            "created_at": model.get("created_at")
-        })
-
-    return {"models": models_list}

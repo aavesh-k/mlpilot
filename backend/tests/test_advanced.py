@@ -1,5 +1,6 @@
 import io
 import time
+
 from fastapi.testclient import TestClient
 
 
@@ -19,10 +20,10 @@ def _upload_csv(client: TestClient) -> str:
 
 def test_automated_eda_insights(client: TestClient) -> None:
     ds_id = _upload_csv(client)
-    
+
     # Trigger EDA computation
     client.post(f"/api/v1/datasets/{ds_id}/eda")
-    
+
     # Wait for completion using GET /datasets/{dataset_id}/eda endpoint
     deadline = time.time() + 5.0
     while time.time() < deadline:
@@ -36,7 +37,7 @@ def test_automated_eda_insights(client: TestClient) -> None:
     assert report_resp.status_code == 200
     report = report_resp.json()["report"]
     assert "findings" in report
-    
+
     # Verify recommendations are present in findings
     for finding in report["findings"]:
         assert "recommendation" in finding
@@ -45,7 +46,7 @@ def test_automated_eda_insights(client: TestClient) -> None:
 
 def test_predict_and_explain_and_compare(client: TestClient) -> None:
     ds_id = _upload_csv(client)
-    
+
     # Clean dataset first
     clean_resp = client.post(f"/api/v1/datasets/{ds_id}/cleaning/execute", json={})
     cleaned_ds_id = clean_resp.json()["dataset"]["id"]
@@ -88,7 +89,7 @@ def test_predict_and_explain_and_compare(client: TestClient) -> None:
     expl = explain_resp.json()
     assert "local_explanation" in expl
     assert "global_importance" in expl
-    
+
     # Check that attributions sum up exactly to total difference
     attributions = expl["local_explanation"]["attributions"]
     total_contrib = sum(attr["contribution"] for attr in attributions)

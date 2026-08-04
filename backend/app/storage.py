@@ -1,11 +1,10 @@
+import contextlib
 import json
 import math
 import os
 import tempfile
 import threading
-import uuid
 from pathlib import Path
-from datetime import UTC, datetime
 from typing import Any
 
 
@@ -48,7 +47,7 @@ class JSONStorage:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(encoded)
-            
+
             import time
             for i in range(5):
                 try:
@@ -59,10 +58,8 @@ class JSONStorage:
                         raise
                     time.sleep(0.05)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
             raise
 
     def _read(self) -> dict:
@@ -248,10 +245,8 @@ class JSONStorage:
                 f.write(encoded)
             os.replace(tmp_path, str(path))
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
             raise
 
     def _read_json_file(self, path: Path) -> dict | None:

@@ -1,26 +1,25 @@
-import asyncio
-import uuid
 import logging
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 import cloudpickle
 import numpy as np
 import pandas as pd
-from fastapi import APIRouter, UploadFile, File, Depends, Header, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
+from app.api.v1.endpoints.datasets import get_session_id
+from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.storage import storage
-from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
+from app.core.io import read_dataframe
 from app.services.preprocessing_service import (
+    check_class_balance,
+    detect_problem_type,
     run_preprocessing,
     suggest_pipeline_config,
-    detect_problem_type,
-    check_class_balance,
 )
-from app.core.io import read_dataframe
-from app.api.v1.endpoints.datasets import get_session_id
+from app.storage import storage
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -96,9 +95,8 @@ async def create_pipeline(
 
     # Hardening stage boundary: Dataset must be cleaned before preprocessing
     import os
-    if "PYTEST_CURRENT_TEST" not in os.environ:
-        if not dataset.get("is_cleaned", False):
-            raise ValidationError("Dataset must be cleaned before creating a preprocessing pipeline")
+    if "PYTEST_CURRENT_TEST" not in os.environ and not dataset.get("is_cleaned", False):
+        raise ValidationError("Dataset must be cleaned before creating a preprocessing pipeline")
 
     df = read_dataframe(dataset)
     if body.target_column not in df.columns:

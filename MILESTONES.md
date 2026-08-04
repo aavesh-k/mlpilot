@@ -56,7 +56,7 @@ Each milestone is independently buildable and testable. They build on each other
 
 ## Milestone 2: Auth & Multi-User (Deferred)
 
-**Goal:** Add user authentication. Deferred to end per user preference.
+**Goal:** Add user authentication. Deferred to end per user preference — the current focus is on ML workflow depth and polish.
 
 ### Features
 - [ ] User registration + login (JWT)
@@ -73,12 +73,12 @@ Each milestone is independently buildable and testable. They build on each other
 
 ---
 
-## Milestone 3: Polish & DX
+## Milestone 3: Polish & DX (Complete)
 
 **Goal:** Production-ready quality. Testing, error handling, performance, and developer experience.
 
 ### Features
-- [x] Comprehensive test suite — 44 backend tests (8 files) + 50 frontend tests (12 files)
+- [x] Comprehensive test suite — 54 backend tests (13 files) + 50 frontend tests (12 files)
 - [x] Structured error responses across all endpoints (`{"error": {"code", "message", "field?"}}`)
 - [x] Loading/error/empty states (ErrorState, LoadingSpinner with skeletons, Pagination)
 - [x] Pagination on dataset/model listing
@@ -91,12 +91,45 @@ Each milestone is independently buildable and testable. They build on each other
 
 ---
 
+## Milestone 4: Advanced Features (Complete)
+
+**Goal:** Turn the core pipeline into a resume-quality ML platform — depth beyond the baseline M1 scope.
+
+### Features
+- [x] Data cleaning module: 6-step pipeline (missing values, outliers, dtype issues, constant columns, date/currency normalization) with auto-suggestions, run reports, cleaned CSV download
+- [x] Async EDA: background thread + progress polling, correlation heatmap, enriched auto-findings (missingness, outliers, duplicates, high cardinality)
+- [x] AutoML multi-algorithm training: 10 algorithms (5 classification + 5 regression), K-fold CV, RandomizedSearchCV tuning, per-job progress
+- [x] Cooperative job cancellation — background worker checks a cancel event between steps/models and finalizes the job record
+- [x] Model comparison: unified leaderboard across algorithms, sorted by metric, best-model detection
+- [x] Interactive diagnostic plots (Recharts): confusion matrix, ROC/PR curves, feature importance, residuals, learning curve + PNG export
+- [x] SHAP waterfall explainability for a single prediction
+- [x] Scoring/prediction endpoint: upload new data, get predictions, download predictions CSV
+- [x] Export hub: cleaned CSV, preprocessed splits ZIP, inference recipe ZIP (`recipe.json` + `recipe.py`), model artifact download, executive HTML report (matplotlib charts embedded)
+- [x] Session isolation (`?session_id=`) + timestamped cleanup of orphaned data
+- [x] Settings API (`GET`/`PUT /api/v1/settings/`)
+- [x] Backend hardened to `ruff check` clean (line-length 160, contextual lint rules)
+
+### Verified (this session)
+- [x] `ruff check backend/app backend/tests` — 0 errors
+- [x] `pytest backend/tests/` — 54 passed
+- [x] `npm run lint`, `npx tsc -b`, `npm test`, `npm run build` — all clean
+
+### Dependencies
+- matplotlib, xgboost, imbalanced-learn, pyarrow, openpyxl, cloudpickle (backend)
+- Recharts (frontend)
+
+### Estimated Complexity: 4 / 5
+
+---
+
 ## Milestone Dependency Graph
 
 ```
 M1: Core Pipeline (DONE)
   │
-  ├── M2: Auth & Multi-User (deferred)
+  ├── M2: Auth & Multi-User (deferred — focus on ML depth first)
   │
-  └── M3: Polish & DX (next)
+  ├── M3: Polish & DX (DONE)
+  │
+  └── M4: Advanced Features (DONE)
 ```

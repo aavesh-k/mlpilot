@@ -1,5 +1,6 @@
 import math
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -382,7 +383,7 @@ def _find_constant_columns(df: pd.DataFrame) -> list[dict]:
 
 
 def _generate_findings(
-    shape: dict,
+    _shape: dict,
     missingness: list[dict],
     high_corrs: list[dict],
     outliers: list[dict],
@@ -432,7 +433,10 @@ def _generate_findings(
                 "title": "High Cardinality",
                 "description": f"'{cat['column']}' has {cat['cardinality']:,} unique values. May be an ID or free-text column.",
                 "affected_columns": [cat["column"]],
-                "recommendation": "Consider Target Encoding or Frequency Encoding instead of One-Hot Encoding to prevent high-dimensional sparse representations."
+                "recommendation": (
+                    "Consider Target Encoding or Frequency Encoding instead of One-Hot Encoding "
+                    "to prevent high-dimensional sparse representations."
+                )
             })
 
     if duplicates["count"] > 0:

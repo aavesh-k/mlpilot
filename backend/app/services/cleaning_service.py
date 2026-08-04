@@ -1,7 +1,5 @@
 import math
 import re
-from datetime import UTC, datetime
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -92,8 +90,6 @@ def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dic
         logs.extend(logs_const)
         column_changes.extend(col_changes_const)
 
-    after = _snapshot(df)
-
     for col in df.columns:
         after_dtype = str(df[col].dtype)
         before_dtype = original_dtypes.get(col, after_dtype)
@@ -138,7 +134,7 @@ def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dic
     return df, logs, before, column_changes
 
 
-def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
+def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], _total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
     logs: list[dict] = []
     column_changes: list[dict] = []
     drop_cols: list[str] = []
@@ -149,7 +145,6 @@ def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], tota
         missing_count = int(df[col].isna().sum())
         if missing_count == 0:
             continue
-        before_rows = len(df)
 
         if strategy == "drop_column":
             drop_cols.append(col)
@@ -173,36 +168,32 @@ def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], tota
 
         elif strategy in ("mean", "median", "mode"):
             s = df[col]
-            if strategy == "mean":
-                if pd.api.types.is_numeric_dtype(s):
-                    fill_val = s.mean()
-                else:
-                    fill_val = s.mode().iloc[0] if not s.mode().empty else None
-            elif strategy == "median":
-                if pd.api.types.is_numeric_dtype(s):
-                    fill_val = s.median()
-                else:
-                    fill_val = s.mode().iloc[0] if not s.mode().empty else None
-            else:
+            if strategy == "mode" or not pd.api.types.is_numeric_dtype(s):
                 fill_val = s.mode().iloc[0] if not s.mode().empty else None
+            else:
+                fill_val = s.mean() if strategy == "mean" else s.median()
             if fill_val is not None and not (isinstance(fill_val, float) and math.isnan(fill_val)):
                 df[col] = df[col].fillna(fill_val)
+                desc = f"Filled {missing_count:,} missing cells in '{col}' using {strategy}"
+                if isinstance(fill_val, float):
+                    desc += f" ({fill_val:.4f})"
                 logs.append(_log(
                     "missing_values", f"Imputed {missing_count:,} missing values in '{col}' with {strategy}",
                     [col], missing_count, missing_count,
-                    f"Filled {missing_count:,} missing cells in '{col}' using {strategy} ({fill_val:.4f})" if isinstance(fill_val, float) else f"Filled {missing_count:,} missing cells in '{col}' using {strategy}",
+                    desc,
                 ))
 
         elif strategy in ("ffill", "bfill"):
+            direction = "Forward" if strategy == "ffill" else "Back"
             method = "ffill" if strategy == "ffill" else "bfill"
             df[col] = df[col].fillna(method=method)
             still_missing = int(df[col].isna().sum())
             filled = missing_count - still_missing
             if filled > 0:
                 logs.append(_log(
-                    "missing_values", f"Forward-filled {filled:,} missing values in '{col}'" if strategy == "ffill" else f"Back-filled {filled:,} missing values in '{col}'",
+                    "missing_values", f"{direction}-filled {filled:,} missing values in '{col}'",
                     [col], filled, filled,
-                    f"{'Forward' if strategy == 'ffill' else 'Back'}-fill imputed {filled:,} cells in '{col}'. {still_missing:,} remain at boundaries.",
+                    f"{direction}-fill imputed {filled:,} cells in '{col}'. {still_missing:,} remain at boundaries.",
                 ))
 
         elif strategy == "knn":
@@ -214,7 +205,7 @@ def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], tota
     return logs, df, column_changes
 
 
-def _apply_knn_impute(df: pd.DataFrame, col: str, logs: list, column_changes: list) -> None:
+def _apply_knn_impute(df: pd.DataFrame, col: str, logs: list, _column_changes: list) -> None:
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if col not in numeric_cols or len(numeric_cols) < 2:
         logs.append(_log(
@@ -237,7 +228,7 @@ def _apply_knn_impute(df: pd.DataFrame, col: str, logs: list, column_changes: li
         ))
 
 
-def _apply_outlier_strategies(df: pd.DataFrame, strategies: dict[str, str], total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
+def _apply_outlier_strategies(df: pd.DataFrame, strategies: dict[str, str], _total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
     logs: list[dict] = []
     column_changes: list[dict] = []
     to_remove: set[int] = set()
@@ -258,9 +249,7 @@ def _apply_outlier_strategies(df: pd.DataFrame, strategies: dict[str, str], tota
             continue
 
         if strategy == "winsorize":
-            before_vals = df[col].copy()
             df[col] = df[col].clip(lower, upper)
-            changed = int((df[col] != before_vals).sum())
             logs.append(_log(
                 "outliers", f"Winsorized {outlier_count:,} outliers in '{col}'",
                 [col], outlier_count, outlier_count,
@@ -287,7 +276,7 @@ def _apply_outlier_strategies(df: pd.DataFrame, strategies: dict[str, str], tota
         before = len(df)
         df = df.drop(index=to_remove).reset_index(drop=True)
         removed = before - len(df)
-        outlier_log = next((l for l in logs if l["step"] == "outliers" and "Queued" in l["description"]), None)
+        outlier_log = next((log for log in logs if log["step"] == "outliers" and "Queued" in log["description"]), None)
         if outlier_log:
             outlier_log["rows_affected"] = removed
             outlier_log["cells_affected"] = removed * len(df.columns)

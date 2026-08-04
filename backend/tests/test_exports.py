@@ -1,6 +1,7 @@
 import io
 import time
 import zipfile
+
 from fastapi.testclient import TestClient
 
 
@@ -68,7 +69,7 @@ def test_model_export_endpoints(client: TestClient) -> None:
     prep_resp = client.get(f"/api/v1/training/models/{model_id}/export/preprocessed")
     assert prep_resp.status_code == 200
     assert "application/zip" in prep_resp.headers["content-type"]
-    
+
     # Read Zip
     zip_bytes = io.BytesIO(prep_resp.content)
     with zipfile.ZipFile(zip_bytes) as zf:
@@ -79,7 +80,7 @@ def test_model_export_endpoints(client: TestClient) -> None:
     recipe_resp = client.get(f"/api/v1/training/models/{model_id}/export/recipe")
     assert recipe_resp.status_code == 200
     assert "application/zip" in recipe_resp.headers["content-type"]
-    
+
     zip_bytes_recipe = io.BytesIO(recipe_resp.content)
     with zipfile.ZipFile(zip_bytes_recipe) as zf:
         namelist = zf.namelist()

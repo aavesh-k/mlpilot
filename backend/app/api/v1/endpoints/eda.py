@@ -1,11 +1,10 @@
 import threading
-import time
 from pathlib import Path
 
 import pandas as pd
 from fastapi import APIRouter, Depends
-from app.api.v1.endpoints.datasets import get_session_id
 
+from app.api.v1.endpoints.datasets import get_session_id
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.services.eda_service import compute_eda
 from app.storage import storage
@@ -41,7 +40,7 @@ def _read_dataframe(dataset: dict) -> pd.DataFrame:
         else:
             raise ValidationError("Unsupported format")
     except Exception as e:
-        raise ValidationError(f"Failed to read dataset: {e}")
+        raise ValidationError(f"Failed to read dataset: {e}") from None
 
 
 def _run_eda_background(dataset_id: str):

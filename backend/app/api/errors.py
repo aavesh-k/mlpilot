@@ -4,13 +4,13 @@ from fastapi.responses import JSONResponse
 
 from app.core.exceptions import (
     AppError,
-    NotFoundError,
-    ValidationError,
     AuthenticationError,
     AuthorizationError,
-    StorageError,
-    MLBackendError,
     ConflictError,
+    MLBackendError,
+    NotFoundError,
+    StorageError,
+    ValidationError,
 )
 
 
@@ -21,7 +21,7 @@ def error_response(status_code: int, code: str, message: str, field: str | None 
     )
 
 
-async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
     mapping = {
         NotFoundError: (404, "NOT_FOUND"),
         ValidationError: (422, "VALIDATION_ERROR"),
@@ -35,10 +35,10 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     return error_response(http_status, code, str(exc), getattr(exc, "field", None))
 
 
-async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     messages = "; ".join(f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}" for err in exc.errors())
     return error_response(422, "VALIDATION_ERROR", messages)
 
 
-async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
+async def generic_error_handler(_request: Request, _exc: Exception) -> JSONResponse:
     return error_response(500, "INTERNAL_ERROR", "An unexpected error occurred")

@@ -1,7 +1,6 @@
 import io
 import time
-import uuid
-import pytest
+
 from fastapi.testclient import TestClient
 
 
@@ -30,7 +29,7 @@ def _wait_for_job(client: TestClient, job_id: str, timeout: float = 15.0) -> dic
 
 def test_multi_model_classification_training(client: TestClient) -> None:
     ds_id = _upload_csv(client)
-    
+
     # 1. Create pipeline
     pipe_resp = client.post("/api/v1/pipelines/", json={
         "dataset_id": ds_id,
@@ -44,7 +43,7 @@ def test_multi_model_classification_training(client: TestClient) -> None:
     })
     assert pipe_resp.status_code == 201
     pipe_id = pipe_resp.json()["id"]
-    
+
     # 2. Execute pipeline
     exec_resp = client.post(f"/api/v1/pipelines/{pipe_id}/execute")
     assert exec_resp.status_code == 200
@@ -62,11 +61,11 @@ def test_multi_model_classification_training(client: TestClient) -> None:
     data = train_resp.json()
     assert "models" in data
     assert len(data["models"]) == 2
-    
+
     # 4. Wait for job to complete
     job = _wait_for_job(client, data["job"]["id"])
     assert job["status"] == "completed"
-    
+
     # 5. Check completed models
     model1_resp = client.get(f"/api/v1/training/models/{data['models'][0]['id']}")
     assert model1_resp.status_code == 200
@@ -78,7 +77,7 @@ def test_multi_model_classification_training(client: TestClient) -> None:
 
 def test_set_best_model(client: TestClient) -> None:
     ds_id = _upload_csv(client)
-    
+
     pipe_resp = client.post("/api/v1/pipelines/", json={
         "dataset_id": ds_id,
         "target_column": "target",
@@ -95,13 +94,13 @@ def test_set_best_model(client: TestClient) -> None:
     })
     data = train_resp.json()
     _wait_for_job(client, data["job"]["id"])
-    
+
     model_ids = [m["id"] for m in data["models"]]
-    
+
     # Set second model as best
     best_resp = client.post(f"/api/v1/training/models/{model_ids[1]}/set-best")
     assert best_resp.status_code == 200
-    
+
     # Check that it is best in DB, and the other is not
     m0 = client.get(f"/api/v1/training/models/{model_ids[0]}").json()
     m1 = client.get(f"/api/v1/training/models/{model_ids[1]}").json()

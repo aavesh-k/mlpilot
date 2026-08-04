@@ -1,11 +1,11 @@
-import uuid
-import shutil
 import logging
-from pathlib import Path
+import shutil
+import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pandas as pd
-from fastapi import APIRouter, UploadFile, File, Form, Depends, Header
+from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
@@ -29,7 +29,7 @@ async def upload_dataset(
     session_id: str = Depends(get_session_id)
 ) -> JSONResponse:
     logger.info("Dataset upload requested [filename=%s, session_id=%s]", file.filename, session_id)
-    
+
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise ValidationError(f"Unsupported format {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
@@ -67,10 +67,10 @@ async def upload_dataset(
             try:
                 df = pd.read_csv(file_path, nrows=5)
             except Exception as e:
-                raise ValidationError(f"Invalid or malformed CSV file: {str(e)}")
+                raise ValidationError(f"Invalid or malformed CSV file: {str(e)}") from None
             if df.empty or len(df.columns) == 0:
                 raise ValidationError("CSV file is empty or contains no columns")
-            
+
             # Count lines safely
             with open(file_path, errors="ignore") as f:
                 line_count = sum(1 for _ in f) - 1
@@ -80,21 +80,21 @@ async def upload_dataset(
             try:
                 df = pd.read_parquet(file_path)
             except Exception as e:
-                raise ValidationError(f"Invalid or malformed Parquet file: {str(e)}")
+                raise ValidationError(f"Invalid or malformed Parquet file: {str(e)}") from None
             row_count = len(df)
 
         elif ext == ".json":
             try:
                 df = pd.read_json(file_path)
             except Exception as e:
-                raise ValidationError(f"Invalid or malformed JSON file: {str(e)}")
+                raise ValidationError(f"Invalid or malformed JSON file: {str(e)}") from None
             row_count = len(df)
 
         elif ext == ".xlsx":
             try:
                 df = pd.read_excel(file_path, nrows=5)
             except Exception as e:
-                raise ValidationError(f"Invalid or malformed Excel file: {str(e)}")
+                raise ValidationError(f"Invalid or malformed Excel file: {str(e)}") from None
             if df.empty or len(df.columns) == 0:
                 raise ValidationError("Excel sheet is empty or contains no columns")
             # Get full row count
@@ -116,8 +116,8 @@ async def upload_dataset(
             shutil.rmtree(dest_dir, ignore_errors=True)
         storage.delete_dataset(dataset_id)
         if isinstance(e, ValidationError):
-            raise e
-        raise ValidationError(f"Malformed or invalid data file: {str(e)}")
+            raise e from None
+        raise ValidationError(f"Malformed or invalid data file: {str(e)}") from None
 
     return JSONResponse(dataset, status_code=201)
 

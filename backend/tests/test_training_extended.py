@@ -106,11 +106,11 @@ def test_compare_models_returns_sorted(client: TestClient) -> None:
     r2 = client.post("/api/v1/training/", json={"dataset_id": ds_id, "algorithm": "svm"}).json()
     _wait_for_job(client, r1["job"]["id"])
     _wait_for_job(client, r2["job"]["id"])
-    response = client.get(f"/api/v1/training/models/compare", params={"ids": f"{r1['model']['id']},{r2['model']['id']}"})
+    response = client.get("/api/v1/training/models/compare", params={"ids": f"{r1['model']['id']},{r2['model']['id']}"})
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert data[0]["metrics"]["accuracy"] >= data[1]["metrics"]["accuracy"]
+    assert len(data["models"]) == 2
+    assert data["models"][0]["metrics"]["accuracy"] >= data["models"][1]["metrics"]["accuracy"]
 
 
 def test_compare_models_no_ids_returns_422(client: TestClient) -> None:
