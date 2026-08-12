@@ -199,75 +199,52 @@ function ConfusionMatrixCard({ matrixData }: { matrixData: any }) {
   const { classes, matrix } = matrixData
   const total = matrix.flat().reduce((sum: number, val: number) => sum + val, 0)
 
-  // Calculate cell color weight
-  const getCellWeight = (value: number) => {
-    if (total === 0) return 'rgba(100, 116, 139, 0.05)'
-    const percent = value / total
-    return `rgba(37, 99, 235, ${Math.min(0.05 + percent * 0.9, 1)})` // shade of blue
-  }
-
   return (
     <div className="bg-surface border-2 border-primary p-6 neo-shadow flex flex-col h-full">
       <h3 className="font-headline font-black text-lg uppercase mb-2">Confusion Matrix Heatmap</h3>
-      <p className="text-xs text-on-surface-variant mb-6">True classes (rows) vs Predicted classes (columns)</p>
-
-      <div className="flex-1 flex items-center justify-center min-h-[300px]">
-        <div className="relative flex flex-col items-center">
-          {/* Top Label (Predicted) */}
-          <div className="font-headline font-black text-[10px] uppercase tracking-wider mb-2 text-on-surface-variant">
-            Predicted Class
-          </div>
-
-          <div className="flex">
-            {/* Left Label (True) */}
-            <div className="font-headline font-black text-[10px] uppercase tracking-wider [writing-mode:vertical-lr] rotate-180 mr-2 flex items-center justify-center text-on-surface-variant">
-              True Class
-            </div>
-
-            {/* Grid */}
-            <div className="flex flex-col border border-primary">
-              {/* Header row */}
-              <div className="flex bg-surface-variant/40">
-                <div className="w-16 h-10 border-r border-b border-primary" />
-                {classes.map((cls: string) => (
-                  <div
-                    key={cls}
-                    className="w-20 h-10 border-r border-b border-primary last:border-r-0 flex items-center justify-center font-headline font-bold text-xs p-1 text-center truncate"
-                  >
-                    {cls}
-                  </div>
-                ))}
+      <p className="text-xs text-on-surface-variant mb-2">True classes (rows) vs Predicted classes (columns)</p>
+      <p className="text-xs text-on-surface-variant small-print">Darker cells indicate more predictions</p>
+      <div className="flex-1 flex flex-col-reverse items-center justify-center min-h-[300px]">
+        <div className="flex flex-col items-center gap-2 text-xs text-on-surface-variant">
+          {matrix.map((row: number[], rIdx: number) => (
+            <div key={rIdx} className="flex">
+              <div className="w-16 h-16 border-r border-b border-primary last:border-b-0 bg-surface-variant/40 flex items-center justify-center font-headline font-bold text-xs p-1 text-center truncate">
+                {classes[rIdx]}
               </div>
-
-              {/* Rows */}
-              {matrix.map((row: number[], rIdx: number) => (
-                <div key={rIdx} className="flex">
-                  {/* Left Label header column */}
-                  <div className="w-16 h-16 border-r border-b border-primary last:border-b-0 bg-surface-variant/40 flex items-center justify-center font-headline font-bold text-xs p-1 text-center truncate">
-                    {classes[rIdx]}
+              {row.map((val: number, cIdx: number) => (
+                <div
+                  key={cIdx}
+                  className="w-20 h-16 border-r border-b border-primary last:border-r-0 last:border-b-0 flex flex-col items-center justify-center relative group"
+                >
+                  <span className="font-headline font-black text-sm">{val}</span>
+                  <span className="text-[9px] text-on-surface-variant mt-0.5">
+                    {total > 0 ? `${((val / total) * 100).toFixed(0)}%` : ''}
+                  </span>
+                  <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] px-2 py-1 pointer-events-none whitespace-nowrap z-10 neo-shadow-sm mb-1">
+                    True: {classes[rIdx]} · Pred: {classes[cIdx]}
                   </div>
-
-                  {/* Matrix cells */}
-                  {row.map((val: number, cIdx: number) => (
-                    <div
-                      key={cIdx}
-                      style={{ backgroundColor: getCellWeight(val) }}
-                      className="w-20 h-16 border-r border-b border-primary last:border-r-0 last:border-b-0 flex flex-col items-center justify-center relative group"
-                    >
-                      <span className="font-headline font-black text-sm">{val}</span>
-                      <span className="text-[9px] text-on-surface-variant mt-0.5">
-                        {total > 0 ? `${((val / total) * 100).toFixed(0)}%` : ''}
-                      </span>
-                      {/* Tooltip */}
-                      <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 bg-primary text-white text-[9px] px-2 py-1 pointer-events-none whitespace-nowrap z-10 neo-shadow-sm mb-1">
-                        True: {classes[rIdx]} · Pred: {classes[cIdx]}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               ))}
             </div>
-          </div>
+          ))}
+        </div>
+        {/* Color legend */}
+        <div className="mt-4 flex items-center justify-center text-xs text-on-surface-variant">
+          <span className="mr-2">Coverage:</span>
+          {matrix.flat().map((val, i) => (
+            <span key={i} className="mr-1">
+              <div
+                style={{
+                  width: '20px',
+                  height: '20px',
+                  background: `rgba(37, 99, 235, ${0.05 + (val / total) * 0.95})`,
+                  border: '1px solid #a8a29e',
+                  display: 'inline-block',
+                }}
+                title={`${((val / total) * 100).toFixed(0)}%`}
+                />
+            </span>
+          ))}
         </div>
       </div>
     </div>

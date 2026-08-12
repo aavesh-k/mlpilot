@@ -45,7 +45,7 @@ def run_auto_cleanup(max_age_days: int = 7):
             now = datetime.now(UTC)
 
             # 1. Clean expired Datasets
-            all_datasets = storage._read().get("datasets", [])
+            all_datasets = storage.list_datasets()
             for ds in all_datasets:
                 created = datetime.fromisoformat(ds["created_at"].replace("Z", "+00:00"))
                 if (now - created).days >= max_age_days:
@@ -64,7 +64,7 @@ def run_auto_cleanup(max_age_days: int = 7):
                     storage.delete_dataset(ds["id"])
 
             # 2. Clean expired Models
-            all_models = storage._read().get("models", [])
+            all_models = storage.list_models()
             for m in all_models:
                 created = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00"))
                 if (now - created).days >= max_age_days:
