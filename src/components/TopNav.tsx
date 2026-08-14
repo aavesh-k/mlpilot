@@ -35,8 +35,9 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
         >
           <span className="material-symbols-outlined text-2xl">menu</span>
         </button>
-        <NavLink to="/" className="text-xl font-headline font-black text-primary tracking-tighter uppercase">
-          MLPilot
+        <NavLink to="/" className="text-xl font-headline font-black tracking-tighter uppercase">
+          <span className="text-black dark:text-white">ML</span>
+          <span className="text-secondary">Pilot</span>
         </NavLink>
         <nav className="hidden lg:flex items-center gap-6 ml-8">
           {links.map((link) => (

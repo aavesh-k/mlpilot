@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useEDA } from '../modules/datasets/hooks/useEDA'
 import { edaApi } from '../core/api/eda.api'
@@ -10,6 +11,8 @@ import { Badge } from '../shared/components/ui/badge'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot, Finding, DataTypeIssue, ConstantColumn, HighCorrelation, MissingnessMatrix } from '../core/api/eda.api'
 
 export default function EDA() {
+  const [searchParams] = useSearchParams()
+  const paramDatasetId = searchParams.get('datasetId')
   const { data: datasetsData, isLoading: dsLoading } = useDatasets()
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const { status, report, isProcessing } = useEDA(selectedId)
@@ -20,6 +23,13 @@ export default function EDA() {
   const handleSelect = useCallback((id: string) => {
     setSelectedId(id)
   }, [])
+
+  useEffect(() => {
+    if (!selectedId && readyDatasets.length > 0) {
+      const match = paramDatasetId && readyDatasets.some((d) => d.id === paramDatasetId)
+      setSelectedId(match ? paramDatasetId! : readyDatasets[0].id)
+    }
+  }, [readyDatasets, selectedId, paramDatasetId])
 
   useEffect(() => {
     if (selectedId && status?.status === 'not_started') {

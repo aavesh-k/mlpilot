@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useDatasets, useUploadDataset } from '../modules/datasets/hooks/useDatasets'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
@@ -12,19 +13,27 @@ import { apiClient } from '../core/api/client'
 
 export default function DatasetUpload() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
   const [isDragOver, setIsDragOver] = useState(false)
   const { data, isLoading, error, refetch } = useDatasets(page)
   const uploadMutation = useUploadDataset()
 
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoError, setDemoError] = useState<string | null>(null)
+
   const loadDemoDataset = async (demoType: string) => {
     try {
-      const { data } = await apiClient.post('/datasets/demo', { demo: demoType }, {
-        headers: { 'Content-Type': 'application/json' },
-      })
+      setDemoLoading(true)
+      setDemoError(null)
+      const { data } = await apiClient.post('/datasets/demo', { demo: demoType })
+      await queryClient.invalidateQueries({ queryKey: ['datasets'] })
       navigate(`/datasets/${data.id}`)
-    } catch {
-      // error handled by mutation
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load demo dataset'
+      setDemoError(msg)
+    } finally {
+      setDemoLoading(false)
     }
   }
 
@@ -93,10 +102,22 @@ return (
       <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow mb-8">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Try a Demo Dataset</h3>
         <p className="text-on-surface-variant text-sm mb-4">Click a button below to instantly load a sample dataset and start the workflow.</p>
+        {demoError && (
+          <p className="mb-4 text-secondary font-headline font-bold text-sm">
+            Failed to load demo: {demoError}
+          </p>
+        )}
+        {demoLoading && (
+          <div className="mb-4 flex items-center gap-3">
+            <LoadingSpinner className="py-0" />
+            <span className="font-headline font-bold text-sm">Loading demo dataset...</span>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <button
             onClick={() => loadDemoDataset('iris')}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer"
+            disabled={demoLoading}
+            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-2xl mb-2">grade</span>
             <span className="text-xs font-bold">Iris Classification</span>
@@ -104,17 +125,19 @@ return (
           </button>
           <button
             onClick={() => loadDemoDataset('breast_cancer')}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer"
+            disabled={demoLoading}
+            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-2lb mb-2">favorite</span>
+            <span className="material-symbols-outlined text-2xl mb-2">favorite</span>
             <span className="text-xs font-bold">Breast Cancer</span>
             <span className="text-xs text-on-surface-variant">569 samples, 30 features</span>
           </button>
           <button
             onClick={() => loadDemoDataset('housing')}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer"
+            disabled={demoLoading}
+            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-2lb mb-2">house</span>
+            <span className="material-symbols-outlined text-2xl mb-2">house</span>
             <span className="text-xs font-bold">Housing Regression</span>
             <span className="text-xs text-on-surface-variant">489 samples, 8 features</span>
           </button>

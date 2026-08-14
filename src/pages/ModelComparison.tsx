@@ -79,7 +79,7 @@ export default function ModelComparison() {
   if (isLoading) {
     return (
       <div className="p-8 lg:p-12">
-        <PageHeader title="AutoML Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
         <SkeletonTable rows={4} cols={7} />
       </div>
     )
@@ -96,7 +96,7 @@ export default function ModelComparison() {
   if (completedModels.length === 0) {
     return (
       <div className="p-8 lg:p-12">
-        <PageHeader title="AutoML Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
         <EmptyState
           icon="leaderboard"
           title="No trained models yet"
@@ -108,7 +108,7 @@ export default function ModelComparison() {
 
   return (
     <div className="p-8 lg:p-12">
-      <PageHeader title="AutoML Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+      <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
 
       {/* Filters bar */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 bg-surface border-2 border-primary p-4 neo-shadow">

@@ -25,8 +25,8 @@ dist/
 Thumbs.db
 
 # MLPilot data
-data/datasets/
-data/models/
+data/
+backend/data/*.db
 backend/data/datasets/
 backend/data/models/
 backend/data/cleaning/

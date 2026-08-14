@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
 import { useTrainModel, useJobs } from '../modules/training/hooks/useTraining'
 import { PageHeader } from '../shared/components/PageHeader'
@@ -36,6 +37,8 @@ const REGRESSION_ALGOS: AlgoOption[] = [
 ]
 
 export default function ModelTraining() {
+  const [searchParams] = useSearchParams()
+  const paramPipelineId = searchParams.get('pipelineId')
   const [page, setPage] = useState(1)
   const [selectedPipelineId, setSelectedPipelineId] = useState('')
   const [selectedAlgos, setSelectedAlgos] = useState<string[]>([])
@@ -52,6 +55,13 @@ export default function ModelTraining() {
   const pipelines = pipelinesData?.items ?? []
   const completedPipelines = pipelines.filter((p) => p.status === 'completed')
   const jobs = jobsData?.items ?? []
+
+  useEffect(() => {
+    if (!selectedPipelineId && completedPipelines.length > 0) {
+      const match = paramPipelineId && completedPipelines.some((p) => p.id === paramPipelineId)
+      setSelectedPipelineId(match ? paramPipelineId! : completedPipelines[0].id)
+    }
+  }, [completedPipelines, selectedPipelineId, paramPipelineId])
 
   // Resolve selected pipeline details
   const selectedPipeline = completedPipelines.find((p) => p.id === selectedPipelineId)
@@ -126,7 +136,7 @@ export default function ModelTraining() {
 
   return (
     <div className="p-8 lg:p-12">
-      <PageHeader title="AutoML Model" accent="Training" subtitle="Run training across multiple classifiers or regressors simultaneously." />
+      <PageHeader title="Model" accent="Training" subtitle="Run training across multiple classifiers or regressors simultaneously." />
 
       {pipelinesLoading ? (
         <LoadingSpinner />
@@ -263,7 +273,7 @@ export default function ModelTraining() {
               <div className="flex-1 flex flex-col min-h-[300px]">
                 <div className="flex items-center justify-between mb-3 border-b-2 border-primary pb-3">
                   <div>
-                    <h4 className="font-headline font-bold text-sm uppercase">{activeJob.pipeline_id ? 'AutoML Pipeline Run' : 'Raw Model Run'}</h4>
+                    <h4 className="font-headline font-bold text-sm uppercase">{activeJob.pipeline_id ? 'Pipeline Training Run' : 'Raw Model Run'}</h4>
                     <span className="text-[10px] font-mono text-on-surface-variant">{activeJob.id}</span>
                   </div>
                   {jobBadge(activeJob.status)}

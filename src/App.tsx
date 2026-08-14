@@ -20,7 +20,15 @@ import Settings from "./pages/Settings"
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        if (error && typeof error === 'object' && ('code' in error || 'response' in error)) {
+          const err = error as { code?: string; response?: unknown }
+          if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED' || !err.response) {
+            return false
+          }
+        }
+        return failureCount < 1
+      },
       staleTime: 30_000,
     },
   },
@@ -45,7 +53,7 @@ export default function App() {
               <Route
                 path="/preprocessing"
                 element={withErrorBoundary(
-                  <RouteGuard require="dataset"><Preprocessing /></RouteGuard>,
+                  <RouteGuard require="cleaned_dataset"><Preprocessing /></RouteGuard>,
                   "Preprocessing",
                 )}
               />

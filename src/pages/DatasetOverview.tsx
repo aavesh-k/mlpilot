@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom'
+import { NavLink, useParams } from 'react-router-dom'
 import { useDataset } from '../modules/datasets/hooks/useDatasets'
 import { useEDA } from '../modules/datasets/hooks/useEDA'
 import { PageHeader } from '../shared/components/PageHeader'
@@ -45,7 +45,36 @@ export default function DatasetOverview() {
         title="Dataset"
         accent={dataset.name}
         subtitle={`${dataset.row_count?.toLocaleString() ?? '—'} rows × ${dataset.column_count ?? '—'} columns`}
-        action={<Badge variant={dataset.status === 'ready' ? 'success' : 'danger'}>{dataset.status}</Badge>}
+        action={
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant={dataset.status === 'ready' ? 'success' : 'danger'}>{dataset.status}</Badge>
+            <Badge variant={dataset.is_cleaned ? 'success' : 'warning'}>
+              {dataset.is_cleaned ? 'Cleaned' : 'Uncleaned'}
+            </Badge>
+            <NavLink
+              to={`/cleaning?datasetId=${dataset.id}`}
+              className="bg-primary text-white font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
+            >
+              {dataset.is_cleaned ? 'Re-Clean Dataset' : 'Clean Dataset First'}
+            </NavLink>
+            {dataset.is_cleaned ? (
+              <NavLink
+                to={`/preprocessing?datasetId=${dataset.id}`}
+                className="bg-tertiary text-white font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 neo-shadow"
+              >
+                Build Pipeline
+              </NavLink>
+            ) : (
+              <NavLink
+                to={`/cleaning?datasetId=${dataset.id}`}
+                title="Cleaning required before building a pipeline"
+                className="bg-surface-variant text-on-surface-variant font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary transition-all neo-shadow cursor-pointer"
+              >
+                Build Pipeline (Clean First)
+              </NavLink>
+            )}
+          </div>
+        }
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">

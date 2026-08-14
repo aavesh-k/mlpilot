@@ -10,6 +10,8 @@ export interface Dataset {
   row_count: number | null
   column_count: number | null
   status: string
+  is_cleaned?: boolean
+  cleaning_run_id?: string | null
   error_message: string | null
   created_at: string
   updated_at: string

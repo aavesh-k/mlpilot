@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import {
   usePipelines,
@@ -23,6 +23,8 @@ type Step = 'select-columns' | 'config' | 'review'
 
 export default function Preprocessing() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paramDatasetId = searchParams.get('datasetId')
   const [page, setPage] = useState(1)
   const [editPipelineId, setEditPipelineId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -64,7 +66,15 @@ export default function Preprocessing() {
   const { data: targetInfo } = useTargetDetection(selectedDatasetId, targetColumn || undefined)
 
   const datasets = datasetsData?.items ?? []
-  const cleanedDatasets = useMemo(() => datasets.filter((d) => d.status === 'ready'), [datasets])
+  const cleanedDatasets = useMemo(() => datasets.filter((d) => d.status === 'ready' && d.is_cleaned === true), [datasets])
+  const uncleanedDatasets = useMemo(() => datasets.filter((d) => d.status === 'ready' && !d.is_cleaned), [datasets])
+
+  useEffect(() => {
+    if (!selectedDatasetId && cleanedDatasets.length > 0) {
+      const match = paramDatasetId && cleanedDatasets.some((d) => d.id === paramDatasetId)
+      setSelectedDatasetId(match ? paramDatasetId! : cleanedDatasets[0].id)
+    }
+  }, [cleanedDatasets, selectedDatasetId, paramDatasetId])
   const pipelines = pipesData?.items ?? []
 
   const suggestions = suggestionsData?.columns ?? []
@@ -242,6 +252,7 @@ export default function Preprocessing() {
           {step === 'select-columns' && (
             <SelectColumnsStep
               datasets={cleanedDatasets}
+              uncleanedDatasets={uncleanedDatasets}
               selectedDatasetId={selectedDatasetId}
               onSelectDataset={setSelectedDatasetId}
               columns={allColumns}
@@ -418,8 +429,10 @@ function SelectColumnsStep({
   targetDetectionResult, suggestionsLoading,
   problemTypeOverride, onProblemTypeOverride,
   resolvedProblemType, pipelineName, onPipelineNameChange, onNext,
+  uncleanedDatasets = [],
 }: {
   datasets: { id: string; name: string }[]
+  uncleanedDatasets?: { id: string; name: string }[]
   selectedDatasetId: string
   onSelectDataset: (id: string) => void
   columns: string[]
@@ -435,18 +448,33 @@ function SelectColumnsStep({
   onPipelineNameChange: (v: string) => void
   onNext: () => void
 }) {
+  const navigate = useNavigate()
   return (
     <div className="bg-surface border-2 border-primary p-6 neo-shadow">
       <h4 className="font-headline font-black text-lg uppercase mb-6">1. Select Target & Columns</h4>
 
+      {uncleanedDatasets.length > 0 && datasets.length === 0 && (
+        <div className="bg-surface border-2 border-primary p-4 mb-6 border-l-8 border-l-secondary">
+          <h5 className="font-headline font-bold text-sm uppercase text-secondary mb-1">
+            ⚠️ Data Cleaning Required
+          </h5>
+          <p className="text-xs font-body mb-3">
+            MLPilot requires datasets to be cleaned before creating a preprocessing pipeline.
+          </p>
+          <Button variant="primary" size="sm" onClick={() => navigate(`/cleaning?datasetId=${uncleanedDatasets[0].id}`)}>
+            Clean {uncleanedDatasets[0].name} Now
+          </Button>
+        </div>
+      )}
+
       <div className="mb-5">
-        <label className="font-headline font-bold text-xs uppercase block mb-2">Dataset</label>
+        <label className="font-headline font-bold text-xs uppercase block mb-2">Cleaned Dataset</label>
         <select
           value={selectedDatasetId}
           onChange={(e) => onSelectDataset(e.target.value)}
           className="border-2 border-primary bg-surface p-3 w-full max-w-md font-body text-sm"
         >
-          <option value="">-- Select --</option>
+          <option value="">-- Select Cleaned Dataset --</option>
           {datasets.map((d) => (
             <option key={d.id} value={d.id}>{d.name}</option>
           ))}

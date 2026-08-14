@@ -4,7 +4,7 @@ import { useDatasets } from "../../modules/datasets/hooks/useDatasets"
 import { usePipelines } from "../../modules/pipelines/hooks/usePipelines"
 import { useModels } from "../../modules/training/hooks/useTraining"
 
-type GuardRequirement = "dataset" | "preprocessing" | "model" | "training_completed"
+type GuardRequirement = "dataset" | "cleaned_dataset" | "preprocessing" | "model" | "training_completed"
 
 interface RouteGuardProps {
   children: ReactNode
@@ -46,6 +46,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
   const models = modelsData?.items ?? []
 
   const hasDataset = datasets.length > 0
+  const hasCleanedDataset = datasets.some((d) => d.is_cleaned === true)
   const hasCompletedPipeline = pipelines.some((p) => p.status === "completed")
   const hasCompletedModel = models.some((m) => m.status === "completed")
   const hasAnyModel = models.length > 0
@@ -60,6 +61,23 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           message: "Upload a dataset first before accessing preprocessing.",
           actionLabel: "Upload Dataset",
           actionTo: "/datasets",
+        }
+      }
+      break
+    case "cleaned_dataset":
+      if (!hasDataset) {
+        block = {
+          title: "No Dataset Uploaded",
+          message: "Upload a dataset first before accessing preprocessing.",
+          actionLabel: "Upload Dataset",
+          actionTo: "/datasets",
+        }
+      } else if (!hasCleanedDataset) {
+        block = {
+          title: "Data Cleaning Required",
+          message: "Your dataset must be cleaned before you can create a preprocessing pipeline.",
+          actionLabel: "Go to Data Cleaning",
+          actionTo: "/cleaning",
         }
       }
       break

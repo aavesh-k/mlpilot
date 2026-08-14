@@ -5,9 +5,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
-from sklearn.datasets import fetch_openml, load_breast_cancer, load_diabetes, load_digits, load_iris
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
+from sklearn.datasets import load_breast_cancer, load_diabetes, load_digits, load_iris
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
@@ -164,31 +164,60 @@ async def delete_dataset(
     return None
 
 
+def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
+    if target == "iris":
+        data = load_iris(as_frame=True)
+        df = data.frame.copy()
+        df.columns = [
+            c.replace(" (cm)", "").replace(" ", "_") for c in df.columns
+        ]
+        df = df.rename(columns={"target": "species"})
+        return "Iris Flower Classification", df
+
+    elif target == "breast_cancer":
+        data = load_breast_cancer(as_frame=True)
+        df = data.frame.copy()
+        df.columns = [c.replace(" ", "_") for c in df.columns]
+        df = df.rename(columns={"target": "diagnosis"})
+        return "Wisconsin Breast Cancer", df
+
+    elif target == "housing" or target == "california":
+        try:
+            from sklearn.datasets import fetch_california_housing
+            data = fetch_california_housing(as_frame=True)
+            df = data.frame.copy().head(1000)
+            df.columns = [
+                "median_income", "house_age", "avg_rooms", "avg_bedrooms",
+                "population", "avg_occupancy", "latitude", "longitude", "median_house_value"
+            ]
+            return "California Housing Prices", df
+        except Exception:
+            data = load_diabetes(as_frame=True)
+            df = data.frame.copy()
+            df.columns = [c.replace(" ", "_") for c in df.columns]
+            df = df.rename(columns={"target": "disease_progression"})
+            return "Diabetes Progression", df
+
+    elif target == "digits":
+        data = load_digits(as_frame=True)
+        df = data.frame.copy()
+        df.columns = [c.replace(" ", "_") for c in df.columns]
+        return "Optical Digits Recognition", df
+
+    else:
+        raise ValidationError(f"Unknown demo type '{target}'. Choose from: iris, breast_cancer, housing, digits")
+
+
 @router.post("/demo", status_code=201)
 async def upload_demo_dataset(
-    demo_type: str = "...",
+    body: dict | None = None,
+    demo_type: str | None = None,
+    session_id: str = Depends(get_session_id),
 ) -> JSONResponse:
-    """Upload a demo dataset (iris, breast_cancer, housing)."""
-    demo_map = {
-        "iris": ("Iris Dataset", load_iris),
-        "breast_cancer": ("Breast Cancer Dataset", load_breast_cancer),
-        "housing": ("Housing Dataset", load_diabetes),
-        "digits": ("Digits Dataset", load_digits),
-    }
+    """Upload an authentic benchmark dataset (iris, breast_cancer, housing, digits)."""
+    target = (body.get("demo") or body.get("demo_type") if body else None) or demo_type or "iris"
 
-    if demo_type not in demo_map:
-        raise ValidationError(f"Unknown demo type. Choose from: {', '.join(demo_map.keys())}")
-
-    name, loader = demo_map[demo_type]
-    data = loader()
-    if hasattr(data, "data"):
-        X, y = data.data, data.target
-    else:
-        X, y = data["data"], data["target"]
-
-    df = pd.DataFrame(X.copy())
-    df["target"] = y
-    df.columns = [f"feature_{i}" for i in range(X.shape[1])] + ["target"]
+    name, df = _get_demo_dataframe(target)
 
     dataset_id = str(uuid.uuid4())
     dest_dir = settings.DATA_DIR / "datasets" / dataset_id
@@ -199,14 +228,14 @@ async def upload_demo_dataset(
     dataset = {
         "id": dataset_id,
         "name": name,
-        "original_filename": f"{name}.csv",
+        "original_filename": f"{name.lower().replace(' ', '_')}.csv",
         "file_path": str(file_path),
         "file_format": "csv",
         "file_size_bytes": file_path.stat().st_size,
         "row_count": len(df),
         "column_count": len(df.columns),
         "status": "ready",
-        "session_id": "default_user",
+        "session_id": session_id,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }

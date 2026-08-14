@@ -6,7 +6,7 @@ export default function Home() {
       <section className="py-12 md:py-20 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
         <div className="md:col-span-7">
           <h1 className="font-display text-6xl md:text-8xl font-black uppercase leading-none tracking-tighter mb-8">
-            MLPilot: <br />
+            <span className="text-black dark:text-white">ML</span><span className="text-secondary">Pilot</span>: <br />
             <span className="text-secondary">The AI Engine</span> <br />
             for Engineers.
           </h1>
@@ -18,7 +18,7 @@ export default function Home() {
               to="/dashboard"
               className="bg-primary-container text-on-primary-container neo-border font-headline font-black uppercase text-xl px-8 py-4 neo-shadow hover:neo-shadow-active transition-all text-center sm:text-left"
             >
-              Launch Dashboard
+              Get Started
             </NavLink>
             <a
               href="#docs"
@@ -152,7 +152,9 @@ export default function Home() {
       <footer className="bg-primary text-white border-t-2 border-primary py-12 px-6 -mx-6 -mb-20 mt-20">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div>
-            <h4 className="font-display font-black text-2xl uppercase mb-6">MLPilot</h4>
+            <h4 className="font-display font-black text-2xl uppercase mb-6">
+              <span className="text-white">ML</span><span className="text-secondary">Pilot</span>
+            </h4>
             <p className="text-sm opacity-60 leading-relaxed font-medium">
               Built for engineers who value efficiency over hype. Neo-brutalist automation for the next generation of data science.
             </p>

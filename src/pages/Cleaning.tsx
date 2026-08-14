@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useCleaningSuggestions, useExecuteCleaning, useCleaningRuns, useCleaningReport } from '../modules/cleaning/hooks/useCleaning'
 import { PageHeader } from '../shared/components/PageHeader'
@@ -33,6 +33,8 @@ const OUTLIER_LABELS: Record<OutlierStrategy, string> = {
 
 export default function Cleaning() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const paramDatasetId = searchParams.get('datasetId')
   const { data: datasetsData, isLoading: dsLoading } = useDatasets()
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [viewRunId, setViewRunId] = useState<string | undefined>()
@@ -44,6 +46,13 @@ export default function Cleaning() {
 
   const datasets = datasetsData?.items ?? []
   const readyDatasets = datasets.filter((d) => d.status === 'ready')
+
+  useEffect(() => {
+    if (!selectedId && readyDatasets.length > 0) {
+      const match = paramDatasetId && readyDatasets.some((d) => d.id === paramDatasetId)
+      setSelectedId(match ? paramDatasetId! : readyDatasets[0].id)
+    }
+  }, [readyDatasets, selectedId, paramDatasetId])
 
   const [removeDupes, setRemoveDupes] = useState(true)
   const [fixDtypes, setFixDtypes] = useState(true)

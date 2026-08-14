@@ -47,7 +47,7 @@
 ### Added
 - **Data cleaning module**: 6-step pipeline (missing values, outliers, dtype issues, constant columns, currency/date normalization) with auto-suggestions, run history/reports, cleaned CSV download
 - **Async EDA**: background thread + progress polling, correlation heatmap, enriched auto-findings (missingness, outliers, duplicates, high cardinality)
-- **AutoML training**: 10 algorithms (5 classification + 5 regression), K-fold cross-validation, RandomizedSearchCV tuning, multi-model background jobs with per-model progress
+- **Multi-algorithm training**: 10 algorithms (5 classification + 5 regression), K-fold cross-validation, RandomizedSearchCV tuning, multi-model background jobs with per-model progress
 - **Model comparison**: unified leaderboard across algorithms sorted by metric, best-model detection + `set-best`
 - **Interactive diagnostic plots** (Recharts): confusion matrix, ROC/PR curves, feature importance, residuals, learning curve, PNG export
 - **SHAP waterfall explainability** for single-prediction explanations

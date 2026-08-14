@@ -1,6 +1,6 @@
 # MLPilot
 
-Resume-focused full-stack web application that automates the machine learning workflow for tabular datasets. Upload a CSV, run cleaning + EDA, preprocess with pipelines, train and compare AutoML models, visualize diagnostics, score new data, and export reports — all through a neo-brutalist UI.
+Resume-focused full-stack web application that automates the machine learning workflow for tabular datasets. Upload a CSV, run cleaning + EDA, preprocess with pipelines, train and compare ML models, visualize diagnostics, score new data, and export reports — all through a neo-brutalist UI.
 
 ## Tech Stack
 
@@ -27,9 +27,9 @@ Resume-focused full-stack web application that automates the machine learning wo
 
 ```
 Upload ─▶ Clean ─▶ EDA ─▶ Pipeline ─▶ Train ─▶ Compare ─▶ Predict/Export
- (dataset) (6-step   (stats,  (impute,  (AutoML,  (leaderboard, (score new
-            cleaning) findings, encode,  10 algos,  best model,  data, SHAP,
-            async)   plots)    scale,    CV, tuning) plots,       recipes,
+ (dataset) (6-step   (stats,  (impute,  (10 algos, (leaderboard, (score new
+            cleaning) findings, encode,  CV,        best model,  data, SHAP,
+            async)   plots)    scale,    tuning)    plots,       recipes,
                               split)                reports)
 ```
 
@@ -58,7 +58,7 @@ backend/
 │           ├── eda.py             # Async EDA with progress polling
 │           ├── cleaning.py        # Cleaning suggestions, execute, reports
 │           ├── pipelines.py       # CRUD, execution, suggest, detect-target, score
-│           ├── training.py        # AutoML, jobs/cancel, compare, plots, exports, SHAP
+│           ├── training.py        # Model training, jobs/cancel, compare, plots, exports, SHAP
 │           └── settings.py        # App settings
 └── tests/
     ├── test_health.py
@@ -102,7 +102,7 @@ src/
 │   ├── Cleaning.tsx               # 6-step cleaning pipeline + report view
 │   ├── EDA.tsx                    # Async EDA, correlation heatmap + findings
 │   ├── Preprocessing.tsx          # Pipeline CRUD
-│   ├── ModelTraining.tsx          # AutoML algorithm selection + training
+│   ├── ModelTraining.tsx          # Multi-algorithm selection + training
 │   ├── ModelComparison.tsx        # Leaderboard with metrics + job monitoring
 │   ├── Visualizations.tsx         # Confusion matrix, ROC/PR, importance, residuals
 │   ├── Results.tsx                # Model history + downloads + predictions
@@ -188,7 +188,7 @@ npm run build   # produces dist/
 | `DELETE` | `/api/v1/pipelines/{id}` | Delete pipeline |
 | `POST` | `/api/v1/pipelines/{id}/execute` | Execute pipeline (background) |
 | `POST` | `/api/v1/pipelines/{id}/score` | Score new data against a model |
-| `POST` | `/api/v1/training/` | Train model(s) — single or AutoML batch |
+| `POST` | `/api/v1/training/` | Train model(s) — single or multi-algorithm batch |
 | `GET` | `/api/v1/training/models` | List models (paginated) |
 | `GET` | `/api/v1/training/models/compare` | Compare models (leaderboard) |
 | `GET` | `/api/v1/training/models/{id}` | Get model |
@@ -252,7 +252,7 @@ The project includes GitHub Actions CI (`.github/workflows/ci.yml`) that runs on
 - [x] 6-step data cleaning: missing values, outliers, dtype issues, constant columns, currency/date normalization, with suggestions + run reports + cleaned CSV download
 - [x] Automated EDA (async): column stats, correlation heatmap, auto-findings, outliers, duplicates
 - [x] Preprocessing pipelines: imputation (incl. KNN), encoding (OHE, label, target), scaling, train/test split, feature selection, SMOTE/class-weight handling
-- [x] AutoML training: 10 algorithms, cross-validation, RandomizedSearchCV tuning
+- [x] Multi-algorithm training: 10 algorithms, cross-validation, RandomizedSearchCV tuning
 - [x] Multi-model jobs with progress, lifecycle tracking (queued → running → completed/failed/cancelled) and cooperative cancellation
 - [x] Model comparison leaderboard with best-model detection + set-best
 - [x] Diagnostic plots: confusion matrix, ROC/PR curves, feature importance, residuals, learning curve (Recharts + PNG export)

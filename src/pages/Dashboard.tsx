@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import axios from 'axios'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useModels } from '../modules/training/hooks/useTraining'
 import { SkeletonCard } from '../shared/components/LoadingSpinner'
@@ -33,11 +34,16 @@ export default function Dashboard() {
   }
 
   if (error) {
+    const isNetworkErr = axios.isAxiosError(error) && (!error.response || error.code === 'ERR_NETWORK')
+    const errorMessage = isNetworkErr
+      ? 'Cannot connect to MLPilot backend API at http://localhost:8000. Please ensure the FastAPI backend is running (cd backend && uvicorn app.main:app --reload --port 8000).'
+      : 'Could not fetch your data. Please try again.'
+
     return (
       <div className="flex-1 overflow-y-auto p-8 lg:p-12">
         <ErrorState
           title="Failed to load dashboard"
-          message="Could not fetch your data. Please try again."
+          message={errorMessage}
           onRetry={() => { dsRefetch(); modelsRefetch() }}
         />
       </div>
@@ -49,7 +55,7 @@ export default function Dashboard() {
       <div className="flex-1 overflow-y-auto p-8 lg:p-12">
         <section className="mb-16">
           <h1 className="font-headline text-6xl md:text-8xl font-black uppercase leading-none mb-4 tracking-tighter">
-            Welcome to <span className="text-tertiary">MLPilot</span>
+            Welcome to <span className="text-black dark:text-white">ML</span><span className="text-secondary">Pilot</span>
           </h1>
           <p className="text-xl max-w-2xl text-on-surface-variant font-medium">
             Upload your first dataset to begin.

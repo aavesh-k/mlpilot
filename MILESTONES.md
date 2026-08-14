@@ -98,7 +98,7 @@ Each milestone is independently buildable and testable. They build on each other
 ### Features
 - [x] Data cleaning module: 6-step pipeline (missing values, outliers, dtype issues, constant columns, date/currency normalization) with auto-suggestions, run reports, cleaned CSV download
 - [x] Async EDA: background thread + progress polling, correlation heatmap, enriched auto-findings (missingness, outliers, duplicates, high cardinality)
-- [x] AutoML multi-algorithm training: 10 algorithms (5 classification + 5 regression), K-fold CV, RandomizedSearchCV tuning, per-job progress
+- [x] Multi-algorithm training: 10 algorithms (5 classification + 5 regression), K-fold CV, RandomizedSearchCV tuning, per-job progress
 - [x] Cooperative job cancellation — background worker checks a cancel event between steps/models and finalizes the job record
 - [x] Model comparison: unified leaderboard across algorithms, sorted by metric, best-model detection
 - [x] Interactive diagnostic plots (Recharts): confusion matrix, ROC/PR curves, feature importance, residuals, learning curve + PNG export

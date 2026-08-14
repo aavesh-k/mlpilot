@@ -95,5 +95,5 @@ def test_model_export_endpoints(client: TestClient) -> None:
     assert report_resp.status_code == 200
     assert "text/html" in report_resp.headers["content-type"]
     assert "<!DOCTYPE html>" in report_resp.text
-    assert "MLPilot Executive AutoML Report" in report_resp.text
+    assert "MLPilot Executive Report" in report_resp.text
     assert "data:image/png;base64," in report_resp.text

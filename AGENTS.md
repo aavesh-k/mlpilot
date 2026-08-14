@@ -102,7 +102,7 @@ Read MILESTONES.md.
 
 **Milestone 3: Polish & DX** — Tests, error handling, loading/error/empty states, pagination, README, CI pipeline.
 
-**Milestone 4: Advanced Features** — Cleaning module, async EDA, AutoML (10 algorithms, CV, tuning), diagnostic plots, SHAP explainability, prediction/scoring, export hub, session isolation, settings API. Backend fully `ruff check` clean; 54 backend tests + 50 frontend tests all green.
+**Milestone 4: Advanced Features** — Cleaning module, async EDA, multi-algorithm training (10 algorithms, CV, tuning), diagnostic plots, SHAP explainability, prediction/scoring, export hub, session isolation, settings API. Backend fully `ruff check` clean; 54 backend tests + 50 frontend tests all green.
 
 Auth (Milestone 2) is deferred and should NOT be implemented yet — the current focus is ML workflow depth and polish.
 

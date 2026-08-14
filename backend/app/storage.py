@@ -3,7 +3,7 @@ import json
 import math
 import os
 import tempfile
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +50,7 @@ class SQLStorage:
     def _upsert(self, record_cls, record_id: str, body: dict, session: Session, extra: dict | None = None) -> dict:
         model = session.get(record_cls, record_id)
         created_at = body.get("created_at")
+        session_id = body.get("session_id")
         if isinstance(created_at, str):
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
@@ -57,10 +58,12 @@ class SQLStorage:
                 created_at = None
         payload = {**body, **(extra or {})}
         if model is None:
-            model = record_cls(id=record_id, data=payload, created_at=created_at)
+            model = record_cls(id=record_id, session_id=session_id, data=payload, created_at=created_at)
             session.add(model)
         else:
             model.data = payload
+            if session_id:
+                model.session_id = session_id
             if created_at is not None:
                 model.created_at = created_at
         session.flush()
@@ -71,11 +74,15 @@ class SQLStorage:
             model = session.get(record_cls, record_id)
             return dict(model.data) if model else None
 
-    def _list(self, record_cls, session_id: str | None, batch: int | None = None) -> list[dict]:
+    def _list(self, record_cls, session_id: str | None, _batch: int | None = None) -> list[dict]:
         with session_scope() as session:
             stmt = select(record_cls).order_by(record_cls.created_at.desc(), record_cls.id.desc())
             if session_id:
-                stmt = stmt.where(record_cls.session_id == session_id)
+                stmt = stmt.where(
+                    (record_cls.session_id == session_id)
+                    | (record_cls.session_id == "default_user")
+                    | (record_cls.session_id.is_(None))
+                )
             rows = session.scalars(stmt).all()
             return [dict(r.data) for r in rows]
 
