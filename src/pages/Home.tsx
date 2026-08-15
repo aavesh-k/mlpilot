@@ -11,7 +11,7 @@ export default function Home() {
             for Engineers.
           </h1>
           <p className="text-xl md:text-2xl font-medium max-w-xl mb-10 leading-relaxed border-l-4 border-primary pl-6">
-            Automate your ML workflow from dataset to deployment with neo-brutalist precision. FORM FOLLOWS FUNCTION.
+            Automate your ML workflow from dataset to prediction with neo-brutalist precision. FORM FOLLOWS FUNCTION.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
             <NavLink
