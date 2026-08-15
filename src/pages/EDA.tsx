@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useEDA } from '../modules/datasets/hooks/useEDA'
-import { edaApi } from '../core/api/eda.api'
+import { edaApi, type PotentialTarget } from '../core/api/eda.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
@@ -87,6 +87,7 @@ function EDAReportView({ report }: { report: EDAReport }) {
       <OutliersSection outliers={report.outliers} />
       <CategoricalSection categories={report.categorical_summary} />
       <CorrelationSection matrix={report.correlation_matrix} highPairs={report.high_correlations} />
+      <PotentialTargetsSection targets={report.potential_targets ?? []} />
       <DistributionSection plots={report.distribution_plots} />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <DuplicatesCard duplicates={report.duplicates} totalRows={report.shape.rows} />
@@ -699,6 +700,47 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
                 ))}
               </div>
             )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PotentialTargetsSection({ targets }: { targets: PotentialTarget[] }) {
+  if (!targets || targets.length === 0) return null
+  return (
+    <div className="bg-surface border-2 border-primary p-6 md:p-8 neo-shadow">
+      <h3 className="font-headline font-black text-xl uppercase tracking-tight mb-4 flex items-center gap-2">
+        <span className="material-symbols-outlined text-secondary">flag</span>
+        Potential Target Columns &amp; Class Balance
+      </h3>
+      <p className="text-xs font-body text-on-surface-variant mb-4">
+        Columns that look like classification targets, with their class distribution and imbalance ratio (AC-02).
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {targets.map((t) => (
+          <div
+            key={t.column}
+            className={`border-2 p-4 neo-shadow-sm ${t.is_imbalanced ? 'border-amber-500 bg-amber-50/50' : 'border-primary/40'}`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-headline font-black text-sm uppercase">{t.column}</span>
+              <Badge variant={t.is_imbalanced ? 'warning' : 'success'}>
+                {t.is_imbalanced ? `Imbalanced ${t.imbalance_ratio}x` : 'Balanced'}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {Object.entries(t.distribution ?? {}).slice(0, 8).map(([k, v]: [string, number]) => (
+                <span key={k} className="text-[10px] font-headline font-bold bg-surface-variant px-1.5 py-0.5">
+                  {String(k)}: {v}
+                </span>
+              ))}
+            </div>
+            <p className="text-[11px] font-body text-on-surface-variant">
+              {t.class_count} classes · majority {Math.round((t.majority_pct ?? 0) * 100)}% / minority{' '}
+              {Math.round((t.minority_pct ?? 0) * 100)}%
+            </p>
           </div>
         ))}
       </div>

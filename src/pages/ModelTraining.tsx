@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
 import { useTrainModel, useJobs } from '../modules/training/hooks/useTraining'
+import type { AlgorithmInfo } from '../core/api/training.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
@@ -47,10 +49,17 @@ export default function ModelTraining() {
   const [customName, setCustomName] = useState('')
   const [validationError, setValidationError] = useState('')
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [hyperparameters, setHyperparameters] = useState<Record<string, Record<string, unknown>>>({})
+  const [showHyperparams, setShowHyperparams] = useState(false)
 
   const { data: pipelinesData, isLoading: pipelinesLoading } = usePipelines(1)
   const { data: jobsData, isLoading: jobsLoading, error, refetch } = useJobs(page)
   const trainMutation = useTrainModel()
+  const { data: algorithmsData } = useQuery({
+    queryKey: ['algorithms'],
+    queryFn: () => trainingApi.getAlgorithms(),
+  })
+  const algorithmInfo: Record<string, AlgorithmInfo> = algorithmsData?.algorithms ?? {}
 
   const pipelines = pipelinesData?.items ?? []
   const completedPipelines = pipelines.filter((p) => p.status === 'completed')
@@ -102,6 +111,7 @@ export default function ModelTraining() {
       cv_folds: cvFolds,
       tuning_enabled: tuningEnabled,
       name: customName || undefined,
+      hyperparameters: Object.keys(hyperparameters).length > 0 ? hyperparameters : undefined,
     }
 
     const result = trainModelSchema.safeParse(requestData)
@@ -237,6 +247,68 @@ export default function ModelTraining() {
                   </div>
                 </div>
 
+                {/* Hyperparameter Configuration (US-17) */}
+                <div className="mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowHyperparams((v) => !v)}
+                    className="flex items-center gap-2 font-headline font-bold text-xs uppercase mb-2 hover:text-tertiary"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {showHyperparams ? 'expand_less' : 'tune'}
+                    </span>
+                    Configure Hyperparameters (Optional)
+                  </button>
+                  {showHyperparams && (
+                    <div className="border-2 border-primary/40 bg-surface-variant/30 p-4 space-y-4">
+                      {selectedAlgos.length === 0 && (
+                        <p className="text-[11px] text-on-surface-variant">Select at least one algorithm to configure its hyperparameters.</p>
+                      )}
+                      {selectedAlgos.map((algoId) => {
+                        const info = algorithmInfo[algoId]
+                        const gridKeys = info ? Object.keys(info.tunable_grid) : []
+                        if (gridKeys.length === 0) return null
+                        return (
+                          <div key={algoId}>
+                            <div className="font-headline font-bold text-xs uppercase mb-2">{algoId.replace(/_/g, ' ')}</div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              {gridKeys.map((param) => {
+                                const def = info.defaults?.[param]
+                                const current = hyperparameters[algoId]?.[param]
+                                return (
+                                  <div key={param}>
+                                    <label className="block text-[10px] font-headline font-bold uppercase mb-1">{param}</label>
+                                    <input
+                                      type="number"
+                                      step="any"
+                                      placeholder={def != null ? String(def) : ''}
+                                      value={current != null ? String(current) : ''}
+                                      onChange={(e) => {
+                                        const raw = e.target.value
+                                        const num = raw === '' ? undefined : Number(raw)
+                                        setHyperparameters((prev) => {
+                                          const next = { ...prev }
+                                          const algoParams = { ...(next[algoId] ?? {}) }
+                                          if (num === undefined) delete algoParams[param]
+                                          else algoParams[param] = num
+                                          if (Object.keys(algoParams).length === 0) delete next[algoId]
+                                          else next[algoId] = algoParams
+                                          return next
+                                        })
+                                      }}
+                                      className="border-2 border-primary bg-surface p-2 w-full font-body text-xs"
+                                    />
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 {/* Job Name */}
                 <div className="mb-8">
                   <label className="font-headline font-bold text-xs uppercase block mb-2">Custom Job Name (Optional)</label>
@@ -288,6 +360,11 @@ export default function ModelTraining() {
                   <div className="h-4 border-2 border-primary bg-surface-variant relative overflow-hidden">
                     <div className="h-full bg-secondary transition-all duration-300" style={{ width: `${activeJob.progress}%` }} />
                   </div>
+                  {activeJob.eta_seconds != null && activeJob.status === 'running' && (
+                    <p className="font-headline font-bold text-[10px] uppercase mt-1 text-on-surface-variant">
+                      Estimated time remaining: {Math.round(activeJob.eta_seconds)}s
+                    </p>
+                  )}
                 </div>
 
                 {/* Live logs terminal box */}

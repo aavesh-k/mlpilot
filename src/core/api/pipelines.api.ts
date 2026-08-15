@@ -83,6 +83,8 @@ export interface Pipeline {
   train_path?: string
   test_path?: string
   artifact_path?: string
+  imputation?: { strategy: string; [key: string]: unknown }
+  column_mapping?: Record<string, string>
   created_at: string
   updated_at: string
 }

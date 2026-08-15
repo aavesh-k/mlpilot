@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import math
 import re
+from typing import TYPE_CHECKING
 
-import numpy as np
-import pandas as pd
-from sklearn.impute import KNNImputer
-
+if TYPE_CHECKING:
+    import pandas as pd
 
 def _snapshot(df: pd.DataFrame) -> dict:
     total = len(df)
@@ -135,6 +136,8 @@ def run_cleaning(df: pd.DataFrame, config: dict) -> tuple[pd.DataFrame, list[dic
 
 
 def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], _total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
+    import pandas as pd
+
     logs: list[dict] = []
     column_changes: list[dict] = []
     drop_cols: list[str] = []
@@ -206,6 +209,9 @@ def _apply_missing_strategies(df: pd.DataFrame, strategies: dict[str, str], _tot
 
 
 def _apply_knn_impute(df: pd.DataFrame, col: str, logs: list, _column_changes: list) -> None:
+    import numpy as np
+    from sklearn.impute import KNNImputer
+
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if col not in numeric_cols or len(numeric_cols) < 2:
         logs.append(_log(
@@ -229,6 +235,8 @@ def _apply_knn_impute(df: pd.DataFrame, col: str, logs: list, _column_changes: l
 
 
 def _apply_outlier_strategies(df: pd.DataFrame, strategies: dict[str, str], _total_rows: int) -> tuple[list[dict], pd.DataFrame, list[dict]]:
+    import pandas as pd
+
     logs: list[dict] = []
     column_changes: list[dict] = []
     to_remove: set[int] = set()
@@ -296,6 +304,8 @@ _COMMA_RE = re.compile(r",(?=\d)")
 
 
 def _fix_dtype_issues(df: pd.DataFrame) -> tuple[list[dict], pd.DataFrame, list[dict]]:
+    import pandas as pd
+
     logs: list[dict] = []
     column_changes: list[dict] = []
     for col in df.columns:

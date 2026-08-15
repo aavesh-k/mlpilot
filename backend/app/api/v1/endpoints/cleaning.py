@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
+
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
@@ -19,6 +24,8 @@ OUTLIER_THRESHOLD = 1.5
 
 
 def _read_dataframe(dataset: dict) -> pd.DataFrame:
+    import pandas as pd
+
     file_path = Path(dataset["file_path"])
     if not file_path.exists():
         raise NotFoundError("Dataset file", str(file_path))
@@ -39,6 +46,8 @@ def _read_dataframe(dataset: dict) -> pd.DataFrame:
 
 
 def _smart_missing_default(df: pd.DataFrame, col: str, missing_pct: float) -> str:
+    import pandas as pd
+
     if missing_pct > 0.5:
         return "drop_column"
     if missing_pct < 0.01:
@@ -64,6 +73,8 @@ async def get_cleaning_suggestions(
     dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
+
+    import pandas as pd
 
     df = _read_dataframe(dataset)
     total = len(df)

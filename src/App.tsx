@@ -21,14 +21,14 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: (failureCount, error) => {
-        if (error && typeof error === 'object' && ('code' in error || 'response' in error)) {
-          const err = error as { code?: string; response?: unknown }
-          if (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED' || !err.response) {
-            return false
-          }
-        }
-        return failureCount < 1
+        const err = error as { code?: string; response?: unknown } | null
+        const isNetwork = !!err && (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED' || !err.response)
+        // Network errors (backend not yet up / unreachable) retry with backoff;
+        // real 4xx/5xx responses from a live backend fail fast.
+        if (!isNetwork) return false
+        return failureCount < 5
       },
+      retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 8000),
       staleTime: 30_000,
     },
   },

@@ -7,6 +7,11 @@ class EncodingConfigSchema(BaseModel):
     scale_columns: list[str] | None = None
 
 
+class ImputationConfigSchema(BaseModel):
+    strategy: str = Field(default="none", pattern=r"^(none|mean|median|most_frequent)$")
+    scope: str = Field(default="all", pattern=r"^(all|numeric|categorical)$")
+
+
 class ScalingConfigSchema(BaseModel):
     strategy: str = Field(default="auto", pattern=r"^(auto|standard|minmax|robust)$")
 
@@ -36,6 +41,7 @@ class CreatePipelineSchema(BaseModel):
     scaling: ScalingConfigSchema = Field(default_factory=ScalingConfigSchema)
     split: SplitConfigSchema = Field(default_factory=SplitConfigSchema)
     feature_selection: FeatureSelectionConfigSchema = Field(default_factory=FeatureSelectionConfigSchema)
+    imputation: ImputationConfigSchema = Field(default_factory=ImputationConfigSchema)
     use_smote: bool = False
     use_class_weight: bool = False
 
@@ -49,6 +55,7 @@ class UpdatePipelineSchema(BaseModel):
     scaling: ScalingConfigSchema | None = None
     split: SplitConfigSchema | None = None
     feature_selection: FeatureSelectionConfigSchema | None = None
+    imputation: ImputationConfigSchema | None = None
     use_smote: bool | None = None
     use_class_weight: bool | None = None
 

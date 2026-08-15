@@ -121,6 +121,18 @@ export interface EDAReport {
   data_type_issues: DataTypeIssue[]
   constant_columns: ConstantColumn[]
   findings: Finding[]
+  potential_targets?: PotentialTarget[]
+}
+
+export interface PotentialTarget {
+  column: string
+  task_type: 'classification' | 'regression' | 'unknown'
+  class_count?: number
+  distribution?: Record<string, number>
+  majority_pct?: number
+  minority_pct?: number
+  imbalance_ratio?: number
+  is_imbalanced?: boolean
 }
 
 export interface EDAStatusResponse {

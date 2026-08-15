@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import threading
@@ -5,45 +7,13 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import cloudpickle
-import numpy as np
-import pandas as pd
+if TYPE_CHECKING:
+    import numpy as np
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.inspection import permutation_importance
-from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
-from sklearn.metrics import (
-    accuracy_score,
-    auc,
-    average_precision_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    mean_squared_error,
-    precision_recall_curve,
-    precision_score,
-    r2_score,
-    recall_score,
-    roc_auc_score,
-    roc_curve,
-)
-from sklearn.model_selection import (
-    KFold,
-    RandomizedSearchCV,
-    StratifiedKFold,
-    cross_validate,
-    learning_curve,
-    train_test_split,
-)
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import Pipeline as SklearnPipeline
-from sklearn.svm import SVC
-from xgboost import XGBClassifier, XGBRegressor
 
 from app.api.v1.endpoints.datasets import get_session_id
 from app.api.v1.schemas.plots import ModelPlotsResponseSchema
@@ -86,58 +56,104 @@ def _unregister_cancel_event(job_id: str) -> None:
     with _cancel_events_lock:
         _cancel_events.pop(job_id, None)
 
-ALGORITHMS = {
-    # Classification
-    "logistic_regression": lambda hp: LogisticRegression(
-        C=hp.get("C", 1.0),
-        max_iter=hp.get("max_iter", 1000),
-        random_state=hp.get("random_state", 42),
-    ),
-    "random_forest": lambda hp: RandomForestClassifier(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth"),
-        random_state=hp.get("random_state", 42),
-    ),
-    "xgboost": lambda hp: XGBClassifier(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth", 6),
-        learning_rate=hp.get("learning_rate", 0.3),
-        random_state=hp.get("random_state", 42),
-        use_label_encoder=False,
-        eval_metric="logloss",
-    ),
-    "svm": lambda hp: SVC(
-        C=hp.get("C", 1.0),
-        kernel=hp.get("kernel", "rbf"),
-        probability=True,
-        random_state=hp.get("random_state", 42),
-    ),
-    "knn": lambda hp: KNeighborsClassifier(
-        n_neighbors=hp.get("n_neighbors", 5),
-    ),
 
-    # Regression
-    "linear_regression": lambda _hp: LinearRegression(),
-    "ridge": lambda hp: Ridge(
-        alpha=hp.get("alpha", 1.0),
-        random_state=hp.get("random_state", 42),
-    ),
-    "lasso": lambda hp: Lasso(
-        alpha=hp.get("alpha", 1.0),
-        random_state=hp.get("random_state", 42),
-    ),
-    "random_forest_regressor": lambda hp: RandomForestRegressor(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth"),
-        random_state=hp.get("random_state", 42),
-    ),
-    "xgboost_regressor": lambda hp: XGBRegressor(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth", 6),
-        learning_rate=hp.get("learning_rate", 0.3),
-        random_state=hp.get("random_state", 42),
-    ),
-}
+def _resolve_hyperparameters(algo: str, hyperparameters: dict | None) -> dict:
+    """Merge user-provided hyperparameters with algorithm defaults.
+
+    ``hyperparameters`` may be keyed per-algorithm (``{"random_forest": {...}}``)
+    or provided as a flat global dict applied to every selected algorithm.
+    """
+    if not hyperparameters:
+        return {}
+    if algo in hyperparameters and isinstance(hyperparameters[algo], dict):
+        return dict(hyperparameters[algo])
+    return {k: v for k, v in hyperparameters.items() if not isinstance(v, dict)}
+
+
+def _attach_eta(job: dict) -> dict:
+    """Compute a remaining-time estimate for an in-flight job (US-19)."""
+    status = job.get("status")
+    if status in ("completed", "failed", "cancelled"):
+        job["eta_seconds"] = None
+        return job
+    run_started = job.get("run_started_at") or job.get("started_at")
+    progress = float(job.get("progress", 0.0) or 0.0)
+    if run_started and progress > 0:
+        try:
+            start = datetime.fromisoformat(run_started)
+            elapsed = (datetime.now(UTC) - start).total_seconds()
+            job["eta_seconds"] = round(elapsed * (100.0 - progress) / progress, 1)
+        except Exception:
+            job["eta_seconds"] = None
+    else:
+        job["eta_seconds"] = None
+    return job
+
+
+_ALGORITHMS_CACHE: dict | None = None
+
+
+def get_algorithms() -> dict:
+    global _ALGORITHMS_CACHE
+    if _ALGORITHMS_CACHE is None:
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+        from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.svm import SVC
+        from xgboost import XGBClassifier, XGBRegressor
+        _ALGORITHMS_CACHE = {
+            # Classification
+            "logistic_regression": lambda hp: LogisticRegression(
+                C=hp.get("C", 1.0),
+                max_iter=hp.get("max_iter", 1000),
+                random_state=hp.get("random_state", 42),
+            ),
+            "random_forest": lambda hp: RandomForestClassifier(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth"),
+                random_state=hp.get("random_state", 42),
+            ),
+            "xgboost": lambda hp: XGBClassifier(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth", 6),
+                learning_rate=hp.get("learning_rate", 0.3),
+                random_state=hp.get("random_state", 42),
+                use_label_encoder=False,
+                eval_metric="logloss",
+            ),
+            "svm": lambda hp: SVC(
+                C=hp.get("C", 1.0),
+                kernel=hp.get("kernel", "rbf"),
+                probability=True,
+                random_state=hp.get("random_state", 42),
+            ),
+            "knn": lambda hp: KNeighborsClassifier(
+                n_neighbors=hp.get("n_neighbors", 5),
+            ),
+
+            # Regression
+            "linear_regression": lambda _hp: LinearRegression(),
+            "ridge": lambda hp: Ridge(
+                alpha=hp.get("alpha", 1.0),
+                random_state=hp.get("random_state", 42),
+            ),
+            "lasso": lambda hp: Lasso(
+                alpha=hp.get("alpha", 1.0),
+                random_state=hp.get("random_state", 42),
+            ),
+            "random_forest_regressor": lambda hp: RandomForestRegressor(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth"),
+                random_state=hp.get("random_state", 42),
+            ),
+            "xgboost_regressor": lambda hp: XGBRegressor(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth", 6),
+                learning_rate=hp.get("learning_rate", 0.3),
+                random_state=hp.get("random_state", 42),
+            ),
+        }
+    return _ALGORITHMS_CACHE
 
 PARAM_GRIDS = {
     "logistic_regression": {
@@ -179,6 +195,10 @@ PARAM_GRIDS = {
 
 
 def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
+    import numpy as np
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+
     pipeline_id = body.pipeline_id
     use_class_weight = False
 
@@ -251,6 +271,9 @@ def _append_log(job: dict, message: str) -> None:
 
 
 def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, problem_type: str, cv_folds: int) -> dict:
+    import numpy as np
+    from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
+
     if problem_type == "classification":
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
         scoring = ["accuracy", "f1_weighted"]
@@ -273,6 +296,19 @@ def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, pr
 
 
 def _evaluate_model(clf: Any, X_test: np.ndarray, y_test: np.ndarray, problem_type: str) -> dict:
+    import numpy as np
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        mean_absolute_error,
+        mean_absolute_percentage_error,
+        mean_squared_error,
+        precision_score,
+        r2_score,
+        recall_score,
+        roc_auc_score,
+    )
+
     y_pred = clf.predict(X_test)
 
     metrics = {}
@@ -317,7 +353,14 @@ def _run_multi_training_background(
     model_ids_map: dict[str, str],
     use_class_weight: bool = False,
     random_seed: int = 42,
+    hyperparameters: dict | None = None,
 ) -> None:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.model_selection import KFold, RandomizedSearchCV, StratifiedKFold
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     job = storage.get_job(job_id)
     if not job:
         return
@@ -329,10 +372,25 @@ def _run_multi_training_background(
         _unregister_cancel_event(job_id)
         return
 
+    resource_settings = storage.get_settings()
+    max_runtime_minutes = float(resource_settings.get("max_runtime_minutes", 0) or 0)
+
     job["status"] = "running"
     job["progress"] = 5.0
+    job["run_started_at"] = datetime.now(UTC).isoformat()
     _append_log(job, f"Starting multi-model training pipeline. Folds: {cv_folds}, Tuning: {tuning_enabled}")
+    if max_runtime_minutes > 0:
+        _append_log(job, f"Resource limit: max runtime = {max_runtime_minutes:.0f} minutes")
     storage.save_job(job)
+
+    def _runtime_exceeded() -> bool:
+        if max_runtime_minutes <= 0:
+            return False
+        try:
+            start = datetime.fromisoformat(job["run_started_at"])
+        except Exception:
+            return False
+        return (datetime.now(UTC) - start).total_seconds() > max_runtime_minutes * 60
 
     problem_type = "classification"
     if pipeline_id:
@@ -367,6 +425,16 @@ def _run_multi_training_background(
         model_entry["status"] = "running"
         storage.save_model(model_entry)
 
+        if _runtime_exceeded():
+            _append_log(job, "Max runtime exceeded — aborting remaining training.")
+            job["status"] = "failed"
+            job["error_message"] = "Training aborted: exceeded configured max runtime limit."
+            job["progress"] = job.get("progress", 5.0)
+            storage.save_job(job)
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=idx)
+            _unregister_cancel_event(job_id)
+            return
+
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
         job["progress"] = round(job_progress_base, 1)
         _append_log(job, f"[{idx + 1}/{total_algos}] Training baseline {algo}...")
@@ -374,7 +442,10 @@ def _run_multi_training_background(
 
         try:
             start_time = time.perf_counter()
-            clf = ALGORITHMS[algo]({})
+            hp = _resolve_hyperparameters(algo, hyperparameters)
+            if hp:
+                _append_log(job, f"Using custom hyperparameters for {algo}: {hp}")
+            clf = get_algorithms()[algo](hp)
 
             # Apply class weights if configured
             if use_class_weight:
@@ -442,7 +513,11 @@ def _run_multi_training_background(
 
     # Hyperparameter Tuning Step
     if tuning_enabled and len(completed_models_metrics) >= 1:
-        if _is_cancelled(job_id):
+        if _runtime_exceeded():
+            _append_log(job, "Max runtime exceeded during tuning — finalizing with baselines.")
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
+            # Fall through to finalize with whatever completed
+        elif _is_cancelled(job_id):
             _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
             _unregister_cancel_event(job_id)
             return
@@ -545,6 +620,8 @@ def _run_multi_training_background(
                 _append_log(job, f"Hyperparameter tuning failed for {algo}: {e}")
 
     # Build final Leaderboard and serialize win bundles
+    if _runtime_exceeded() and job.get("status") not in ("failed",):
+        _append_log(job, "Max runtime exceeded — finalizing with available models.")
     if _is_cancelled(job_id):
         _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
         _unregister_cancel_event(job_id)
@@ -636,12 +713,34 @@ def _cancel_remaining_models(
     storage.save_job(job)
 
 
+@router.get("/algorithms")
+async def list_algorithms() -> dict:
+    """Expose available algorithms, their tunable hyperparameter grids, and defaults (US-17)."""
+    algorithms: dict[str, dict] = {}
+    for name, factory in get_algorithms().items():
+        grid = PARAM_GRIDS.get(name, {})
+        defaults: dict = {}
+        try:
+            estimator = factory({})
+            params = estimator.get_params()
+            defaults = {k: params.get(k) for k in grid}
+        except Exception:
+            defaults = {}
+        algorithms[name] = {
+            "tunable_grid": grid,
+            "defaults": defaults,
+        }
+    return {"algorithms": algorithms}
+
+
 @router.post("/", status_code=201)
 async def train_model(
     body: TrainModelSchema,
     background_tasks: BackgroundTasks,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import pandas as pd
+
     # Resolve target dataset or pipeline
     pipeline_id = body.pipeline_id
     dataset_id = body.dataset_id
@@ -687,10 +786,19 @@ async def train_model(
             selected_algos = ["linear_regression", "ridge", "lasso", "random_forest_regressor", "xgboost_regressor"]
 
     # Validate algorithms list
-    valid_algos = set(ALGORITHMS.keys())
+    valid_algos = set(get_algorithms().keys())
     invalid = [a for a in selected_algos if a not in valid_algos]
     if invalid:
         raise ValidationError(f"Invalid algorithm(s): {', '.join(invalid)}")
+
+    # Enforce configured memory limit (US-27)
+    resource_settings = storage.get_settings()
+    max_memory_gb = float(resource_settings.get("max_memory_gb", 0) or 0)
+    if max_memory_gb > 0 and X_train.nbytes > max_memory_gb * (1024 ** 3):
+        raise ValidationError(
+            f"Training matrix ({X_train.nbytes / 1e9:.1f} GB) exceeds configured "
+            f"max memory ({max_memory_gb:.0f} GB). Reduce data size or raise the limit."
+        )
 
     job_id = str(uuid.uuid4())
     model_ids_map = {}
@@ -745,6 +853,7 @@ async def train_model(
         model_ids_map,
         use_class_weight,
         body.random_seed,
+        body.hyperparameters,
     )
 
     return {
@@ -871,7 +980,7 @@ async def list_jobs(
     all_jobs = storage.list_jobs(session_id=session_id)
     total = len(all_jobs)
     start = (page - 1) * per_page
-    items = all_jobs[start:start + per_page]
+    items = [_attach_eta(j) for j in all_jobs[start:start + per_page]]
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
@@ -883,7 +992,7 @@ async def get_job(
     job = storage.get_job(job_id, session_id=session_id)
     if not job:
         raise NotFoundError("Job", job_id)
-    return job
+    return _attach_eta(job)
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -940,6 +1049,21 @@ async def get_model_plots(
     model_id: str,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.inspection import permutation_importance
+    from sklearn.metrics import (
+        auc,
+        average_precision_score,
+        classification_report,
+        confusion_matrix,
+        precision_recall_curve,
+        roc_curve,
+    )
+    from sklearn.model_selection import learning_curve
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -1245,6 +1369,8 @@ async def export_preprocessed_dataset(
     model_id: str,
     session_id: str = Depends(get_session_id)
 ):
+    import pandas as pd
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -1523,6 +1649,7 @@ async def export_html_report(
     import json
 
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from app.storage import SafeEncoder
 
@@ -1941,6 +2068,11 @@ async def explain_model(
     row_idx: int = 0,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -2047,6 +2179,10 @@ async def predict_model(
     file: UploadFile = File(...),
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)

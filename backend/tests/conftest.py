@@ -7,15 +7,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
-from app.db import create_all, engine, SessionLocal
+from app.db import SessionLocal
 from app.main import app
 from app.models import (
-    SettingRecord,
+    DatasetColumnsRecord,
+    DatasetRecord,
     JobRecord,
     ModelRecord,
     PipelineRecord,
-    DatasetRecord,
-    DatasetColumnsRecord,
+    SettingRecord,
 )
 
 

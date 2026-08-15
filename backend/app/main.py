@@ -109,3 +109,8 @@ async def startup_event():
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/api/v1/health")
+async def health_v1() -> dict:
+    return {"status": "ok", "version": "0.1.0"}

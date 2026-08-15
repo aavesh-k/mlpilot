@@ -4,8 +4,29 @@ import { useDatasets } from '../modules/datasets/hooks/useDatasets'
 import { useModels } from '../modules/training/hooks/useTraining'
 import { SkeletonCard } from '../shared/components/LoadingSpinner'
 import { ErrorState } from '../shared/components/ErrorState'
+import { useBackendReady } from '../core/hooks/useBackendReady'
 
 export default function Dashboard() {
+  const { ready } = useBackendReady()
+
+  if (!ready) {
+    return (
+      <div className="flex-1 overflow-y-auto p-8 lg:p-12 flex items-center justify-center">
+        <div className="text-center">
+          <span className="material-symbols-outlined text-4xl animate-pulse text-secondary">sync</span>
+          <p className="font-headline font-black text-2xl uppercase mt-4 tracking-tighter">Connecting to backend…</p>
+          <p className="text-sm text-on-surface-variant mt-1">
+            Waiting for the MLPilot API to become available.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  return <DashboardContent />
+}
+
+function DashboardContent() {
   const { data: datasetsData, isLoading: dsLoading, error: dsError, refetch: dsRefetch } = useDatasets()
   const { data: modelsData, isLoading: modelsLoading, error: modelsError, refetch: modelsRefetch } = useModels()
 

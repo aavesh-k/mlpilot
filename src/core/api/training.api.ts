@@ -43,8 +43,15 @@ export interface TrainingJob {
   log?: string
   error_message?: string
   started_at?: string
+  run_started_at?: string
   completed_at?: string
+  eta_seconds?: number | null
   created_at: string
+}
+
+export interface AlgorithmInfo {
+  tunable_grid: Record<string, unknown[]>
+  defaults: Record<string, unknown>
 }
 
 export const trainingApi = {
@@ -54,9 +61,15 @@ export const trainingApi = {
     cv_folds?: number
     primary_metric?: string
     tuning_enabled?: boolean
+    hyperparameters?: Record<string, Record<string, unknown>>
     name?: string
   }): Promise<{ model: Model; models: Model[]; job: TrainingJob }> {
     const { data } = await apiClient.post('/training/', body)
+    return data
+  },
+
+  async getAlgorithms(): Promise<{ algorithms: Record<string, AlgorithmInfo> }> {
+    const { data } = await apiClient.get('/training/algorithms')
     return data
   },
 

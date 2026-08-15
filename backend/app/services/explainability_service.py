@@ -1,7 +1,9 @@
-from typing import Any
+from __future__ import annotations
 
-import numpy as np
-import pandas as pd
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def calculate_waterfall_explanation(
@@ -15,6 +17,8 @@ def calculate_waterfall_explanation(
     Computes local attribution values for a single sample row relative to a baseline row.
     Guarantees that the sum of attributions equals the total prediction difference.
     """
+    import numpy as np
+
     columns = list(sample_df.columns)
 
     # 1. Evaluate baseline prediction
