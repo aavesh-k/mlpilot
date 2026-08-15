@@ -55,12 +55,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-auto border-t-2 border-primary pt-6 px-4">
-        <a className="flex items-center gap-3 py-2 text-on-surface-variant hover:text-primary transition-transform hover:translate-x-1 font-headline text-sm font-medium" href="#">
-          <span className="material-symbols-outlined">download</span>
-          Downloads
-        </a>
-      </div>
     </div>
   )
 
