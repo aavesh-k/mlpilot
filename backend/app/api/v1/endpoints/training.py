@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import threading
 import time
@@ -13,8 +14,9 @@ if TYPE_CHECKING:
     import numpy as np
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
+from app.api.rate_limit import predict_limiter, train_limiter
 from app.api.v1.endpoints.datasets import get_session_id
 from app.api.v1.schemas.plots import ModelPlotsResponseSchema
 from app.api.v1.schemas.training import TrainModelSchema
@@ -75,18 +77,7 @@ def _attach_eta(job: dict) -> dict:
     status = job.get("status")
     if status in ("completed", "failed", "cancelled"):
         job["eta_seconds"] = None
-    return job
-
-
-@router.delete("/jobs/{job_id}")
-async def delete_job(
-    job_id: str,
-    session_id: str = Depends(get_session_id)
-) -> Response:
-    deleted = storage.delete_job(job_id, session_id=session_id)
-    if not deleted:
-        raise NotFoundError("Job", job_id)
-    return Response(status_code=204)
+        return job
 
     run_started = job.get("run_started_at") or job.get("started_at")
     progress = float(job.get("progress", 0.0) or 0.0)
@@ -100,6 +91,17 @@ async def delete_job(
     else:
         job["eta_seconds"] = None
     return job
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(
+    job_id: str,
+    session_id: str = Depends(get_session_id)
+) -> Response:
+    deleted = storage.delete_job(job_id, session_id=session_id)
+    if not deleted:
+        raise NotFoundError("Job", job_id)
+    return Response(status_code=204)
 
 
 _ALGORITHMS_CACHE: dict | None = None
@@ -343,27 +345,62 @@ def _append_log(job: dict, message: str) -> None:
     storage.save_job(job)
 
 
-def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, problem_type: str, cv_folds: int) -> dict:
+def _run_cross_validation(
+    clf: Any,
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    problem_type: str,
+    cv_folds: int,
+    on_progress: Any = None,
+) -> dict:
+    """Run k-fold cross validation, returning mean scores.
+
+    ``on_progress`` (optional) is called with the fractional completion
+    (0.0–1.0) after each fold so callers can emit fine-grained progress.
+    """
     import numpy as np
-    from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
+    from sklearn.base import clone
+    from sklearn.metrics import accuracy_score, f1_score, mean_squared_error, r2_score
+    from sklearn.model_selection import KFold, StratifiedKFold
 
     if problem_type == "classification":
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
-        scoring = ["accuracy", "f1_weighted"]
     else:
         cv = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
-        scoring = ["r2", "neg_root_mean_squared_error"]
 
-    scores = cross_validate(clf, X_train, y_train, cv=cv, scoring=scoring, n_jobs=1)
+    acc_list: list[float] = []
+    f1_list: list[float] = []
+    r2_list: list[float] = []
+    rmse_list: list[float] = []
 
-    cv_results = {}
-    for metric in scoring:
-        key = f"test_{metric}"
-        if key in scores:
-            cv_results[metric] = float(np.mean(scores[key]))
+    for i, (tr_idx, va_idx) in enumerate(cv.split(X_train, y_train)):
+        est = clone(clf)
+        est.fit(X_train[tr_idx], y_train[tr_idx])
+        pred = est.predict(X_train[va_idx])
+        y_true = y_train[va_idx]
+        if problem_type == "classification":
+            acc_list.append(accuracy_score(y_true, pred))
+            f1_list.append(
+                f1_score(y_true, pred, average="weighted", zero_division=0)
+            )
+        else:
+            r2_list.append(r2_score(y_true, pred))
+            rmse_list.append(float(np.sqrt(mean_squared_error(y_true, pred))))
 
-    if "neg_root_mean_squared_error" in cv_results:
-        cv_results["rmse"] = -cv_results.pop("neg_root_mean_squared_error")
+        if on_progress is not None:
+            on_progress((i + 1) / cv_folds)
+
+    cv_results: dict[str, float] = {}
+    if problem_type == "classification":
+        if acc_list:
+            cv_results["accuracy"] = float(np.mean(acc_list))
+        if f1_list:
+            cv_results["f1_weighted"] = float(np.mean(f1_list))
+    else:
+        if r2_list:
+            cv_results["r2"] = float(np.mean(r2_list))
+        if rmse_list:
+            cv_results["rmse"] = float(np.mean(rmse_list))
 
     return cv_results
 
@@ -509,9 +546,14 @@ def _run_multi_training_background(
             return
 
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
+        job_progress_next = 5.0 + ((idx + 1) / total_algos) * 60.0
         job["progress"] = round(job_progress_base, 1)
         _append_log(job, f"[{idx + 1}/{total_algos}] Training baseline {algo}...")
         storage.save_job(job)
+
+        def _on_cv_progress(frac: float, base: float = job_progress_base, nxt: float = job_progress_next) -> None:
+            job["progress"] = round(base + frac * (nxt - base), 1)
+            storage.save_job(job)
 
         try:
             start_time = time.perf_counter()
@@ -533,7 +575,7 @@ def _run_multi_training_background(
 
             # Cross validation
             _append_log(job, f"Running {cv_folds}-fold cross validation for {algo}...")
-            cv_results = _run_cross_validation(clf, X_train, y_train, problem_type, cv_folds)
+            cv_results = _run_cross_validation(clf, X_train, y_train, problem_type, cv_folds, on_progress=_on_cv_progress)
 
             # Log CV results
             cv_log_str = ", ".join(f"{k}={v:.4f}" for k, v in cv_results.items())
@@ -806,7 +848,7 @@ async def list_algorithms() -> dict:
     return {"algorithms": algorithms}
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, dependencies=[Depends(train_limiter)])
 async def train_model(
     body: TrainModelSchema,
     background_tasks: BackgroundTasks,
@@ -2269,11 +2311,11 @@ async def explain_model(
     }
 
 
-@router.post("/models/{model_id}/predict")
+@router.post("/models/{model_id}/predict", dependencies=[Depends(predict_limiter)])
 async def predict_model(
     model_id: str,
     file: UploadFile = File(...),
-    preprocessed: bool = Query(False, description="Set to true when the uploaded data is already preprocessed (e.g. an exported test split) so the preprocessor is skipped."),
+    preprocessed: bool = Query(False, description="True if the data is already preprocessed; skips the model's preprocessor."),
     session_id: str = Depends(get_session_id)
 ) -> dict:
     import cloudpickle
@@ -2290,8 +2332,24 @@ async def predict_model(
     temp_path = temp_dir / f"pred_{model_id}_{uuid.uuid4().hex}{Path(file.filename).suffix}"
 
     try:
-        content = await file.read()
-        temp_path.write_bytes(content)
+        # Stream to disk in chunks and enforce the size limit while uploading
+        # (the dataset upload does the same) so a huge file cannot exhaust memory.
+        max_bytes = settings.MAX_DATASET_SIZE_MB * 1024 * 1024
+        size = 0
+        chunk_size = 1024 * 1024
+        with open(temp_path, "wb") as out:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    out.close()
+                    temp_path.unlink(missing_ok=True)
+                    raise ValidationError(
+                        f"File exceeds maximum size of {settings.MAX_DATASET_SIZE_MB} MB"
+                    )
+                out.write(chunk)
 
         ext = temp_path.suffix.lower()
         if ext == ".csv":
@@ -2333,24 +2391,56 @@ async def predict_model(
 
     is_full_pipeline = isinstance(bundle, SklearnPipeline) and "model" in bundle.named_steps
 
-    # The preprocessor that was fit on the training data (used for column
-    # validation and for transforming raw input before prediction).
-    training_preprocessor = bundle.named_steps["preprocessor"] if is_full_pipeline else _load_preprocessor(model.get("pipeline_id"))
+    # The fitted preprocessor (used to transform raw input). Full pipelines carry
+    # it internally; otherwise we load it from the associated pipeline artifact.
+    training_preprocessor = (
+        bundle.named_steps["preprocessor"] if is_full_pipeline else _load_preprocessor(model.get("pipeline_id"))
+    )
+    estimator = bundle.named_steps["model"] if is_full_pipeline else bundle
 
-    # Build the predictor. When the input is already preprocessed (e.g. an
-    # exported test split), skip the preprocessor and feed data straight to the
-    # estimator, otherwise transform raw input with the fitted preprocessor.
-    if preprocessed:
-        predictor = bundle.named_steps["model"] if is_full_pipeline else bundle
-    elif is_full_pipeline:
-        predictor = bundle
+    # Expected feature sets for the two scoring modes:
+    #  - raw: the columns the preprocessor was fit on (e.g. ocean_proximity as a
+    #    single categorical column).
+    #  - processed: the columns the estimator expects AFTER preprocessing
+    #    (e.g. ocean_proximity one-hot encoded into dummy columns).
+    if training_preprocessor is not None and getattr(training_preprocessor, "feature_names_in_", None) is not None:
+        expected_raw = [str(n) for n in training_preprocessor.feature_names_in_]
     else:
-        if training_preprocessor is not None:
+        expected_raw = []
+    # Post-transform feature names come from the fitted preprocessor, not the
+    # estimator (the estimator is fit on the preprocessor's numpy output and so
+    # carries no feature_names_in_). get_feature_names_out() matches the columns
+    # produced by export/preprocessed, enabling robust matching of an already
+    # preprocessed upload.
+    if training_preprocessor is not None and hasattr(training_preprocessor, "get_feature_names_out"):
+        try:
+            expected_processed = [str(n) for n in training_preprocessor.get_feature_names_out()]
+        except Exception:
+            expected_processed = [str(n) for n in getattr(estimator, "feature_names_in_", []) or []]
+    else:
+        expected_processed = [str(n) for n in getattr(estimator, "feature_names_in_", []) or []]
+
+    input_cols = list(df.columns)
+
+    def _cols_match(cols, expected):
+        return bool(expected) and set(cols) == set(expected)
+
+    # Decide how to score. Prefer full-pipeline (raw) scoring, but if the upload
+    # is already preprocessed (matches the post-transform feature set, e.g. an
+    # exported test split), score with the estimator directly. This makes the
+    # flow robust to either raw or preprocessed test data without the user having
+    # to know which one they have.
+    use_estimator = False
+    if preprocessed:
+        use_estimator = True
+        predictor = estimator if is_full_pipeline else bundle
+        expected_features = expected_processed
+    elif _cols_match(input_cols, expected_raw):
+        if is_full_pipeline:
+            predictor = bundle
+        elif training_preprocessor is not None:
             predictor = SklearnPipeline([("preprocessor", training_preprocessor), ("model", bundle)])
         elif model.get("pipeline_id"):
-            # A pipeline was used for training but its preprocessor is missing, so
-            # raw input cannot be transformed to match training. Scoring would
-            # otherwise silently return garbage (e.g. always the majority class).
             raise ValidationError(
                 "Cannot score: this model's preprocessing pipeline is unavailable, "
                 "so raw input cannot be transformed to match the training data. "
@@ -2358,29 +2448,54 @@ async def predict_model(
             )
         else:
             predictor = bundle
+        expected_features = expected_raw
+    elif _cols_match(input_cols, expected_processed):
+        use_estimator = True
+        predictor = estimator if is_full_pipeline else bundle
+        expected_features = expected_processed
+    else:
+        if is_full_pipeline:
+            predictor = bundle
+        elif training_preprocessor is not None:
+            predictor = SklearnPipeline([("preprocessor", training_preprocessor), ("model", bundle)])
+        elif model.get("pipeline_id"):
+            raise ValidationError(
+                "Cannot score: this model's preprocessing pipeline is unavailable, "
+                "so raw input cannot be transformed to match the training data. "
+                "Retrain the model or restore its pipeline artifact."
+            )
+        else:
+            predictor = bundle
+        expected_features = expected_raw
 
-    # Validate that the scoring dataset matches the model's expected feature
-    # structure. The fitted preprocessor expects the exact same input columns
-    # the model was trained on; a mismatch would otherwise surface as an opaque
-    # scikit-learn error. Column names are preserved through preprocessing, so
-    # this validation applies whether or not the input is already preprocessed.
-    names = getattr(training_preprocessor, "feature_names_in_", None)
-    expected_features = [str(n) for n in names] if names is not None else []
+    # When predicting with the estimator directly, align the column order to the
+    # exact feature order the estimator was trained on (set equality is already
+    # confirmed above). This avoids scikit-learn feature-name/order mismatches
+    # when the uploaded file lists columns in a different order.
+    if use_estimator and expected_features:
+        with contextlib.suppress(KeyError):
+            df = df[expected_features]
+
+    # Validate that the scoring dataset matches the chosen expected feature set.
     if expected_features:
-        input_cols = list(df.columns)
         missing = [c for c in expected_features if c not in input_cols]
         extra = [c for c in input_cols if c not in expected_features]
         if missing or extra:
+            mode = "preprocessed" if use_estimator else "raw"
             detail = (
                 "Cannot score: the uploaded dataset does not match the model's "
-                "training feature structure. This model was trained on the "
+                f"training feature structure ({mode} mode). This model expects the "
                 f"following features: {expected_features}. "
             )
             if missing:
                 detail += f"Missing required columns: {missing}. "
             if extra:
                 detail += f"Unexpected extra columns: {extra}. "
-            detail += "Upload a dataset with the same features used during training."
+            detail += (
+                "Upload a dataset with the same features used during training"
+                + (", or tick 'Input is already preprocessed' if scoring an exported test split."
+                   if not use_estimator else ".")
+            )
             raise ValidationError(detail)
 
     # Perform predictions

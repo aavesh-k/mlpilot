@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db import create_all, session_scope
 from app.models import (
     DatasetColumnsRecord,
@@ -382,4 +383,4 @@ class SQLStorage:
             shutil.rmtree(path)
 
 
-storage = SQLStorage()
+storage = SQLStorage(str(settings.DATA_DIR))

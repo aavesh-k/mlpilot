@@ -107,6 +107,21 @@ export const trainingApi = {
     return data
   },
 
+  async downloadPredictions(filename: string): Promise<void> {
+    const resp = await apiClient.get(`/training/predictions/download`, {
+      params: { filename },
+      responseType: 'blob'
+    })
+    const url = URL.createObjectURL(new Blob([resp.data]))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
+
   async listJobs(page = 1, perPage = 20): Promise<PaginatedResponse<TrainingJob>> {
     const { data } = await apiClient.get('/training/jobs', { params: { page, per_page: perPage } })
     return data

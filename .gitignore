@@ -48,3 +48,13 @@ backend/data/recipes/
 htmlcov/
 .coverage
 coverage/
+
+# Internal dev docs (not published to the open-source repo)
+AGENTS.md
+PRD.md
+MILESTONES.md
+CODING_STANDARDS.md
+GIT_WORKFLOW.md
+ARCHITECTURE.md
+API.md
+UX.md

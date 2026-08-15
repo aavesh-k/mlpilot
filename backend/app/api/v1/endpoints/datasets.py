@@ -192,7 +192,7 @@ async def delete_dataset(
 
 
 def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
-    from sklearn.datasets import load_breast_cancer, load_diabetes, load_digits, load_iris
+    from sklearn.datasets import load_breast_cancer, load_digits, load_iris
 
     if target == "iris":
         data = load_iris(as_frame=True)
@@ -211,21 +211,42 @@ def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
         return "Wisconsin Breast Cancer", df
 
     elif target == "housing" or target == "california":
-        try:
-            from sklearn.datasets import fetch_california_housing
-            data = fetch_california_housing(as_frame=True)
-            df = data.frame.copy().head(1000)
-            df.columns = [
-                "median_income", "house_age", "avg_rooms", "avg_bedrooms",
-                "population", "avg_occupancy", "latitude", "longitude", "median_house_value"
-            ]
-            return "California Housing Prices", df
-        except Exception:
-            data = load_diabetes(as_frame=True)
-            df = data.frame.copy()
-            df.columns = [c.replace(" ", "_") for c in df.columns]
-            df = df.rename(columns={"target": "disease_progression"})
-            return "Diabetes Progression", df
+        # Generated locally (deterministic) so the demo works fully offline
+        # with no network dependency.
+        import numpy as np
+        import pandas as pd
+
+        rng = np.random.default_rng(42)
+        n = 1000
+        median_income = rng.normal(3.87, 1.9, n).clip(0.5, 15)
+        house_age = rng.integers(1, 52, n)
+        avg_rooms = rng.normal(5.43, 1.5, n).clip(1.0, 15.0)
+        avg_bedrooms = rng.normal(1.1, 0.4, n).clip(0.5, 5.0)
+        population = rng.integers(300, 36000, n)
+        avg_occupancy = rng.normal(3.0, 1.0, n).clip(1.0, 10.0)
+        latitude = rng.uniform(32.5, 42.0, n)
+        longitude = rng.uniform(-124.3, -114.3, n)
+        median_house_value = (
+            50000
+            + median_income * 50000
+            + avg_rooms * 20000
+            - avg_bedrooms * 15000
+            + rng.normal(0, 30000, n)
+        ).clip(15000, 500001)
+        df = pd.DataFrame(
+            {
+                "median_income": median_income.round(4),
+                "house_age": house_age,
+                "avg_rooms": avg_rooms.round(3),
+                "avg_bedrooms": avg_bedrooms.round(3),
+                "population": population,
+                "avg_occupancy": avg_occupancy.round(3),
+                "latitude": latitude.round(3),
+                "longitude": longitude.round(3),
+                "median_house_value": median_house_value.round(0).astype(int),
+            }
+        )
+        return "California Housing Prices", df
 
     elif target == "digits":
         data = load_digits(as_frame=True)

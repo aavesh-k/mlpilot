@@ -12,6 +12,7 @@ import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
+import { ProgressBar } from '../shared/components/ui/progress-bar'
 import { toApiError } from '../core/api/errors'
 import { formatDate } from '../shared/utils/format'
 import { trainModelSchema } from '../shared/schemas/training'
@@ -362,9 +363,10 @@ export default function ModelTraining() {
                     <span>Progress</span>
                     <span>{activeJob.progress}%</span>
                   </div>
-                  <div className="h-4 border-2 border-primary bg-surface-variant relative overflow-hidden">
-                    <div className="h-full bg-secondary transition-all duration-300" style={{ width: `${activeJob.progress}%` }} />
-                  </div>
+                  <ProgressBar
+                    value={activeJob.progress}
+                    active={activeJob.status === 'running' || activeJob.status === 'queued'}
+                  />
                   {activeJob.eta_seconds != null && activeJob.status === 'running' && (
                     <p className="font-headline font-bold text-[10px] uppercase mt-1 text-on-surface-variant">
                       Estimated time remaining: {Math.round(activeJob.eta_seconds)}s

@@ -618,10 +618,10 @@ export default function Results() {
                           Successfully generated target predictions for {scoreResult.rows} rows.
                         </div>
 
-                        <a
-                          href={`${CONFIG.API_BASE_URL}/training/models/predictions/download?filename=${scoreResult.download_filename}`}
-                          download
-                          className="flex items-center justify-between p-3 border-2 border-primary bg-primary text-white hover:bg-primary-dark transition-colors group"
+                        <button
+                          type="button"
+                          onClick={() => trainingApi.downloadPredictions(scoreResult.download_filename)}
+                          className="w-full flex items-center justify-between p-3 border-2 border-primary bg-primary text-white hover:bg-primary-dark transition-colors group"
                         >
                           <div className="flex items-center gap-3">
                             <Download className="w-5 h-5 text-white" />
@@ -631,7 +631,7 @@ export default function Results() {
                             </div>
                           </div>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform text-white" />
-                        </a>
+                        </button>
 
                         <div className="border border-primary p-3 bg-surface-variant/15">
                           <p className="font-headline font-black text-[11px] uppercase mb-2 tracking-wider text-on-surface-variant">Predictions Preview (Top 5 Rows)</p>
@@ -639,21 +639,30 @@ export default function Results() {
                             <table className="w-full text-left font-mono text-[11px]">
                               <thead>
                                 <tr className="border-b border-primary/20">
-                                  <th className="pb-1 font-bold">Prediction</th>
-                                  {scoreResult.columns.filter((c: string) => c !== 'prediction' && c !== 'confidence').slice(0, 3).map((col: string) => (
-                                    <th key={col} className="pb-1 pl-2 truncate max-w-[80px]" title={col}>{col}</th>
+                                  <th className="pb-1 font-bold">Predicted</th>
+                                  {scoreResult.columns
+                                    .filter((c: string) => c !== 'prediction' && c !== 'confidence' && !c.endsWith('(predicted)') && c !== 'diff')
+                                    .slice(0, 6)
+                                    .map((col: string) => (
+                                    <th key={col} className="pb-1 pl-2 truncate max-w-[100px]" title={col}>{col}</th>
                                   ))}
                                 </tr>
                               </thead>
                               <tbody>
-                                {scoreResult.data.slice(0, 5).map((row: any, rIdx: number) => (
+                                {scoreResult.data.slice(0, 5).map((row: any, rIdx: number) => {
+                                  const predCol = scoreResult.columns.find((c: string) => c.endsWith('(predicted)')) || 'prediction'
+                                  return (
                                   <tr key={rIdx} className="border-b border-primary/10 last:border-0">
-                                    <td className="py-1 font-bold text-primary">{row.prediction}</td>
-                                    {scoreResult.columns.filter((c: string) => c !== 'prediction' && c !== 'confidence').slice(0, 3).map((col: string) => (
-                                      <td key={col} className="py-1 pl-2 truncate max-w-[80px]">{String(row[col] ?? '')}</td>
-                                    ))}
+                                    <td className="py-1 font-bold text-primary">{String(row[predCol] ?? '')}</td>
+                                    {scoreResult.columns
+                                      .filter((c: string) => c !== 'prediction' && c !== 'confidence' && !c.endsWith('(predicted)') && c !== 'diff')
+                                      .slice(0, 6)
+                                      .map((col: string) => (
+                                        <td key={col} className="py-1 pl-2 truncate max-w-[100px]">{String(row[col] ?? '')}</td>
+                                      ))}
                                   </tr>
-                                ))}
+                                  )
+                                })}
                               </tbody>
                             </table>
                           </div>

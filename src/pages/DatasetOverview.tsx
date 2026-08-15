@@ -5,6 +5,7 @@ import { PageHeader } from '../shared/components/PageHeader'
 import { ErrorState } from '../shared/components/ErrorState'
 import { LoadingSpinner, SkeletonCard } from '../shared/components/LoadingSpinner'
 import { Badge } from '../shared/components/ui/badge'
+import { ProgressBar } from '../shared/components/ui/progress-bar'
 import { formatFileSize } from '../shared/utils/format'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot } from '../core/api/eda.api'
 
@@ -96,9 +97,7 @@ export default function DatasetOverview() {
       {isProcessing && (
         <div className="bg-surface border-2 border-primary p-6 mb-8">
           <h3 className="font-headline font-black text-sm uppercase mb-3">Analyzing dataset...</h3>
-          <div className="h-4 border-2 border-primary bg-surface-variant relative">
-            <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${progressPct}%` }} />
-          </div>
+          <ProgressBar value={progressPct} active={isProcessing} heightClass="h-4" />
           <p className="mt-2 text-xs text-on-surface-variant font-headline font-bold">{status?.step ?? 'Starting...'} ({progressPct}%)</p>
         </div>
       )}

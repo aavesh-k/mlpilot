@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 from fastapi import APIRouter, Depends
 
+from app.api.rate_limit import eda_limiter
 from app.api.v1.endpoints.datasets import get_session_id
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.services.eda_service import compute_eda
@@ -87,7 +88,7 @@ def _run_eda_background(dataset_id: str):
         _get_processing_lock(dataset_id).release()
 
 
-@router.post("/{dataset_id}/eda")
+@router.post("/{dataset_id}/eda", dependencies=[Depends(eda_limiter)])
 async def start_eda(
     dataset_id: str,
     session_id: str = Depends(get_session_id)

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
+from app.api.rate_limit import predict_limiter
 from app.api.v1.endpoints.datasets import get_session_id
 from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 from app.core.config import settings
@@ -284,7 +285,7 @@ async def execute_pipeline(
         return pipeline
 
 
-@router.post("/{pipeline_id}/score", status_code=200)
+@router.post("/{pipeline_id}/score", status_code=200, dependencies=[Depends(predict_limiter)])
 async def score_pipeline(
     pipeline_id: str,
     file: UploadFile = File(...),
@@ -305,10 +306,25 @@ async def score_pipeline(
         raise NotFoundError("Pipeline artifact", pipeline_id)
 
     try:
+        # Stream to disk in chunks and enforce the size limit while uploading.
         temp = Path(settings.DATA_DIR) / "tmp" / f"score_{pipeline_id}_{uuid.uuid4().hex}{Path(file.filename).suffix}"
         temp.parent.mkdir(parents=True, exist_ok=True)
-        content = await file.read()
-        temp.write_bytes(content)
+        max_bytes = settings.MAX_DATASET_SIZE_MB * 1024 * 1024
+        size = 0
+        chunk_size = 1024 * 1024
+        with open(temp, "wb") as out:
+            while True:
+                chunk = await file.read(chunk_size)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    out.close()
+                    temp.unlink(missing_ok=True)
+                    raise ValidationError(
+                        f"File exceeds maximum size of {settings.MAX_DATASET_SIZE_MB} MB"
+                    )
+                out.write(chunk)
 
         ext = temp.suffix.lower()
         if ext == ".csv":

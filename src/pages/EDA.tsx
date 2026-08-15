@@ -8,6 +8,7 @@ import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
+import { ProgressBar } from '../shared/components/ui/progress-bar'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot, Finding, DataTypeIssue, ConstantColumn, HighCorrelation, MissingnessMatrix } from '../core/api/eda.api'
 
 export default function EDA() {
@@ -60,9 +61,7 @@ export default function EDA() {
       {isProcessing && (
         <div className="bg-surface border-2 border-primary p-8 mb-8">
           <h3 className="font-headline font-black text-lg uppercase mb-4">Analyzing Dataset...</h3>
-          <div className="h-4 border-2 border-primary bg-surface-variant relative">
-            <div className="h-full bg-secondary transition-all duration-500" style={{ width: `${progressPct}%` }} />
-          </div>
+          <ProgressBar value={progressPct} active={isProcessing} heightClass="h-4" />
           <p className="mt-2 text-sm text-on-surface-variant font-headline font-bold">{status?.step ?? 'Starting...'} ({progressPct}%)</p>
         </div>
       )}

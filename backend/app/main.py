@@ -2,6 +2,7 @@ import logging
 import shutil
 import threading
 import time
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,7 +17,40 @@ from app.core.exceptions import AppError
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.APP_NAME, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Auto-cleanup daemon is spawned on startup and runs in a background thread.
+    if settings.ENABLE_AUTO_CLEANUP:
+        logger.info("Spawning auto-cleanup daemon thread...")
+        thread = threading.Thread(
+            target=run_auto_cleanup,
+            args=(settings.AUTO_CLEANUP_MAX_AGE_DAYS,),
+            daemon=True,
+        )
+        thread.start()
+    else:
+        logger.info(
+            "Auto-cleanup is disabled (set ENABLE_AUTO_CLEANUP=true to purge "
+            "datasets/models older than AUTO_CLEANUP_MAX_AGE_DAYS)."
+        )
+    yield
+
+
+# Disable interactive API docs in production (DEBUG=False) so the full API
+# surface is not publicly exposed.
+_docs_url = "/docs" if settings.DEBUG else None
+_redoc_url = "/redoc" if settings.DEBUG else None
+_openapi_url = "/openapi.json" if settings.DEBUG else None
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version="0.1.0",
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -97,13 +131,6 @@ def run_auto_cleanup(max_age_days: int = 7):
 
         # Sleep for 12 hours
         time.sleep(12 * 3600)
-
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Spawning auto-cleanup daemon thread...")
-    thread = threading.Thread(target=run_auto_cleanup, args=(7,), daemon=True)
-    thread.start()
 
 
 @app.get("/health")

@@ -38,3 +38,24 @@
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }
 }
+
+/* Animated indeterminate overlay for progress bars that are actively
+   running but not yet advancing — signals liveness so the UI never looks frozen. */
+@keyframes mlp-indeterminate {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.animate-indeterminate {
+  animation: mlp-indeterminate 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-indeterminate {
+    animation: none;
+  }
+}

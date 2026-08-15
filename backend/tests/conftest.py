@@ -3,6 +3,9 @@ import os
 # Isolated in-memory SQLite for tests (StaticPool shared across threads)
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
+# Disable rate limiting during tests so legitimate repeated requests don't get throttled.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
