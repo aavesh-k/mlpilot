@@ -33,6 +33,16 @@ app.add_exception_handler(Exception, generic_error_handler)
 app.include_router(api_v1_router)
 
 
+def _parse_created_at(record: dict) -> datetime | None:
+    raw = record.get("created_at")
+    if not isinstance(raw, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 def run_auto_cleanup(max_age_days: int = 7):
     """
     Indefinite background worker purging expired dataset and model files.
@@ -47,8 +57,8 @@ def run_auto_cleanup(max_age_days: int = 7):
             # 1. Clean expired Datasets
             all_datasets = storage.list_datasets()
             for ds in all_datasets:
-                created = datetime.fromisoformat(ds["created_at"].replace("Z", "+00:00"))
-                if (now - created).days >= max_age_days:
+                created = _parse_created_at(ds)
+                if created is None or (now - created).days >= max_age_days:
                     logger.info("Purging expired dataset: %s (%s)", ds["id"], ds["name"])
                     file_path = Path(ds["file_path"])
                     if file_path.exists():
@@ -66,8 +76,8 @@ def run_auto_cleanup(max_age_days: int = 7):
             # 2. Clean expired Models
             all_models = storage.list_models()
             for m in all_models:
-                created = datetime.fromisoformat(m["created_at"].replace("Z", "+00:00"))
-                if (now - created).days >= max_age_days:
+                created = _parse_created_at(m)
+                if created is None or (now - created).days >= max_age_days:
                     logger.info("Purging expired model: %s (%s)", m["id"], m["name"])
                     file_path = Path(m["file_path"])
                     if file_path.exists():
