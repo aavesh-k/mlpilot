@@ -22,6 +22,29 @@ import {
   Download
 } from 'lucide-react'
 
+type CompareModelLike = { id: string; metrics?: Record<string, unknown> }
+
+// The single best model among a set, by the primary metric
+// (accuracy for classification, R² for regression). This is what the
+// crown should mark — NOT the per-run `is_best` flag.
+function bestModelId(models: CompareModelLike[]): string | null {
+  const scored = models.filter(
+    (m) => m.metrics && typeof (m.metrics.accuracy ?? m.metrics.r2) === 'number',
+  )
+  if (scored.length === 0) return null
+  const metric: 'accuracy' | 'r2' = 'r2' in scored[0].metrics! ? 'r2' : 'accuracy'
+  let bestId: string | null = null
+  let bestVal = -Infinity
+  for (const m of scored) {
+    const v = m.metrics?.[metric]
+    if (typeof v === 'number' && v > bestVal) {
+      bestVal = v
+      bestId = m.id
+    }
+  }
+  return bestId
+}
+
 export default function Results() {
   const navigate = useNavigate()
   const [page, setPage] = useState(1)
@@ -49,6 +72,11 @@ export default function Results() {
   const completedModels = models.filter((m) => m.status === 'completed')
   const runningCount = models.filter((m) => m.status === 'running' || m.status === 'queued').length
   const failedCount = models.filter((m) => m.status === 'failed').length
+
+  const overallBestId = bestModelId(completedModels)
+  const bestModelRef = completedModels.find((m) => m.id === overallBestId)
+  const bestMetricLabel =
+    bestModelRef?.metrics && 'r2' in bestModelRef.metrics ? 'R²' : 'Accuracy'
 
   // Find currently selected model
   const selectedModel = models.find((m) => m.id === selectedModelId) || completedModels[0]
@@ -133,6 +161,17 @@ export default function Results() {
         accent="Results"
         subtitle={`${completedModels.length} completed · ${runningCount} in progress · ${failedCount} failed`}
       />
+
+      {!isLoading && !error && models.length > 0 && completedModels.length === 0 && (
+        <p className="mb-6 text-on-surface-variant font-headline font-bold text-sm">
+          No completed models yet — finish a training run to compare models side-by-side.
+        </p>
+      )}
+      {!isLoading && !error && models.length > 0 && completedModels.length > 0 && selectedCompareIds.length < 2 && (
+        <p className="mb-6 text-on-surface-variant font-headline font-bold text-sm">
+          Select at least 2 completed models to compare them side-by-side.
+        </p>
+      )}
 
       {models.length === 0 ? (
         <EmptyState
@@ -220,7 +259,12 @@ export default function Results() {
                         <td className="p-4 font-headline font-bold text-sm">
                           <div className="flex items-center gap-1.5">
                             {m.name}
-                            {m.is_best && <Crown className="w-3.5 h-3.5 text-yellow-600 fill-yellow-600" />}
+                            {m.id === overallBestId && (
+                              <>
+                                <Crown className="w-3.5 h-3.5 text-yellow-600 fill-yellow-600" />
+                                <span className="text-[9px] font-headline uppercase text-yellow-700">Best · {bestMetricLabel}</span>
+                              </>
+                            )}
                           </div>
                           <span className="text-[10px] text-on-surface-variant block font-mono">
                             {m.id.slice(0, 8)}
@@ -264,9 +308,9 @@ export default function Results() {
                 {/* Header */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <Badge variant={selectedModel.is_best ? 'success' : 'default'} className="text-[9px]">
-                      {selectedModel.is_best ? '🏆 Best Model' : 'Candidate Model'}
-                    </Badge>
+                      <Badge variant={selectedModel.id === overallBestId ? 'success' : 'default'} className="text-[9px]">
+                        {selectedModel.id === overallBestId ? '🏆 Best Model' : 'Candidate Model'}
+                      </Badge>
                     <span className="text-[10px] font-mono text-on-surface-variant">{selectedModel.id.slice(0, 8)}</span>
                   </div>
                   <h3 className="font-headline font-black text-xl uppercase tracking-tight">{selectedModel.name}</h3>
@@ -609,11 +653,23 @@ export default function Results() {
                     <thead>
                       <tr className="border-b-2 border-primary bg-surface-variant/20">
                         <th className="p-3 font-headline font-bold uppercase">Attribute</th>
-                        {compareData.models.map((m: any) => (
-                          <th key={m.id} className="p-3 font-headline font-black uppercase text-center border-l border-primary min-w-[200px]">
-                            {m.name} {m.is_best && '👑'}
-                          </th>
-                        ))}
+                        {(() => {
+                          const compareBestId = bestModelId(compareData.models)
+                          const cBest = compareData.models.find((m: any) => m.id === compareBestId)
+                          const cLabel = cBest?.metrics && 'r2' in cBest.metrics ? 'R²' : 'Accuracy'
+                          return compareData.models.map((m: any) => (
+                            <th key={m.id} className="p-3 font-headline font-black uppercase text-center border-l border-primary min-w-[200px]">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span>{m.name}</span>
+                                {m.id === compareBestId && (
+                                  <span className="text-[10px] font-headline normal-case font-bold text-yellow-700 flex items-center gap-1">
+                                    👑 Best by {cLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                          ))
+                        })()}
                       </tr>
                     </thead>
                     <tbody>
