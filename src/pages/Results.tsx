@@ -68,6 +68,7 @@ export default function Results() {
 
   // Score states
   const [scoreFile, setScoreFile] = useState<File | null>(null)
+  const [scorePreprocessed, setScorePreprocessed] = useState(false)
   const [scoreResult, setScoreResult] = useState<any>(null)
   const [scoreLoading, setScoreLoading] = useState(false)
   const [scoreError, setScoreError] = useState<string | null>(null)
@@ -137,7 +138,7 @@ export default function Results() {
     setScoreResult(null)
     setScoreError(null)
     try {
-      const res = await trainingApi.predict(selectedModel.id, scoreFile)
+      const res = await trainingApi.predict(selectedModel.id, scoreFile, scorePreprocessed)
       setScoreResult(res)
     } catch (err) {
       setScoreError(toApiError(err).message)
@@ -190,9 +191,9 @@ export default function Results() {
           action={<Button onClick={() => navigate('/training')}>Go to Training</Button>}
         />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="space-y-8">
           {/* Models Table List */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
             {selectedCompareIds.length >= 2 && (
               <div className="bg-primary-container/20 border-2 border-primary p-4 neo-shadow-sm flex items-center justify-between">
                 <span className="font-headline font-bold text-xs uppercase">
@@ -271,11 +272,11 @@ export default function Results() {
                             {m.id === overallBestId && (
                               <>
                                 <Crown className="w-3.5 h-3.5 text-yellow-600 fill-yellow-600" />
-                                <span className="text-[9px] font-headline uppercase text-yellow-700">Best · {bestMetricLabel}</span>
+                                <span className="text-[11px] font-headline uppercase text-yellow-700">Best · {bestMetricLabel}</span>
                               </>
                             )}
                           </div>
-                          <span className="text-[10px] text-on-surface-variant block font-mono">
+                          <span className="text-[11px] text-on-surface-variant block font-mono">
                             {m.id.slice(0, 8)}
                           </span>
                         </td>
@@ -310,17 +311,17 @@ export default function Results() {
             <Pagination page={data!.page} perPage={data!.per_page} total={data!.total} onPageChange={setPage} />
           </div>
 
-          {/* Model Details Tab Panel */}
-          <div className="lg:col-span-1">
+          {/* Model Details Tab Panel (full-width, stacked below the table) */}
+          <div>
             {selectedModel ? (
               <div className="bg-surface border-2 border-primary p-6 neo-shadow space-y-6">
                 {/* Header */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                      <Badge variant={selectedModel.id === overallBestId ? 'success' : 'default'} className="text-[9px]">
+                      <Badge variant={selectedModel.id === overallBestId ? 'success' : 'default'} className="text-[11px]">
                         {selectedModel.id === overallBestId ? '🏆 Best Model' : 'Candidate Model'}
                       </Badge>
-                    <span className="text-[10px] font-mono text-on-surface-variant">{selectedModel.id.slice(0, 8)}</span>
+                    <span className="text-[11px] font-mono text-on-surface-variant">{selectedModel.id.slice(0, 8)}</span>
                   </div>
                   <h3 className="font-headline font-black text-xl uppercase tracking-tight">{selectedModel.name}</h3>
                   <p className="text-xs text-on-surface-variant capitalize">
@@ -334,7 +335,7 @@ export default function Results() {
                     <button
                       key={tab}
                       onClick={() => handleTabChange(tab)}
-                      className={`flex-1 py-3 text-center text-[10px] font-headline font-bold uppercase transition-colors border-r last:border-r-0 border-primary ${
+                      className={`flex-1 py-3 text-center text-[11px] font-headline font-bold uppercase transition-colors border-r last:border-r-0 border-primary ${
                         selectedTab === tab
                           ? 'bg-primary text-white'
                           : 'bg-surface hover:bg-surface-variant/30'
@@ -349,7 +350,7 @@ export default function Results() {
                 {selectedTab === 'exports' && (
                   <div className="space-y-6">
                     <div className="bg-yellow-100 border-l-4 border-primary p-4 text-xs font-body text-primary-dark">
-                      <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Executive Briefing</p>
+                      <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Executive Briefing</p>
                       This model was successfully trained on features extracted from target column{' '}
                       {resolvedTargetColumn ? (
                         <span className="font-bold">"{resolvedTargetColumn}"</span>
@@ -360,11 +361,11 @@ export default function Results() {
                     </div>
 
                     <div className="border border-primary p-4">
-                      <p className="font-headline font-black text-[10px] uppercase mb-3 tracking-wider text-on-surface-variant">Validation Performance</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {Object.entries(selectedModel.metrics || {}).map(([key, val]) => (
+                      <p className="font-headline font-black text-[11px] uppercase mb-3 tracking-wider text-on-surface-variant">Validation Performance</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          {Object.entries(selectedModel.metrics || {}).map(([key, val]) => (
                           <div key={key} className="border border-primary/20 bg-surface-variant/20 p-2 text-center">
-                            <span className="font-headline font-bold text-[9px] uppercase text-on-surface-variant block truncate">
+                            <span className="font-headline font-bold text-[11px] uppercase text-on-surface-variant block truncate">
                               {key.replace(/_/g, ' ')}
                             </span>
                             <span className="font-mono text-sm font-bold">
@@ -375,9 +376,10 @@ export default function Results() {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <p className="font-headline font-black text-[10px] uppercase tracking-wider text-on-surface-variant">Reporting & Export Hub</p>
-                      
+                    <div>
+                      <p className="font-headline font-black text-[11px] uppercase tracking-wider text-on-surface-variant mb-3">Reporting & Export Hub</p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <a
                         href={`${CONFIG.API_BASE_URL}/training/models/${selectedModel.id}/export/report`}
                         target="_blank"
@@ -388,7 +390,7 @@ export default function Results() {
                           <FileText className="w-5 h-5 text-indigo-600" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Executive HTML Report</p>
-                            <p className="text-[10px] text-on-surface-variant">Includes EDA log, leaderboard & base64 plots</p>
+                            <p className="text-[11px] text-on-surface-variant">Includes EDA log, leaderboard & base64 plots</p>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -403,7 +405,7 @@ export default function Results() {
                           <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Cleaned Dataset (CSV)</p>
-                            <p className="text-[10px] text-on-surface-variant">Outliers capped & missing cells imputed</p>
+                            <p className="text-[11px] text-on-surface-variant">Outliers capped & missing cells imputed</p>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -419,7 +421,7 @@ export default function Results() {
                             <FileArchive className="w-5 h-5 text-amber-600" />
                             <div className="text-left">
                               <p className="font-headline font-bold text-xs">Preprocessed splits (ZIP)</p>
-                              <p className="text-[10px] text-on-surface-variant">Train/test splits in CSV format</p>
+                              <p className="text-[11px] text-on-surface-variant">Train/test splits in CSV format</p>
                             </div>
                           </div>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -435,7 +437,7 @@ export default function Results() {
                           <Code className="w-5 h-5 text-violet-600" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Python Inference Recipe</p>
-                            <p className="text-[10px] text-on-surface-variant">Replicate pipeline cleaning & model execution</p>
+                            <p className="text-[11px] text-on-surface-variant">Replicate pipeline cleaning & model execution</p>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -450,11 +452,12 @@ export default function Results() {
                           <Award className="w-5 h-5 text-blue-600" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Trained Model bundle (ZIP)</p>
-                            <p className="text-[10px] text-on-surface-variant">Pickled estimator and pipeline transformers</p>
+                            <p className="text-[11px] text-on-surface-variant">Pickled estimator and pipeline transformers</p>
                           </div>
                         </div>
                         <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                       </a>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -472,7 +475,7 @@ export default function Results() {
                           onChange={(e) => setExplainRowIdx(parseInt(e.target.value) || 0)}
                           className="border-2 border-primary bg-surface px-3 py-1 w-24 text-sm font-mono"
                         />
-                        <span className="text-[10px] text-on-surface-variant self-center font-body">
+                        <span className="text-[11px] text-on-surface-variant self-center font-body">
                           Test partition row index (0+)
                         </span>
                       </div>
@@ -482,7 +485,7 @@ export default function Results() {
 
                     {!explainLoading && explainError && (
                       <div className="bg-red-100 border-l-4 border-red-500 p-4 text-xs font-body text-red-950">
-                        <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Explanation Unavailable</p>
+                        <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Explanation Unavailable</p>
                         {explainError}
                       </div>
                     )}
@@ -490,10 +493,10 @@ export default function Results() {
                     {!explainLoading && explainData && (
                       <div className="space-y-4">
                         <div className="border border-primary p-4">
-                          <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider text-on-surface-variant">
+                          <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider text-on-surface-variant">
                             Local Waterfall Prediction Contributions
                           </p>
-                          <p className="text-[10px] text-on-surface-variant mb-3">
+                          <p className="text-[11px] text-on-surface-variant mb-3">
                             Baseline pred: {explainData.local_explanation.baseline_value.toFixed(3)} → Final pred: {explainData.local_explanation.prediction_value.toFixed(3)}
                           </p>
                           <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
@@ -502,7 +505,7 @@ export default function Results() {
                               const isPositive = val >= 0
                               return (
                                 <div key={attr.name} className="text-xs font-body">
-                                  <div className="flex justify-between font-mono text-[10px] mb-0.5">
+                                  <div className="flex justify-between font-mono text-[11px] mb-0.5">
                                     <span className="truncate max-w-[150px] font-bold" title={attr.name}>{attr.name}</span>
                                     <span className={isPositive ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
                                       {isPositive ? '+' : ''}{val.toFixed(4)}
@@ -517,7 +520,7 @@ export default function Results() {
                                       }}
                                     />
                                   </div>
-                                  <span className="text-[9px] text-on-surface-variant font-mono">
+                                  <span className="text-[11px] text-on-surface-variant font-mono">
                                     value: {attr.val_target} (baseline: {attr.val_base})
                                   </span>
                                 </div>
@@ -528,13 +531,13 @@ export default function Results() {
 
                         {explainData.global_importance && explainData.global_importance.length > 0 && (
                           <div className="border border-primary p-4">
-                            <p className="font-headline font-black text-[10px] uppercase mb-2 tracking-wider text-on-surface-variant">
+                            <p className="font-headline font-black text-[11px] uppercase mb-2 tracking-wider text-on-surface-variant">
                               Global Feature Importance (Top Features)
                             </p>
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                               {explainData.global_importance.slice(0, 6).map((imp: any) => (
                                 <div key={imp.feature} className="text-xs font-body">
-                                  <div className="flex justify-between font-mono text-[10px] mb-0.5">
+                                  <div className="flex justify-between font-mono text-[11px] mb-0.5">
                                     <span className="truncate max-w-[160px] font-bold">{imp.feature}</span>
                                     <span>{imp.importance.toFixed(4)}</span>
                                   </div>
@@ -570,10 +573,25 @@ export default function Results() {
                         <p className="font-headline font-bold text-xs uppercase truncate">
                           {scoreFile ? scoreFile.name : 'Select file to score'}
                         </p>
-                        <p className="text-[10px] text-on-surface-variant mt-1">
+                        <p className="text-[11px] text-on-surface-variant mt-1">
                           CSV, Excel, Parquet, or JSON format
                         </p>
                       </div>
+
+                      <label className="flex items-start gap-2 mt-3 text-[11px] font-body text-on-surface-variant cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={scorePreprocessed}
+                          onChange={(e) => setScorePreprocessed(e.target.checked)}
+                          className="mt-0.5 accent-primary"
+                        />
+                        <span>
+                          <span className="font-headline font-bold uppercase">Input is already preprocessed</span>
+                          <br />
+                          Enable this when scoring an exported test/train split (already scaled/encoded).
+                          Leave unchecked for raw data (e.g. the original iris dataset).
+                        </span>
+                      </label>
                     </div>
 
                     {scoreFile && (
@@ -596,7 +614,7 @@ export default function Results() {
                     {scoreResult && (
                       <div className="space-y-4">
                         <div className="bg-green-100 border-l-4 border-green-500 p-4 text-xs font-body text-green-950">
-                          <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Scoring Complete</p>
+                          <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Scoring Complete</p>
                           Successfully generated target predictions for {scoreResult.rows} rows.
                         </div>
 
@@ -609,16 +627,16 @@ export default function Results() {
                             <Download className="w-5 h-5 text-white" />
                             <div className="text-left">
                               <p className="font-headline font-bold text-xs uppercase">Download Predictions</p>
-                              <p className="text-[10px] opacity-80">Full dataset with prediction column appended</p>
+                              <p className="text-[11px] opacity-80">Full dataset with prediction column appended</p>
                             </div>
                           </div>
                           <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform text-white" />
                         </a>
 
                         <div className="border border-primary p-3 bg-surface-variant/15">
-                          <p className="font-headline font-black text-[10px] uppercase mb-2 tracking-wider text-on-surface-variant">Predictions Preview (Top 5 Rows)</p>
+                          <p className="font-headline font-black text-[11px] uppercase mb-2 tracking-wider text-on-surface-variant">Predictions Preview (Top 5 Rows)</p>
                           <div className="overflow-x-auto">
-                            <table className="w-full text-left font-mono text-[10px]">
+                            <table className="w-full text-left font-mono text-[11px]">
                               <thead>
                                 <tr className="border-b border-primary/20">
                                   <th className="pb-1 font-bold">Prediction</th>
@@ -689,7 +707,7 @@ export default function Results() {
                               <div className="flex flex-col items-center gap-0.5">
                                 <span>{m.name}</span>
                                 {m.id === compareBestId && (
-                                  <span className="text-[10px] font-headline normal-case font-bold text-yellow-700 flex items-center gap-1">
+                                  <span className="text-[11px] font-headline normal-case font-bold text-yellow-700 flex items-center gap-1">
                                     👑 Best by {cLabel}
                                   </span>
                                 )}
@@ -754,7 +772,7 @@ export default function Results() {
                       <tr className="border-b border-primary/30">
                         <td className="p-3 font-headline font-bold">Class Imbalance</td>
                         {compareData.models.map((m: any) => (
-                          <td key={m.id} className="p-3 text-center border-l border-primary/30 text-[10px] font-headline uppercase font-bold">
+                          <td key={m.id} className="p-3 text-center border-l border-primary/30 text-[11px] font-headline uppercase font-bold">
                             {m.pipeline?.use_smote && 'SMOTE'}
                             {m.pipeline?.use_class_weight && (m.pipeline?.use_smote ? ' + ' : '')}
                             {m.pipeline?.use_class_weight && 'Class Weights'}
