@@ -1664,6 +1664,8 @@ async def export_html_report(
 
     dataset = storage.get_dataset(dataset_id, session_id=session_id) if dataset_id else None
     pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
+    # Models may not carry their own target_column; fall back to the pipeline.
+    target_col_disp = model.get("target_column") or (pipeline.get("target_column") if pipeline else None)
 
     cleaning_report = None
     if dataset and dataset.get("is_cleaned") and dataset.get("cleaning_run_id"):
@@ -2006,7 +2008,7 @@ async def export_html_report(
         <div class="card">
             <h3 class="card-title">Executive Summary</h3>
             <div class="highlight-box">
-                A machine learning pipeline was executed to model <strong>{model.get("target_column")}</strong> on the
+                A machine learning pipeline was executed to model <strong>{target_col_disp}</strong> on the
                 <strong>{dataset["name"] if dataset else "Dataset"}</strong> dataset.
                 The modeling run was treated as a <strong>{problem_type.upper()}</strong> task.
                 Out of all candidate models evaluated, the <strong>{model["name"]}</strong> achieved optimal performance.

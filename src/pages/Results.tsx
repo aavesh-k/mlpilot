@@ -10,6 +10,7 @@ import { Badge } from '../shared/components/ui/badge'
 import { Button } from '../shared/components/ui/button'
 import { CONFIG } from '../core/config'
 import { trainingApi } from '../core/api/training.api'
+import { usePipeline } from '../modules/pipelines/hooks/usePipelines'
 import {
   FileSpreadsheet,
   FileArchive,
@@ -81,6 +82,10 @@ export default function Results() {
 
   // Find currently selected model
   const selectedModel = models.find((m) => m.id === selectedModelId) || completedModels[0]
+
+  // Resolve the target column from the pipeline when the model record lacks it
+  const { data: selectedPipeline } = usePipeline(selectedModel?.pipeline_id)
+  const resolvedTargetColumn = selectedModel?.target_column || selectedPipeline?.target_column
 
   // Fetch explanation when model, tab, or index changes
   useEffect(() => {
@@ -347,8 +352,8 @@ export default function Results() {
                     <div className="bg-yellow-100 border-l-4 border-primary p-4 text-xs font-body text-primary-dark">
                       <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Executive Briefing</p>
                       This model was successfully trained on features extracted from target column{' '}
-                      {selectedModel.target_column ? (
-                        <span className="font-bold">"{selectedModel.target_column}"</span>
+                      {resolvedTargetColumn ? (
+                        <span className="font-bold">"{resolvedTargetColumn}"</span>
                       ) : (
                         <span className="font-bold">the configured target</span>
                       )}.{' '}
