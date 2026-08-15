@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { useModels, useSetBestModel } from '../modules/training/hooks/useTraining'
+import { useModels } from '../modules/training/hooks/useTraining'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
 import { SkeletonTable } from '../shared/components/LoadingSpinner'
-import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { CONFIG } from '../core/config'
 
@@ -27,7 +26,6 @@ const REGRESSION_METRICS = [
 export default function ModelComparison() {
   const { data: modelsData, isLoading: modelsLoading, error: modelsError, refetch } = useModels(1)
   const { data: pipelinesData, isLoading: pipelinesLoading } = usePipelines(1)
-  const setBestMutation = useSetBestModel()
 
   const [selectedPipelineId, setSelectedPipelineId] = useState<string>('all')
   const [selectedMetric, setSelectedMetric] = useState<string>('')
@@ -68,18 +66,12 @@ export default function ModelComparison() {
   // The dynamic best model (first in sorted list)
   const dynamicBestModel = sortedModels[0]
 
-  const handleSetBest = (modelId: string) => {
-    setBestMutation.mutate(modelId, {
-      onSuccess: () => refetch()
-    })
-  }
-
   const isLoading = modelsLoading || pipelinesLoading
 
   if (isLoading) {
     return (
       <div className="p-8 lg:p-12">
-        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
         <SkeletonTable rows={4} cols={7} />
       </div>
     )
@@ -96,7 +88,7 @@ export default function ModelComparison() {
   if (completedModels.length === 0) {
     return (
       <div className="p-8 lg:p-12">
-        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+        <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
         <EmptyState
           icon="leaderboard"
           title="No trained models yet"
@@ -108,7 +100,7 @@ export default function ModelComparison() {
 
   return (
     <div className="p-8 lg:p-12">
-      <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model for deployment." />
+      <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
 
       {/* Filters bar */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 bg-surface border-2 border-primary p-4 neo-shadow">
@@ -180,15 +172,6 @@ export default function ModelComparison() {
                       : dynamicBestModel.metrics?.[activeMetric as keyof typeof dynamicBestModel.metrics]}
                   </span>
                 </div>
-                {!dynamicBestModel.is_best && (
-                  <Button
-                    variant="primary"
-                    onClick={() => handleSetBest(dynamicBestModel.id)}
-                    disabled={setBestMutation.isPending}
-                  >
-                    Deploy This Model
-                  </Button>
-                )}
               </div>
             </div>
           )}
@@ -234,9 +217,6 @@ export default function ModelComparison() {
                       <td className="p-4">
                         <div className="flex items-center gap-2">
                           <span className="font-headline font-bold text-sm">{m.name}</span>
-                          {isActiveDeploy && (
-                            <Badge variant="success" className="uppercase text-[9px]">Deployed</Badge>
-                          )}
                           {isDeployCandidate && !isActiveDeploy && (
                             <Badge variant="warning" className="uppercase text-[9px]">Auto Winner</Badge>
                           )}
@@ -272,7 +252,7 @@ export default function ModelComparison() {
                         </Badge>
                       </td>
 
-                      {/* Actions */}
+                       {/* Actions */}
                       <td className="p-4">
                         <div className="flex items-center justify-center gap-3">
                           <a
@@ -282,15 +262,6 @@ export default function ModelComparison() {
                           >
                             Download Zip
                           </a>
-                          {!isActiveDeploy && (
-                            <button
-                              onClick={() => handleSetBest(m.id)}
-                              disabled={setBestMutation.isPending}
-                              className="font-headline font-bold text-xs uppercase text-primary hover:text-tertiary underline underline-offset-2"
-                            >
-                              Deploy
-                            </button>
-                          )}
                         </div>
                       </td>
                     </tr>
