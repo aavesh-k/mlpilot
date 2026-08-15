@@ -77,6 +77,8 @@ export default function DatasetOverview() {
         }
       />
 
+      <WorkflowSteps datasetId={dataset.id} />
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
         {[
           { label: 'Rows', value: dataset.row_count?.toLocaleString() ?? '—' },
@@ -114,6 +116,39 @@ export default function DatasetOverview() {
           <SkeletonCard /><SkeletonCard />
         </div>
       )}
+    </div>
+  )
+}
+
+function WorkflowSteps({ datasetId }: { datasetId: string }) {
+  const stepClass = (state: 'done' | 'active' | 'next') =>
+    `flex items-center gap-2 px-4 py-2 border-2 border-primary font-headline text-xs font-bold uppercase transition-colors ${
+      state === 'active'
+        ? 'bg-primary text-white'
+        : state === 'done'
+          ? 'bg-primary-container text-primary'
+          : 'bg-surface text-on-surface-variant'
+    }`
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-8">
+      <span className={stepClass('done')}>
+        <span className="material-symbols-outlined text-sm">check_circle</span>
+        1 · Dataset
+      </span>
+      <span className="text-on-surface-variant font-headline">→</span>
+      <span className={stepClass('active')}>
+        <span className="material-symbols-outlined text-sm">query_stats</span>
+        2 · EDA
+      </span>
+      <span className="text-on-surface-variant font-headline">→</span>
+      <NavLink
+        to={`/cleaning?datasetId=${datasetId}`}
+        className={`${stepClass('next')} hover:bg-primary-container hover:text-primary`}
+      >
+        <span className="material-symbols-outlined text-sm">cleaning_services</span>
+        3 · Cleaning
+      </NavLink>
     </div>
   )
 }
