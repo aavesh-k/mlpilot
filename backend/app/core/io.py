@@ -1,11 +1,17 @@
-from pathlib import Path
+from __future__ import annotations
 
-import pandas as pd
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from app.core.exceptions import NotFoundError, ValidationError
 
 
 def read_dataframe(dataset: dict) -> pd.DataFrame:
+    import pandas as pd
+
     file_path = Path(dataset["file_path"])
     if not file_path.exists():
         raise NotFoundError("Dataset file", str(file_path))

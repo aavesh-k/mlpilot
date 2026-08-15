@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import math
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-import pandas as pd
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
 
 SAMPLE_SIZE_FOR_PLOTS = 100_000
 HISTOGRAM_BINS = 30
@@ -12,6 +15,8 @@ OUTLIER_THRESHOLD = 1.5
 
 
 def compute_eda(dataset_id: str, df: pd.DataFrame, progress_callback: Callable | None = None) -> dict:
+    import pandas as pd
+
     total_rows = len(df)
 
     def rp(step: str, pct: float):
@@ -135,6 +140,8 @@ def _compute_columns(df: pd.DataFrame) -> list[dict]:
 
 
 def _safe_convert(records: list[dict]) -> list[dict]:
+    import numpy as np
+
     result = []
     for row in records:
         cleaned = {}
@@ -169,6 +176,8 @@ def _compute_missingness(df: pd.DataFrame) -> list[dict]:
 
 
 def _compute_missingness_matrix(df: pd.DataFrame) -> dict:
+    import pandas as pd
+
     n_rows = min(len(df), 1000)
     sample = df.head(n_rows)
     data = {}
@@ -178,6 +187,8 @@ def _compute_missingness_matrix(df: pd.DataFrame) -> dict:
 
 
 def _compute_numeric_summary(df: pd.DataFrame) -> list[dict]:
+    import numpy as np
+
     num_cols = df.select_dtypes(include=[np.number]).columns
     summaries = []
     for col in num_cols:
@@ -210,6 +221,8 @@ def _safe_float(v: Any) -> float | None:
 
 
 def _compute_outliers(df: pd.DataFrame) -> list[dict]:
+    import numpy as np
+
     num_cols = df.select_dtypes(include=[np.number]).columns
     total = len(df)
     results = []
@@ -260,6 +273,8 @@ def _compute_categorical_summary(df: pd.DataFrame) -> list[dict]:
 
 
 def _compute_correlation(df: pd.DataFrame) -> dict:
+    import numpy as np
+
     num_cols = df.select_dtypes(include=[np.number]).columns
     result: dict = {"matrix": {}, "high_pairs": []}
     if len(num_cols) < 2:
@@ -288,6 +303,8 @@ def _compute_correlation(df: pd.DataFrame) -> dict:
 
 
 def _compute_distributions(df: pd.DataFrame) -> list[dict]:
+    import numpy as np
+
     num_cols = df.select_dtypes(include=[np.number]).columns
     distributions = []
     for col in num_cols:
@@ -302,6 +319,8 @@ def _compute_distributions(df: pd.DataFrame) -> list[dict]:
 
 
 def _compute_kde(data: np.ndarray, points: int = 200) -> dict:
+    import numpy as np
+
     n = len(data)
     if n < 2:
         return {"x": [], "y": []}
@@ -329,6 +348,8 @@ def _compute_duplicates(df: pd.DataFrame) -> dict:
 
 
 def _check_data_types(df: pd.DataFrame) -> list[dict]:
+    import pandas as pd
+
     issues = []
     for col in df.columns:
         s = df[col].dropna()
@@ -364,6 +385,8 @@ def _check_data_types(df: pd.DataFrame) -> list[dict]:
 
 
 def _find_constant_columns(df: pd.DataFrame) -> list[dict]:
+    import numpy as np
+
     constants = []
     for col in df.columns:
         s = df[col].dropna()
@@ -400,6 +423,8 @@ def _find_constant_columns(df: pd.DataFrame) -> list[dict]:
 
 def _detect_potential_targets(df: pd.DataFrame) -> list[dict]:
     """Heuristically identify columns that could be ML targets and report class balance (AC-02)."""
+    import pandas as pd
+
     targets: list[dict] = []
     for col in df.columns:
         vc = df[col].value_counts(dropna=True)

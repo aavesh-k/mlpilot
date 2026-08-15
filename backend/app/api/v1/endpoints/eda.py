@@ -1,7 +1,12 @@
+from __future__ import annotations
+
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
+
 from fastapi import APIRouter, Depends
 
 from app.api.v1.endpoints.datasets import get_session_id
@@ -23,6 +28,8 @@ def _get_processing_lock(dataset_id: str) -> threading.Lock:
 
 
 def _read_dataframe(dataset: dict) -> pd.DataFrame:
+    import pandas as pd
+
     file_path = Path(dataset["file_path"])
     if not file_path.exists():
         raise NotFoundError("Dataset file", str(file_path))

@@ -1,29 +1,23 @@
+from __future__ import annotations
+
 import math
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import cloudpickle
-import numpy as np
-import pandas as pd
-from imblearn.over_sampling import SMOTE
-from sklearn.compose import ColumnTransformer
-from sklearn.feature_selection import VarianceThreshold
-from sklearn.model_selection import train_test_split as sk_train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import (
-    FunctionTransformer,
-    LabelEncoder,
-    MinMaxScaler,
-    OneHotEncoder,
-    RobustScaler,
-    StandardScaler,
-)
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import LabelEncoder
 
 from app.core.config import settings
 from app.storage import storage
 
 
 def detect_problem_type(y: pd.Series) -> str:
+    import pandas as pd
+
+
     unique_count = y.nunique()
     if unique_count < 2:
         return "invalid"
@@ -37,6 +31,8 @@ def detect_problem_type(y: pd.Series) -> str:
 
 
 def check_class_balance(y: pd.Series) -> dict:
+    import numpy as np
+
     vc = y.value_counts()
     total = len(y)
     distribution = {}
@@ -84,6 +80,8 @@ def suggest_scaling_strategy(col: pd.Series, eda_report: dict | None) -> str:
 
 
 def _encode_target(y: pd.Series) -> tuple[np.ndarray, LabelEncoder]:
+    from sklearn.preprocessing import LabelEncoder
+
     le = LabelEncoder()
     encoded = le.fit_transform(y)
     return encoded, le
@@ -97,6 +95,18 @@ def _build_preprocessing_pipeline(
     problem_type: str,
     y_encoded: np.ndarray | None,
 ) -> tuple[Pipeline, list[str], dict]:
+    import numpy as np
+    from sklearn.compose import ColumnTransformer
+    from sklearn.feature_selection import VarianceThreshold
+    from sklearn.pipeline import Pipeline
+    from sklearn.preprocessing import (
+        FunctionTransformer,
+        MinMaxScaler,
+        OneHotEncoder,
+        RobustScaler,
+        StandardScaler,
+    )
+
     numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     categorical_cols = df.select_dtypes(include=["object", "category", "string"]).columns.tolist()
     if target_col in numeric_cols:
@@ -217,7 +227,9 @@ class _TargetEncoder:
         self.y_encoded = y_encoded
         self.mapping_: dict = {}
 
-    def fit(self, X: pd.DataFrame, _y: pd.Series | None = None) -> "_TargetEncoder":
+    def fit(self, X: pd.DataFrame, _y: pd.Series | None = None) -> _TargetEncoder:
+        import numpy as np
+
         self.mapping_ = X.groupby(self.column)[self.column].apply(
             lambda x: np.mean(self.y_encoded[x.index]) if len(x) > 0 else 0
         ).to_dict()
@@ -226,10 +238,14 @@ class _TargetEncoder:
         return self
 
     def transform(self, X: pd.DataFrame) -> np.ndarray:
+        import numpy as np
+
         return X[self.column].map(self.mapping_).fillna(float(np.mean(self.y_encoded))).values.reshape(-1, 1)
 
 
 def _check_near_zero_variance(df: pd.DataFrame, threshold: float = 0.01) -> list[dict]:
+    import numpy as np
+
     dropped = []
     for col in df.select_dtypes(include=[np.number]).columns:
         s = df[col].dropna()
@@ -242,6 +258,8 @@ def _check_near_zero_variance(df: pd.DataFrame, threshold: float = 0.01) -> list
 
 
 def _check_high_correlation(df: pd.DataFrame, threshold: float = 0.95) -> list[dict]:
+    import numpy as np
+
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     if len(num_cols) < 2:
         return []
@@ -270,6 +288,12 @@ def run_preprocessing(
     eda_report: dict | None = None,
     pipeline_id: str | None = None,
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from imblearn.over_sampling import SMOTE
+    from sklearn.model_selection import train_test_split as sk_train_test_split
+
     dataset = storage.get_dataset(dataset_id)
     if not dataset:
         raise ValueError(f"Dataset {dataset_id} not found")
@@ -461,6 +485,8 @@ def run_preprocessing(
 
 
 def suggest_pipeline_config(dataset_id: str, eda_report: dict | None = None) -> dict:
+    import pandas as pd
+
     dataset = storage.get_dataset(dataset_id)
     if not dataset:
         raise ValueError(f"Dataset {dataset_id} not found")

@@ -3,9 +3,6 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-import cloudpickle
-import numpy as np
-import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
 
 from app.api.v1.endpoints.datasets import get_session_id
@@ -45,6 +42,8 @@ async def detect_target_problem_type(
     target_column: str,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import pandas as pd
+
     dataset = storage.get_dataset(dataset_id, session_id=session_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
@@ -291,6 +290,10 @@ async def score_pipeline(
     file: UploadFile = File(...),
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+
     pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)

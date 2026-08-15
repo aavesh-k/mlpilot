@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import threading
@@ -5,45 +7,13 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import cloudpickle
-import numpy as np
-import pandas as pd
+if TYPE_CHECKING:
+    import numpy as np
+
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.inspection import permutation_importance
-from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
-from sklearn.metrics import (
-    accuracy_score,
-    auc,
-    average_precision_score,
-    classification_report,
-    confusion_matrix,
-    f1_score,
-    mean_absolute_error,
-    mean_absolute_percentage_error,
-    mean_squared_error,
-    precision_recall_curve,
-    precision_score,
-    r2_score,
-    recall_score,
-    roc_auc_score,
-    roc_curve,
-)
-from sklearn.model_selection import (
-    KFold,
-    RandomizedSearchCV,
-    StratifiedKFold,
-    cross_validate,
-    learning_curve,
-    train_test_split,
-)
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.pipeline import Pipeline as SklearnPipeline
-from sklearn.svm import SVC
-from xgboost import XGBClassifier, XGBRegressor
 
 from app.api.v1.endpoints.datasets import get_session_id
 from app.api.v1.schemas.plots import ModelPlotsResponseSchema
@@ -120,58 +90,70 @@ def _attach_eta(job: dict) -> dict:
     return job
 
 
-ALGORITHMS = {
-    # Classification
-    "logistic_regression": lambda hp: LogisticRegression(
-        C=hp.get("C", 1.0),
-        max_iter=hp.get("max_iter", 1000),
-        random_state=hp.get("random_state", 42),
-    ),
-    "random_forest": lambda hp: RandomForestClassifier(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth"),
-        random_state=hp.get("random_state", 42),
-    ),
-    "xgboost": lambda hp: XGBClassifier(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth", 6),
-        learning_rate=hp.get("learning_rate", 0.3),
-        random_state=hp.get("random_state", 42),
-        use_label_encoder=False,
-        eval_metric="logloss",
-    ),
-    "svm": lambda hp: SVC(
-        C=hp.get("C", 1.0),
-        kernel=hp.get("kernel", "rbf"),
-        probability=True,
-        random_state=hp.get("random_state", 42),
-    ),
-    "knn": lambda hp: KNeighborsClassifier(
-        n_neighbors=hp.get("n_neighbors", 5),
-    ),
+_ALGORITHMS_CACHE: dict | None = None
 
-    # Regression
-    "linear_regression": lambda _hp: LinearRegression(),
-    "ridge": lambda hp: Ridge(
-        alpha=hp.get("alpha", 1.0),
-        random_state=hp.get("random_state", 42),
-    ),
-    "lasso": lambda hp: Lasso(
-        alpha=hp.get("alpha", 1.0),
-        random_state=hp.get("random_state", 42),
-    ),
-    "random_forest_regressor": lambda hp: RandomForestRegressor(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth"),
-        random_state=hp.get("random_state", 42),
-    ),
-    "xgboost_regressor": lambda hp: XGBRegressor(
-        n_estimators=hp.get("n_estimators", 100),
-        max_depth=hp.get("max_depth", 6),
-        learning_rate=hp.get("learning_rate", 0.3),
-        random_state=hp.get("random_state", 42),
-    ),
-}
+
+def get_algorithms() -> dict:
+    global _ALGORITHMS_CACHE
+    if _ALGORITHMS_CACHE is None:
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+        from sklearn.linear_model import Lasso, LinearRegression, LogisticRegression, Ridge
+        from sklearn.neighbors import KNeighborsClassifier
+        from sklearn.svm import SVC
+        from xgboost import XGBClassifier, XGBRegressor
+        _ALGORITHMS_CACHE = {
+            # Classification
+            "logistic_regression": lambda hp: LogisticRegression(
+                C=hp.get("C", 1.0),
+                max_iter=hp.get("max_iter", 1000),
+                random_state=hp.get("random_state", 42),
+            ),
+            "random_forest": lambda hp: RandomForestClassifier(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth"),
+                random_state=hp.get("random_state", 42),
+            ),
+            "xgboost": lambda hp: XGBClassifier(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth", 6),
+                learning_rate=hp.get("learning_rate", 0.3),
+                random_state=hp.get("random_state", 42),
+                use_label_encoder=False,
+                eval_metric="logloss",
+            ),
+            "svm": lambda hp: SVC(
+                C=hp.get("C", 1.0),
+                kernel=hp.get("kernel", "rbf"),
+                probability=True,
+                random_state=hp.get("random_state", 42),
+            ),
+            "knn": lambda hp: KNeighborsClassifier(
+                n_neighbors=hp.get("n_neighbors", 5),
+            ),
+
+            # Regression
+            "linear_regression": lambda _hp: LinearRegression(),
+            "ridge": lambda hp: Ridge(
+                alpha=hp.get("alpha", 1.0),
+                random_state=hp.get("random_state", 42),
+            ),
+            "lasso": lambda hp: Lasso(
+                alpha=hp.get("alpha", 1.0),
+                random_state=hp.get("random_state", 42),
+            ),
+            "random_forest_regressor": lambda hp: RandomForestRegressor(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth"),
+                random_state=hp.get("random_state", 42),
+            ),
+            "xgboost_regressor": lambda hp: XGBRegressor(
+                n_estimators=hp.get("n_estimators", 100),
+                max_depth=hp.get("max_depth", 6),
+                learning_rate=hp.get("learning_rate", 0.3),
+                random_state=hp.get("random_state", 42),
+            ),
+        }
+    return _ALGORITHMS_CACHE
 
 PARAM_GRIDS = {
     "logistic_regression": {
@@ -213,6 +195,10 @@ PARAM_GRIDS = {
 
 
 def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
+    import numpy as np
+    import pandas as pd
+    from sklearn.model_selection import train_test_split
+
     pipeline_id = body.pipeline_id
     use_class_weight = False
 
@@ -285,6 +271,9 @@ def _append_log(job: dict, message: str) -> None:
 
 
 def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, problem_type: str, cv_folds: int) -> dict:
+    import numpy as np
+    from sklearn.model_selection import KFold, StratifiedKFold, cross_validate
+
     if problem_type == "classification":
         cv = StratifiedKFold(n_splits=cv_folds, shuffle=True, random_state=42)
         scoring = ["accuracy", "f1_weighted"]
@@ -307,6 +296,19 @@ def _run_cross_validation(clf: Any, X_train: np.ndarray, y_train: np.ndarray, pr
 
 
 def _evaluate_model(clf: Any, X_test: np.ndarray, y_test: np.ndarray, problem_type: str) -> dict:
+    import numpy as np
+    from sklearn.metrics import (
+        accuracy_score,
+        f1_score,
+        mean_absolute_error,
+        mean_absolute_percentage_error,
+        mean_squared_error,
+        precision_score,
+        r2_score,
+        recall_score,
+        roc_auc_score,
+    )
+
     y_pred = clf.predict(X_test)
 
     metrics = {}
@@ -353,6 +355,12 @@ def _run_multi_training_background(
     random_seed: int = 42,
     hyperparameters: dict | None = None,
 ) -> None:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.model_selection import KFold, RandomizedSearchCV, StratifiedKFold
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     job = storage.get_job(job_id)
     if not job:
         return
@@ -437,7 +445,7 @@ def _run_multi_training_background(
             hp = _resolve_hyperparameters(algo, hyperparameters)
             if hp:
                 _append_log(job, f"Using custom hyperparameters for {algo}: {hp}")
-            clf = ALGORITHMS[algo](hp)
+            clf = get_algorithms()[algo](hp)
 
             # Apply class weights if configured
             if use_class_weight:
@@ -709,7 +717,7 @@ def _cancel_remaining_models(
 async def list_algorithms() -> dict:
     """Expose available algorithms, their tunable hyperparameter grids, and defaults (US-17)."""
     algorithms: dict[str, dict] = {}
-    for name, factory in ALGORITHMS.items():
+    for name, factory in get_algorithms().items():
         grid = PARAM_GRIDS.get(name, {})
         defaults: dict = {}
         try:
@@ -731,6 +739,8 @@ async def train_model(
     background_tasks: BackgroundTasks,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import pandas as pd
+
     # Resolve target dataset or pipeline
     pipeline_id = body.pipeline_id
     dataset_id = body.dataset_id
@@ -776,7 +786,7 @@ async def train_model(
             selected_algos = ["linear_regression", "ridge", "lasso", "random_forest_regressor", "xgboost_regressor"]
 
     # Validate algorithms list
-    valid_algos = set(ALGORITHMS.keys())
+    valid_algos = set(get_algorithms().keys())
     invalid = [a for a in selected_algos if a not in valid_algos]
     if invalid:
         raise ValidationError(f"Invalid algorithm(s): {', '.join(invalid)}")
@@ -1039,6 +1049,21 @@ async def get_model_plots(
     model_id: str,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.inspection import permutation_importance
+    from sklearn.metrics import (
+        auc,
+        average_precision_score,
+        classification_report,
+        confusion_matrix,
+        precision_recall_curve,
+        roc_curve,
+    )
+    from sklearn.model_selection import learning_curve
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -1344,6 +1369,8 @@ async def export_preprocessed_dataset(
     model_id: str,
     session_id: str = Depends(get_session_id)
 ):
+    import pandas as pd
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -1622,6 +1649,7 @@ async def export_html_report(
     import json
 
     import matplotlib.pyplot as plt
+    import numpy as np
 
     from app.storage import SafeEncoder
 
@@ -2040,6 +2068,11 @@ async def explain_model(
     row_idx: int = 0,
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)
@@ -2146,6 +2179,10 @@ async def predict_model(
     file: UploadFile = File(...),
     session_id: str = Depends(get_session_id)
 ) -> dict:
+    import cloudpickle
+    import numpy as np
+    import pandas as pd
+
     model = storage.get_model(model_id, session_id=session_id)
     if not model:
         raise NotFoundError("Model", model_id)

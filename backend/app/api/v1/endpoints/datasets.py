@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import logging
 import shutil
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
+
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
-from sklearn.datasets import load_breast_cancer, load_diabetes, load_digits, load_iris
 
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
@@ -30,6 +34,8 @@ async def upload_dataset(
     session_id: str = Depends(get_session_id)
 ) -> JSONResponse:
     logger.info("Dataset upload requested [filename=%s, session_id=%s]", file.filename, session_id)
+
+    import pandas as pd
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -179,6 +185,8 @@ async def delete_dataset(
 
 
 def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
+    from sklearn.datasets import load_breast_cancer, load_diabetes, load_digits, load_iris
+
     if target == "iris":
         data = load_iris(as_frame=True)
         df = data.frame.copy()
