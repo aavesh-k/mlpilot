@@ -12,6 +12,7 @@ import { Button } from '../shared/components/ui/button'
 import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatFileSize, formatDate } from '../shared/utils/format'
 import { apiClient } from '../core/api/client'
+import { toApiError } from '../core/api/errors'
 
 export default function DatasetUpload() {
   const navigate = useNavigate()
@@ -31,7 +32,7 @@ export default function DatasetUpload() {
     try {
       await deleteMutation.mutateAsync(id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete dataset')
+      setDeleteError(toApiError(err).message)
     } finally {
       setPendingDeleteId(null)
     }
@@ -48,8 +49,7 @@ export default function DatasetUpload() {
       await queryClient.invalidateQueries({ queryKey: ['datasets'] })
       navigate(`/datasets/${data.id}`)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to load demo dataset'
-      setDemoError(msg)
+      setDemoError(toApiError(err).message)
     } finally {
       setDemoLoading(false)
     }
@@ -106,7 +106,7 @@ return (
         />
         {uploadMutation.isError && (
           <p className="mt-4 text-secondary font-headline font-bold text-sm">
-            Upload failed: {(uploadMutation.error as Error)?.message ?? 'Unknown error'}
+            Upload failed: {toApiError(uploadMutation.error).message}
           </p>
         )}
         {uploadMutation.isPending && (

@@ -12,6 +12,7 @@ import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
+import { toApiError } from '../core/api/errors'
 import { formatDate } from '../shared/utils/format'
 import { trainModelSchema } from '../shared/schemas/training'
 import { trainingApi } from '../core/api/training.api'
@@ -58,6 +59,7 @@ export default function ModelTraining() {
   const trainMutation = useTrainModel()
   const deleteJob = useDeleteJob()
   const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
   const { data: algorithmsData } = useQuery({
     queryKey: ['algorithms'],
     queryFn: () => trainingApi.getAlgorithms(),
@@ -395,6 +397,12 @@ export default function ModelTraining() {
       <div className="bg-surface border-2 border-primary p-6 md:p-8 neo-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Training Jobs History</h3>
 
+        {cancelError && (
+          <div className="bg-red-100 border-l-4 border-red-500 p-3 text-xs font-body text-red-950 mb-4">
+            {cancelError}
+          </div>
+        )}
+
         {jobsLoading && <LoadingSpinner />}
         {error && <ErrorState message="Failed to load training jobs" onRetry={() => refetch()} />}
         {!jobsLoading && !error && jobs.length === 0 && (
@@ -439,11 +447,12 @@ export default function ModelTraining() {
                               size="sm"
                               className="text-secondary border-secondary"
                               onClick={async () => {
+                                setCancelError(null)
                                 try {
                                   await trainingApi.cancelJob(job.id)
                                   refetch()
                                 } catch (e) {
-                                  alert('Failed to cancel job')
+                                  setCancelError(toApiError(e).message)
                                 }
                               }}
                             >

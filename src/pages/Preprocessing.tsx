@@ -19,6 +19,7 @@ import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatDate } from '../shared/utils/format'
+import { toApiError } from '../core/api/errors'
 import type { ColumnSuggestion, EncodingConfig, ScalingConfig, SplitConfig, FeatureSelectionConfig, TargetDetectionResult } from '../core/api/pipelines.api'
 
 type Step = 'select-columns' | 'config' | 'review'
@@ -80,7 +81,7 @@ export default function Preprocessing() {
     try {
       await deletePipeline.mutateAsync(id)
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete pipeline')
+      setDeleteError(toApiError(err).message)
     } finally {
       setPendingDeleteId(null)
     }

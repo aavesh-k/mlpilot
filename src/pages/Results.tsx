@@ -10,6 +10,7 @@ import { Badge } from '../shared/components/ui/badge'
 import { Button } from '../shared/components/ui/button'
 import { CONFIG } from '../core/config'
 import { trainingApi } from '../core/api/training.api'
+import { toApiError } from '../core/api/errors'
 import { usePipeline } from '../modules/pipelines/hooks/usePipelines'
 import {
   FileSpreadsheet,
@@ -69,6 +70,7 @@ export default function Results() {
   const [scoreFile, setScoreFile] = useState<File | null>(null)
   const [scoreResult, setScoreResult] = useState<any>(null)
   const [scoreLoading, setScoreLoading] = useState(false)
+  const [scoreError, setScoreError] = useState<string | null>(null)
 
   const models = data?.items ?? []
   const completedModels = models.filter((m) => m.status === 'completed')
@@ -98,10 +100,7 @@ export default function Results() {
           setExplainData(res)
         })
         .catch((err) => {
-          console.error(err)
-          setExplainError(
-            err instanceof Error ? err.message : 'Failed to compute explanation for this row.',
-          )
+          setExplainError(toApiError(err).message)
         })
         .finally(() => {
           setExplainLoading(false)
@@ -136,12 +135,12 @@ export default function Results() {
     if (!selectedModel || !scoreFile) return
     setScoreLoading(true)
     setScoreResult(null)
+    setScoreError(null)
     try {
       const res = await trainingApi.predict(selectedModel.id, scoreFile)
       setScoreResult(res)
     } catch (err) {
-      console.error(err)
-      alert(err instanceof Error ? err.message : 'Scoring failed')
+      setScoreError(toApiError(err).message)
     } finally {
       setScoreLoading(false)
     }
@@ -586,6 +585,12 @@ export default function Results() {
                       >
                         {scoreLoading ? 'Generating Predictions...' : 'Generate Predictions'}
                       </Button>
+                    )}
+
+                    {scoreError && (
+                      <div className="bg-red-100 border-l-4 border-red-500 p-3 text-xs font-body text-red-950">
+                        {scoreError}
+                      </div>
                     )}
 
                     {scoreResult && (

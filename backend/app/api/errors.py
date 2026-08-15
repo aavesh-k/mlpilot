@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -12,6 +14,8 @@ from app.core.exceptions import (
     StorageError,
     ValidationError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def error_response(status_code: int, code: str, message: str, field: str | None = None) -> JSONResponse:
@@ -32,6 +36,9 @@ async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
         ConflictError: (409, "CONFLICT"),
     }
     http_status, code = mapping.get(type(exc), (500, "INTERNAL_ERROR"))
+    # Server-level errors should always be recorded so they are debuggable.
+    if http_status >= 500:
+        logger.exception("Unhandled application error: %s", exc)
     return error_response(http_status, code, str(exc), getattr(exc, "field", None))
 
 
@@ -40,5 +47,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
     return error_response(422, "VALIDATION_ERROR", messages)
 
 
-async def generic_error_handler(_request: Request, _exc: Exception) -> JSONResponse:
+async def generic_error_handler(_request: Request, exc: Exception) -> JSONResponse:
+    # Log the actual exception so unexpected 500s are never silently lost.
+    logger.exception("Unhandled exception: %s", exc)
     return error_response(500, "INTERNAL_ERROR", "An unexpected error occurred")
