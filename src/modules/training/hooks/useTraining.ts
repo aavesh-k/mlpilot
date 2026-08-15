@@ -59,6 +59,17 @@ export function useCancelJob() {
   })
 }
 
+export function useDeleteJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => trainingApi.deleteJob(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+    },
+  })
+}
+
 export function useSetBestModel() {
   const queryClient = useQueryClient()
   return useMutation({

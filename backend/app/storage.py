@@ -235,6 +235,18 @@ class SQLStorage:
         with session_scope() as session:
             return self._upsert(JobRecord, job["id"], job, session)
 
+    def delete_job(self, job_id: str, session_id: str | None = None) -> bool:
+        job = self.get_job(job_id, session_id=session_id)
+        if job is None:
+            return False
+        # Cascade delete the job's models and their on-disk artifacts
+        for model in self.list_models(session_id=session_id):
+            if model.get("job_id") == job_id:
+                self.delete_model(model["id"])
+                self._remove_model_artifacts(model["id"])
+        self._delete(JobRecord, job_id)
+        return True
+
     # --- Settings ---
     def get_settings(self) -> dict:
         with session_scope() as session:

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
-import { useTrainModel, useJobs } from '../modules/training/hooks/useTraining'
+import { useTrainModel, useJobs, useDeleteJob } from '../modules/training/hooks/useTraining'
 import type { AlgorithmInfo } from '../core/api/training.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
@@ -11,6 +11,7 @@ import { LoadingSpinner } from '../shared/components/LoadingSpinner'
 import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
+import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatDate } from '../shared/utils/format'
 import { trainModelSchema } from '../shared/schemas/training'
 import { trainingApi } from '../core/api/training.api'
@@ -55,6 +56,8 @@ export default function ModelTraining() {
   const { data: pipelinesData, isLoading: pipelinesLoading } = usePipelines(1)
   const { data: jobsData, isLoading: jobsLoading, error, refetch } = useJobs(page)
   const trainMutation = useTrainModel()
+  const deleteJob = useDeleteJob()
+  const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<string | null>(null)
   const { data: algorithmsData } = useQuery({
     queryKey: ['algorithms'],
     queryFn: () => trainingApi.getAlgorithms(),
@@ -447,6 +450,9 @@ export default function ModelTraining() {
                               Cancel
                             </Button>
                           )}
+                          <Button variant="danger" size="sm" onClick={() => setConfirmDeleteJobId(job.id)}>
+                            Delete
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -458,6 +464,24 @@ export default function ModelTraining() {
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteJobId !== null}
+        title="Delete Training Job"
+        message="Delete this training job and all models produced by it? This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={async () => {
+          if (confirmDeleteJobId) {
+            try {
+              await deleteJob.mutateAsync(confirmDeleteJobId)
+            } catch {
+              // surfaced via query refetch / error boundary
+            }
+          }
+          setConfirmDeleteJobId(null)
+        }}
+        onCancel={() => setConfirmDeleteJobId(null)}
+      />
     </div>
   )
 }

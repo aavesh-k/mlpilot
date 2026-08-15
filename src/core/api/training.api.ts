@@ -117,6 +117,10 @@ export const trainingApi = {
     return data
   },
 
+  async deleteJob(id: string): Promise<void> {
+    await apiClient.delete(`/training/jobs/${id}`)
+  },
+
   async setBest(id: string): Promise<Model> {
     const { data } = await apiClient.post(`/training/models/${id}/set-best`)
     return data

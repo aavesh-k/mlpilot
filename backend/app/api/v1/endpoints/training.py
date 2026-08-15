@@ -75,7 +75,19 @@ def _attach_eta(job: dict) -> dict:
     status = job.get("status")
     if status in ("completed", "failed", "cancelled"):
         job["eta_seconds"] = None
-        return job
+    return job
+
+
+@router.delete("/jobs/{job_id}")
+async def delete_job(
+    job_id: str,
+    session_id: str = Depends(get_session_id)
+) -> Response:
+    deleted = storage.delete_job(job_id, session_id=session_id)
+    if not deleted:
+        raise NotFoundError("Job", job_id)
+    return Response(status_code=204)
+
     run_started = job.get("run_started_at") or job.get("started_at")
     progress = float(job.get("progress", 0.0) or 0.0)
     if run_started and progress > 0:

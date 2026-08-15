@@ -452,6 +452,7 @@ export default function Preprocessing() {
                         <Button variant="primary" size="sm" onClick={() => navigate(`/training?pipeline=${p.id}&dataset=${p.dataset_id}`)}>
                           Train Models
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => handleEditPipeline(p as any)}>Edit</Button>
                         {renamingId === p.id ? (
                           <>
                             <input
@@ -464,7 +465,7 @@ export default function Preprocessing() {
                             <Button variant="ghost" size="sm" onClick={cancelRename}>Cancel</Button>
                           </>
                         ) : (
-                          <Button variant="ghost" size="sm" onClick={() => startRename(p)}>Edit</Button>
+                          <Button variant="ghost" size="sm" onClick={() => startRename(p)}>Rename</Button>
                         )}
                       </>
                     ) : null}
