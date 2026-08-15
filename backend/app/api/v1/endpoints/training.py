@@ -263,6 +263,51 @@ def _prepare_data(body: TrainModelSchema, dataset: dict) -> tuple:
     return X_train, y_train, X_test, y_test, pipeline_id, use_class_weight
 
 
+# --- Artifact resolution helpers -------------------------------------------
+# Models store a reference to their pipeline_id/dataset_id, but those parent
+# records can be removed (e.g. cascade delete) while the on-disk artifacts
+# (model.pkl, pipeline.pkl, train/test splits) remain. These helpers resolve
+# the artifacts directly from DATA_DIR so inference/exports keep working.
+
+
+def _processed_dir(pipeline_id: str | None) -> Path | None:
+    if not pipeline_id:
+        return None
+    d = settings.DATA_DIR / "processed" / pipeline_id
+    return d if d.exists() else None
+
+
+def _load_preprocessor(pipeline_id: str | None):
+    d = _processed_dir(pipeline_id)
+    if not d:
+        return None
+    p = d / "pipeline.pkl"
+    if not p.exists():
+        return None
+    try:
+        import cloudpickle
+
+        with open(p, "rb") as f:
+            return cloudpickle.load(f)
+    except Exception:
+        return None
+
+
+def _load_test_df(pipeline_id: str | None):
+    d = _processed_dir(pipeline_id)
+    if not d:
+        return None
+    p = d / "test.parquet"
+    if not p.exists():
+        return None
+    try:
+        import pandas as pd
+
+        return pd.read_parquet(p)
+    except Exception:
+        return None
+
+
 def _append_log(job: dict, message: str) -> None:
     timestamp = datetime.now(UTC).strftime("%H:%M:%S")
     entry = f"[{timestamp}] {message}"
@@ -949,26 +994,28 @@ async def download_model(
     if not file_path or not Path(file_path).exists():
         raise NotFoundError("Model artifact", model_id)
 
-    pipeline_id = model.get("pipeline_id")
-    bundle_path = Path(file_path)
-    if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
-        if pipeline and pipeline.get("artifact_path"):
-            pipeline_artifact = Path(pipeline["artifact_path"])
-            if pipeline_artifact.exists():
-                from zipfile import ZipFile
-                bundle_dir = settings.DATA_DIR / "models" / model_id
-                bundle_zip = bundle_dir / "bundle.zip"
-                with ZipFile(bundle_zip, "w") as zf:
-                    zf.write(file_path, "model.pkl")
-                    zf.write(str(pipeline_artifact), "pipeline.pkl")
-                    le_path = pipeline.get("label_encoder_path")
-                    if le_path and Path(le_path).exists():
-                        zf.write(le_path, "label_encoder.pkl")
-                bundle_path = bundle_zip
+    # Always return a ZIP bundle so the artifact is a proper archive rather
+    # than a bare binary .pkl. The preprocessing pipeline and label encoder are
+    # resolved from on-disk artifacts (via pipeline_id) so this works even when
+    # the pipeline database record has been deleted.
+    from zipfile import ZipFile
 
-    filename = f"{model['algorithm']}_{model_id[:8]}.zip" if bundle_path.suffix == ".zip" else f"{model['algorithm']}_{model_id[:8]}.pkl"
-    return FileResponse(str(bundle_path), media_type="application/octet-stream", filename=filename)
+    bundle_dir = settings.DATA_DIR / "models" / model_id
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    bundle_zip = bundle_dir / "bundle.zip"
+    with ZipFile(bundle_zip, "w") as zf:
+        zf.write(file_path, "model.pkl")
+        pdir = _processed_dir(model.get("pipeline_id"))
+        if pdir is not None:
+            pkl_path = pdir / "pipeline.pkl"
+            if pkl_path.exists():
+                zf.write(str(pkl_path), "pipeline.pkl")
+            le_path = pdir / "label_encoder.pkl"
+            if le_path.exists():
+                zf.write(str(le_path), "label_encoder.pkl")
+
+    filename = f"{model['algorithm']}_{model_id[:8]}.zip"
+    return FileResponse(str(bundle_zip), media_type="application/octet-stream", filename=filename)
 
 
 @router.get("/jobs")
@@ -1079,27 +1126,36 @@ async def get_model_plots(
     # Resolve if pipeline is wrapped or raw estimator
     model_estimator = clf.named_steps["model"] if isinstance(clf, SklearnPipeline) and "model" in clf.named_steps else clf
 
-    # 2. Load dataset splits
-    from app.api.v1.schemas.training import TrainModelSchema
-    dummy_body = TrainModelSchema(
-        pipeline_id=model.get("pipeline_id"),
-        dataset_id=model.get("dataset_id"),
-        target_column=model.get("target_column"),
-        random_seed=42,
-        test_size=0.2,
-    )
-    dataset = storage.get_dataset(model["dataset_id"]) if model.get("dataset_id") else None
-    X_train_transformed, y_train, X_test_transformed, y_test, pipeline_id, use_class_weight = _prepare_data(
-        dummy_body, dataset
-    )
+    # 2. Load evaluation splits. Prefer the preprocessed test split artifact so
+    # plots still render when the pipeline/dataset DB records are missing.
+    pipeline_id = model.get("pipeline_id")
+    target_col = model.get("target_column")
+    test_df = _load_test_df(pipeline_id)
+    X_train_transformed = y_train = X_test_transformed = y_test = None
+    if test_df is not None:
+        tc = target_col if (target_col and target_col in test_df.columns) else test_df.columns[-1]
+        if tc in test_df.columns:
+            y_test = test_df[tc].values
+            X_test_transformed = test_df.drop(columns=[tc]).select_dtypes(include=[np.number]).values
+            X_train_transformed = X_test_transformed
+            y_train = y_test
 
-    problem_type = "classification"
-    if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id)
-        if pipeline:
-            problem_type = pipeline.get("problem_type", "classification")
-    else:
-        problem_type = detect_problem_type(pd.Series(y_train))
+    if X_test_transformed is None:
+        from app.api.v1.schemas.training import TrainModelSchema
+
+        dummy_body = TrainModelSchema(
+            pipeline_id=pipeline_id,
+            dataset_id=model.get("dataset_id"),
+            target_column=target_col,
+            random_seed=42,
+            test_size=0.2,
+        )
+        dataset = storage.get_dataset(model["dataset_id"]) if model.get("dataset_id") else None
+        X_train_transformed, y_train, X_test_transformed, y_test, pipeline_id, use_class_weight = _prepare_data(
+            dummy_body, dataset
+        )
+
+    problem_type = "regression" if "r2" in (model.get("metrics") or {}) else "classification"
 
     # Evaluate predictions
     y_pred = model_estimator.predict(X_test_transformed)
@@ -1640,7 +1696,10 @@ async def export_html_report(
         reverse=not is_lower
     )
 
-    plots = await get_model_plots(model_id, session_id=session_id)
+    try:
+        plots = await get_model_plots(model_id, session_id=session_id)
+    except Exception:
+        plots = {}
 
     import matplotlib
     matplotlib.use('Agg')
@@ -2082,13 +2141,12 @@ async def explain_model(
     target_col = model.get("target_column")
 
     # Load dataset / test dataset to explain
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id) if pipeline_id else None
-    test_path = pipeline.get("test_path") if pipeline else None
-
-    if test_path and Path(test_path).exists():
-        df = pd.read_parquet(test_path) if test_path.endswith(".parquet") else pd.read_csv(test_path)
-    else:
-        dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    # Load the preprocessed test split directly from artifacts (the model was
+    # trained on preprocessed features). Falls back to the raw dataset when no
+    # pipeline artifacts are available.
+    df = _load_test_df(pipeline_id)
+    if df is None:
+        dataset = storage.get_dataset(dataset_id, session_id=session_id) if dataset_id else None
         if not dataset:
             raise NotFoundError("Dataset", dataset_id)
         df = read_dataframe(dataset)
@@ -2105,6 +2163,14 @@ async def explain_model(
     with open(model["file_path"], "rb") as f:
         bundle = cloudpickle.load(f)
 
+    # Align features to the estimator. When target_column is unknown, the target
+    # is conventionally the last column in the split; the estimator was trained
+    # on every column except the target, so trim to its expected feature count.
+    if not (target_col and target_col in df.columns):
+        n_feat = getattr(bundle, "n_features_in_", None)
+        if n_feat is not None and df.shape[1] > n_feat:
+            df = df.iloc[:, :n_feat]
+
     # Calculate baseline inputs (median for numeric, mode for categorical)
     baseline_dict = {}
     for col in df.columns:
@@ -2118,7 +2184,7 @@ async def explain_model(
     sample_df = df.iloc[[row_idx]].copy().reset_index(drop=True)
 
     # Determine problem type and class index
-    problem_type = pipeline.get("problem_type", "classification") if pipeline else "classification"
+    problem_type = "regression" if "r2" in (model.get("metrics") or {}) else "classification"
     target_class_idx = 1
     if problem_type == "classification" and hasattr(bundle, "classes_"):
         # Check classes
@@ -2221,12 +2287,28 @@ async def predict_model(
     if target_col and target_col in df.columns:
         df = df.drop(columns=[target_col])
 
-    # Load bundle
+    # Load the trained artifact. Some models persist a full Pipeline
+    # (preprocessor + estimator) while others persist only the estimator.
     with open(model["file_path"], "rb") as f:
         bundle = cloudpickle.load(f)
 
+    from sklearn.pipeline import Pipeline as SklearnPipeline
+
+    is_full_pipeline = isinstance(bundle, SklearnPipeline) and "model" in bundle.named_steps
+
+    # If the bundle is only the estimator, wrap it with the preprocessing
+    # pipeline so raw input data is transformed before prediction.
+    if is_full_pipeline:
+        predictor = bundle
+    else:
+        preprocessor = _load_preprocessor(model.get("pipeline_id"))
+        if preprocessor is not None:
+            predictor = SklearnPipeline([("preprocessor", preprocessor), ("model", bundle)])
+        else:
+            predictor = bundle
+
     # Perform predictions
-    preds = bundle.predict(df)
+    preds = predictor.predict(df)
     original_df["prediction"] = preds
 
     # Try predicting probabilities

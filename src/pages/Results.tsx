@@ -62,6 +62,7 @@ export default function Results() {
   const [explainRowIdx, setExplainRowIdx] = useState(0)
   const [explainData, setExplainData] = useState<any>(null)
   const [explainLoading, setExplainLoading] = useState(false)
+  const [explainError, setExplainError] = useState<string | null>(null)
 
   // Score states
   const [scoreFile, setScoreFile] = useState<File | null>(null)
@@ -86,12 +87,16 @@ export default function Results() {
     if (selectedModel && selectedTab === 'explain') {
       setExplainLoading(true)
       setExplainData(null)
+      setExplainError(null)
       trainingApi.explain(selectedModel.id, explainRowIdx)
         .then((res) => {
           setExplainData(res)
         })
         .catch((err) => {
           console.error(err)
+          setExplainError(
+            err instanceof Error ? err.message : 'Failed to compute explanation for this row.',
+          )
         })
         .finally(() => {
           setExplainLoading(false)
@@ -341,7 +346,12 @@ export default function Results() {
                   <div className="space-y-6">
                     <div className="bg-yellow-100 border-l-4 border-primary p-4 text-xs font-body text-primary-dark">
                       <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Executive Briefing</p>
-                      This model was successfully trained on features extracted from target column <span className="font-bold">"{selectedModel.target_column}"</span>. 
+                      This model was successfully trained on features extracted from target column{' '}
+                      {selectedModel.target_column ? (
+                        <span className="font-bold">"{selectedModel.target_column}"</span>
+                      ) : (
+                        <span className="font-bold">the configured target</span>
+                      )}.{' '}
                       It ranked highest on metrics and is compiled with preprocessing rules.
                     </div>
 
@@ -465,6 +475,13 @@ export default function Results() {
                     </div>
 
                     {explainLoading && <div className="text-center py-8 font-headline font-bold text-xs uppercase">Calculating explainability values...</div>}
+
+                    {!explainLoading && explainError && (
+                      <div className="bg-red-100 border-l-4 border-red-500 p-4 text-xs font-body text-red-950">
+                        <p className="font-headline font-black text-[10px] uppercase mb-1 tracking-wider">Explanation Unavailable</p>
+                        {explainError}
+                      </div>
+                    )}
 
                     {!explainLoading && explainData && (
                       <div className="space-y-4">
