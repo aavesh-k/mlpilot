@@ -412,7 +412,24 @@ export default function Preprocessing() {
                   {p.column_notes && Object.keys(p.column_notes).length > 0 && (
                     <Badge variant="info">{Object.keys(p.column_notes).length} cols processed</Badge>
                   )}
+                  {p.imputation?.strategy && p.imputation.strategy !== 'none' && (
+                    <Badge variant="info">impute: {p.imputation.strategy}</Badge>
+                  )}
                 </div>
+                {p.column_mapping && Object.keys(p.column_mapping).length > 0 && (
+                  <details className="mt-2 text-xs">
+                    <summary className="font-headline font-bold uppercase cursor-pointer text-on-surface-variant hover:text-tertiary">
+                      Column Mapping ({Object.keys(p.column_mapping).length})
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {Object.entries(p.column_mapping).map(([col, role]) => (
+                        <span key={col} className="font-mono bg-surface-variant px-1.5 py-0.5" title={String(role)}>
+                          {col}: {String(role).split(' ')[0]}
+                        </span>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
             )
           })}

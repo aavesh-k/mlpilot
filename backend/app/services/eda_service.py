@@ -69,6 +69,21 @@ def compute_eda(dataset_id: str, df: pd.DataFrame, progress_callback: Callable |
         constant_columns, data_type_issues, numeric_summary,
     )
 
+    rp("Potential targets & class balance", 0.96)
+    potential_targets = _detect_potential_targets(df)
+    for t in potential_targets:
+        if t.get("is_imbalanced"):
+            findings.append({
+                "severity": "warning",
+                "title": "Class Imbalance",
+                "description": (
+                    f"Potential target column '{t['column']}' is imbalanced "
+                    f"(majority/minority ratio = {t['imbalance_ratio']:.1f})."
+                ),
+                "affected_columns": [t["column"]],
+                "recommendation": "Consider class weighting or SMOTE in preprocessing to handle imbalance.",
+            })
+
     rp("Complete", 1.0)
 
     return {
@@ -90,6 +105,7 @@ def compute_eda(dataset_id: str, df: pd.DataFrame, progress_callback: Callable |
         "duplicates": duplicates,
         "data_type_issues": data_type_issues,
         "constant_columns": constant_columns,
+        "potential_targets": potential_targets,
         "findings": findings,
     }
 
@@ -380,6 +396,39 @@ def _find_constant_columns(df: pd.DataFrame) -> list[dict]:
                     uv = str(uv)
                 constants.append({"column": col, "unique_value": uv, "percent_same": round(top_pct, 4)})
     return constants
+
+
+def _detect_potential_targets(df: pd.DataFrame) -> list[dict]:
+    """Heuristically identify columns that could be ML targets and report class balance (AC-02)."""
+    targets: list[dict] = []
+    for col in df.columns:
+        vc = df[col].value_counts(dropna=True)
+        n_unique = len(vc)
+        if n_unique < 2 or n_unique > 50:
+            continue
+        s = df[col].dropna()
+        is_numeric_class = (
+            pd.api.types.is_numeric_dtype(df[col])
+            and s.apply(lambda v: float(v).is_integer() if not pd.isna(v) else True).all()
+        )
+        if not (is_numeric_class or df[col].dtype in ("object", "category", "string")):
+            continue
+        total = int(vc.sum())
+        distribution = {str(k): int(v) for k, v in vc.items()}
+        majority_pct = float(vc.iloc[0] / total) if total > 0 else 0.0
+        minority_pct = float(vc.iloc[-1] / total) if total > 0 else 0.0
+        imbalance_ratio = (majority_pct / minority_pct) if minority_pct > 0 else 999.0
+        targets.append({
+            "column": col,
+            "type": "numeric_class" if is_numeric_class else "categorical_class",
+            "class_count": int(n_unique),
+            "distribution": distribution,
+            "majority_pct": round(majority_pct, 4),
+            "minority_pct": round(minority_pct, 4),
+            "imbalance_ratio": round(imbalance_ratio, 4) if imbalance_ratio < 999 else 999.0,
+            "is_imbalanced": bool(imbalance_ratio > 2.0),
+        })
+    return targets
 
 
 def _generate_findings(

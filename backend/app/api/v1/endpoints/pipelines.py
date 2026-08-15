@@ -118,6 +118,7 @@ async def create_pipeline(
         "scaling": body.scaling.model_dump(),
         "split": body.split.model_dump(),
         "feature_selection": body.feature_selection.model_dump(),
+        "imputation": body.imputation.model_dump(),
         "use_smote": body.use_smote,
         "use_class_weight": body.use_class_weight,
         "session_id": session_id,
@@ -177,6 +178,8 @@ async def update_pipeline(
         pipeline["split"] = body.split.model_dump()
     if body.feature_selection is not None:
         pipeline["feature_selection"] = body.feature_selection.model_dump()
+    if body.imputation is not None:
+        pipeline["imputation"] = body.imputation.model_dump()
     if body.use_smote is not None:
         pipeline["use_smote"] = body.use_smote
     if body.use_class_weight is not None:

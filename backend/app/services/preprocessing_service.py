@@ -287,6 +287,33 @@ def run_preprocessing(
 
     X = df.drop(columns=[target_col])
 
+    # Imputation step (AC-03). Runs before encoding/scaling. If no imputation is
+    # configured and the feature matrix still contains missing values, fail loudly
+    # rather than letting the encoder/scaler crash.
+    imp_config = config.get("imputation") or {}
+    imp_strategy = imp_config.get("strategy", "none")
+    imp_scope = imp_config.get("scope", "all")
+    numeric_cols_all = X.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols_all = X.select_dtypes(include=["object", "category", "string"]).columns.tolist()
+
+    has_missing = bool(X.isna().any().any())
+    if imp_strategy in (None, "none"):
+        if has_missing:
+            raise ValueError(
+                "Dataset contains missing values but no imputation strategy is configured. "
+                "Enable imputation or clean the dataset before preprocessing (AC-03)."
+            )
+    else:
+        if imp_scope in ("all", "numeric") and len(numeric_cols_all):
+            if imp_strategy == "median":
+                X[numeric_cols_all] = X[numeric_cols_all].fillna(X[numeric_cols_all].median(numeric_only=True))
+            elif imp_strategy == "mean":
+                X[numeric_cols_all] = X[numeric_cols_all].fillna(X[numeric_cols_all].mean(numeric_only=True))
+            else:  # most_frequent
+                X[numeric_cols_all] = X[numeric_cols_all].fillna(X[numeric_cols_all].mode().iloc[0])
+        if imp_scope in ("all", "categorical") and len(categorical_cols_all):
+            X[categorical_cols_all] = X[categorical_cols_all].fillna(X[categorical_cols_all].mode().iloc[0])
+
     split_config = config.get("split", {})
     test_size = split_config.get("test_size", 0.2)
     random_seed = split_config.get("random_seed", 42)
@@ -397,6 +424,19 @@ def run_preprocessing(
         with open(label_encoder_path, "wb") as f:
             cloudpickle.dump(label_encoder, f)
 
+    # Build a human-readable column mapping (F-15): each feature column's role.
+    passthrough_cols = set(config.get("encoding", {}).get("passthrough_columns", []) or [])
+    column_mapping = {}
+    for col in list(X.columns):
+        if col in column_notes:
+            column_mapping[col] = column_notes[col]
+        elif col in passthrough_cols:
+            column_mapping[col] = "passthrough"
+        else:
+            column_mapping[col] = "feature"
+    for col in dropped_by_fs:
+        column_mapping[col] = "dropped (feature selection)"
+
     result = {
         "id": pipeline_id,
         "dataset_id": dataset_id,
@@ -405,6 +445,7 @@ def run_preprocessing(
         "train_rows": len(train_out),
         "test_rows": len(test_out),
         "feature_count": X_train_transformed.shape[1],
+        "column_mapping": column_mapping,
         "column_notes": column_notes,
         "dropped_columns": dropped_columns,
         "fs_result": fs_report,

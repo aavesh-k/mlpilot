@@ -40,11 +40,25 @@ async def upload_dataset(
     dest_dir.mkdir(parents=True, exist_ok=True)
     file_path = dest_dir / file.filename
 
-    content = await file.read()
-    if len(content) > settings.MAX_DATASET_SIZE_MB * 1024 * 1024:
-        raise ValidationError(f"File exceeds maximum size of {settings.MAX_DATASET_SIZE_MB} MB")
-
-    file_path.write_bytes(content)
+    # Stream the upload to disk in chunks instead of buffering it all in memory,
+    # and enforce the size limit while streaming (AC-01).
+    max_bytes = settings.MAX_DATASET_SIZE_MB * 1024 * 1024
+    size = 0
+    chunk_size = 1024 * 1024
+    with open(file_path, "wb") as out:
+        while True:
+            chunk = await file.read(chunk_size)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > max_bytes:
+                out.close()
+                file_path.unlink(missing_ok=True)
+                shutil.rmtree(dest_dir, ignore_errors=True)
+                raise ValidationError(
+                    f"File exceeds maximum size of {settings.MAX_DATASET_SIZE_MB} MB"
+                )
+            out.write(chunk)
 
     dataset = {
         "id": dataset_id,
@@ -52,7 +66,7 @@ async def upload_dataset(
         "original_filename": file.filename,
         "file_path": str(file_path),
         "file_format": ext.lstrip("."),
-        "file_size_bytes": len(content),
+        "file_size_bytes": size,
         "row_count": None,
         "column_count": None,
         "status": "uploading",

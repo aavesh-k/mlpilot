@@ -86,6 +86,40 @@ def _unregister_cancel_event(job_id: str) -> None:
     with _cancel_events_lock:
         _cancel_events.pop(job_id, None)
 
+
+def _resolve_hyperparameters(algo: str, hyperparameters: dict | None) -> dict:
+    """Merge user-provided hyperparameters with algorithm defaults.
+
+    ``hyperparameters`` may be keyed per-algorithm (``{"random_forest": {...}}``)
+    or provided as a flat global dict applied to every selected algorithm.
+    """
+    if not hyperparameters:
+        return {}
+    if algo in hyperparameters and isinstance(hyperparameters[algo], dict):
+        return dict(hyperparameters[algo])
+    return {k: v for k, v in hyperparameters.items() if not isinstance(v, dict)}
+
+
+def _attach_eta(job: dict) -> dict:
+    """Compute a remaining-time estimate for an in-flight job (US-19)."""
+    status = job.get("status")
+    if status in ("completed", "failed", "cancelled"):
+        job["eta_seconds"] = None
+        return job
+    run_started = job.get("run_started_at") or job.get("started_at")
+    progress = float(job.get("progress", 0.0) or 0.0)
+    if run_started and progress > 0:
+        try:
+            start = datetime.fromisoformat(run_started)
+            elapsed = (datetime.now(UTC) - start).total_seconds()
+            job["eta_seconds"] = round(elapsed * (100.0 - progress) / progress, 1)
+        except Exception:
+            job["eta_seconds"] = None
+    else:
+        job["eta_seconds"] = None
+    return job
+
+
 ALGORITHMS = {
     # Classification
     "logistic_regression": lambda hp: LogisticRegression(
@@ -317,6 +351,7 @@ def _run_multi_training_background(
     model_ids_map: dict[str, str],
     use_class_weight: bool = False,
     random_seed: int = 42,
+    hyperparameters: dict | None = None,
 ) -> None:
     job = storage.get_job(job_id)
     if not job:
@@ -329,10 +364,25 @@ def _run_multi_training_background(
         _unregister_cancel_event(job_id)
         return
 
+    resource_settings = storage.get_settings()
+    max_runtime_minutes = float(resource_settings.get("max_runtime_minutes", 0) or 0)
+
     job["status"] = "running"
     job["progress"] = 5.0
+    job["run_started_at"] = datetime.now(UTC).isoformat()
     _append_log(job, f"Starting multi-model training pipeline. Folds: {cv_folds}, Tuning: {tuning_enabled}")
+    if max_runtime_minutes > 0:
+        _append_log(job, f"Resource limit: max runtime = {max_runtime_minutes:.0f} minutes")
     storage.save_job(job)
+
+    def _runtime_exceeded() -> bool:
+        if max_runtime_minutes <= 0:
+            return False
+        try:
+            start = datetime.fromisoformat(job["run_started_at"])
+        except Exception:
+            return False
+        return (datetime.now(UTC) - start).total_seconds() > max_runtime_minutes * 60
 
     problem_type = "classification"
     if pipeline_id:
@@ -367,6 +417,16 @@ def _run_multi_training_background(
         model_entry["status"] = "running"
         storage.save_model(model_entry)
 
+        if _runtime_exceeded():
+            _append_log(job, "Max runtime exceeded — aborting remaining training.")
+            job["status"] = "failed"
+            job["error_message"] = "Training aborted: exceeded configured max runtime limit."
+            job["progress"] = job.get("progress", 5.0)
+            storage.save_job(job)
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=idx)
+            _unregister_cancel_event(job_id)
+            return
+
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
         job["progress"] = round(job_progress_base, 1)
         _append_log(job, f"[{idx + 1}/{total_algos}] Training baseline {algo}...")
@@ -374,7 +434,10 @@ def _run_multi_training_background(
 
         try:
             start_time = time.perf_counter()
-            clf = ALGORITHMS[algo]({})
+            hp = _resolve_hyperparameters(algo, hyperparameters)
+            if hp:
+                _append_log(job, f"Using custom hyperparameters for {algo}: {hp}")
+            clf = ALGORITHMS[algo](hp)
 
             # Apply class weights if configured
             if use_class_weight:
@@ -442,7 +505,11 @@ def _run_multi_training_background(
 
     # Hyperparameter Tuning Step
     if tuning_enabled and len(completed_models_metrics) >= 1:
-        if _is_cancelled(job_id):
+        if _runtime_exceeded():
+            _append_log(job, "Max runtime exceeded during tuning — finalizing with baselines.")
+            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
+            # Fall through to finalize with whatever completed
+        elif _is_cancelled(job_id):
             _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
             _unregister_cancel_event(job_id)
             return
@@ -545,6 +612,8 @@ def _run_multi_training_background(
                 _append_log(job, f"Hyperparameter tuning failed for {algo}: {e}")
 
     # Build final Leaderboard and serialize win bundles
+    if _runtime_exceeded() and job.get("status") not in ("failed",):
+        _append_log(job, "Max runtime exceeded — finalizing with available models.")
     if _is_cancelled(job_id):
         _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
         _unregister_cancel_event(job_id)
@@ -636,6 +705,26 @@ def _cancel_remaining_models(
     storage.save_job(job)
 
 
+@router.get("/algorithms")
+async def list_algorithms() -> dict:
+    """Expose available algorithms, their tunable hyperparameter grids, and defaults (US-17)."""
+    algorithms: dict[str, dict] = {}
+    for name, factory in ALGORITHMS.items():
+        grid = PARAM_GRIDS.get(name, {})
+        defaults: dict = {}
+        try:
+            estimator = factory({})
+            params = estimator.get_params()
+            defaults = {k: params.get(k) for k in grid}
+        except Exception:
+            defaults = {}
+        algorithms[name] = {
+            "tunable_grid": grid,
+            "defaults": defaults,
+        }
+    return {"algorithms": algorithms}
+
+
 @router.post("/", status_code=201)
 async def train_model(
     body: TrainModelSchema,
@@ -692,6 +781,15 @@ async def train_model(
     if invalid:
         raise ValidationError(f"Invalid algorithm(s): {', '.join(invalid)}")
 
+    # Enforce configured memory limit (US-27)
+    resource_settings = storage.get_settings()
+    max_memory_gb = float(resource_settings.get("max_memory_gb", 0) or 0)
+    if max_memory_gb > 0 and X_train.nbytes > max_memory_gb * (1024 ** 3):
+        raise ValidationError(
+            f"Training matrix ({X_train.nbytes / 1e9:.1f} GB) exceeds configured "
+            f"max memory ({max_memory_gb:.0f} GB). Reduce data size or raise the limit."
+        )
+
     job_id = str(uuid.uuid4())
     model_ids_map = {}
     models_list = []
@@ -745,6 +843,7 @@ async def train_model(
         model_ids_map,
         use_class_weight,
         body.random_seed,
+        body.hyperparameters,
     )
 
     return {
@@ -871,7 +970,7 @@ async def list_jobs(
     all_jobs = storage.list_jobs(session_id=session_id)
     total = len(all_jobs)
     start = (page - 1) * per_page
-    items = all_jobs[start:start + per_page]
+    items = [_attach_eta(j) for j in all_jobs[start:start + per_page]]
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 
 
@@ -883,7 +982,7 @@ async def get_job(
     job = storage.get_job(job_id, session_id=session_id)
     if not job:
         raise NotFoundError("Job", job_id)
-    return job
+    return _attach_eta(job)
 
 
 @router.post("/jobs/{job_id}/cancel")
