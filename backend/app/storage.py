@@ -2,7 +2,9 @@ import contextlib
 import json
 import math
 import os
+import shutil
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -77,7 +79,11 @@ class SQLStorage:
     def _list(self, record_cls, session_id: str | None, _batch: int | None = None) -> list[dict]:
         with session_scope() as session:
             stmt = select(record_cls).order_by(record_cls.created_at.desc(), record_cls.id.desc())
-            if session_id:
+            # The implicit local user (no session header -> "default_user") owns all
+            # locally stored data, so no filtering is applied and every record is
+            # returned. Explicit custom sessions keep isolation (they only see
+            # their own data plus shared/default_user/null records).
+            if session_id and session_id != "default_user":
                 stmt = stmt.where(
                     (record_cls.session_id == session_id)
                     | (record_cls.session_id == "default_user")
@@ -100,7 +106,10 @@ class SQLStorage:
 
     def get_dataset(self, dataset_id: str, session_id: str = None) -> dict | None:
         dataset = self._get(DatasetRecord, dataset_id)
-        if dataset and session_id and dataset.get("session_id") != session_id:
+        if dataset is None:
+            return None
+        ds_session = dataset.get("session_id")
+        if session_id and session_id != "default_user" and ds_session not in (session_id, "default_user", None):
             return None
         return dataset
 
@@ -137,7 +146,10 @@ class SQLStorage:
 
     def get_pipeline(self, pipeline_id: str, session_id: str = None) -> dict | None:
         pipeline = self._get(PipelineRecord, pipeline_id)
-        if pipeline and session_id and pipeline.get("session_id") != session_id:
+        if pipeline is None:
+            return None
+        pl_session = pipeline.get("session_id")
+        if session_id and session_id != "default_user" and pl_session not in (session_id, "default_user", None):
             return None
         return pipeline
 
@@ -154,7 +166,10 @@ class SQLStorage:
 
     def get_model(self, model_id: str, session_id: str = None) -> dict | None:
         model = self._get(ModelRecord, model_id)
-        if model and session_id and model.get("session_id") != session_id:
+        if model is None:
+            return None
+        m_session = model.get("session_id")
+        if session_id and session_id != "default_user" and m_session not in (session_id, "default_user", None):
             return None
         return model
 
@@ -165,13 +180,54 @@ class SQLStorage:
     def delete_model(self, model_id: str) -> bool:
         return self._delete(ModelRecord, model_id)
 
+    # --- Cascade deletes (keep derived data in sync) ---
+    def _remove_model_artifacts(self, model_id: str) -> None:
+        model_dir = self._base / "models" / model_id
+        if model_dir.exists():
+            shutil.rmtree(model_dir, ignore_errors=True)
+
+    def _remove_pipeline_artifacts(self, pipeline_id: str) -> None:
+        processed_dir = self._base / "processed" / pipeline_id
+        if processed_dir.exists():
+            shutil.rmtree(processed_dir, ignore_errors=True)
+
+    def delete_models_by_dataset(self, dataset_id: str, session_id: str | None = None) -> int:
+        models = [m for m in self.list_models(session_id) if m.get("dataset_id") == dataset_id]
+        for m in models:
+            self._delete(ModelRecord, m["id"])
+            self._remove_model_artifacts(m["id"])
+        return len(models)
+
+    def delete_models_by_pipeline(self, pipeline_id: str, session_id: str | None = None) -> int:
+        models = [m for m in self.list_models(session_id) if m.get("pipeline_id") == pipeline_id]
+        for m in models:
+            self._delete(ModelRecord, m["id"])
+            self._remove_model_artifacts(m["id"])
+        return len(models)
+
+    def delete_pipelines_by_dataset(self, dataset_id: str, session_id: str | None = None) -> int:
+        pipelines = [p for p in self.list_pipelines(session_id) if p.get("dataset_id") == dataset_id]
+        for p in pipelines:
+            self._delete(PipelineRecord, p["id"])
+            self._remove_pipeline_artifacts(p["id"])
+        return len(pipelines)
+
+    def delete_pipeline_cascade(self, pipeline_id: str, session_id: str | None = None) -> int:
+        self.delete_models_by_pipeline(pipeline_id, session_id)
+        self._remove_pipeline_artifacts(pipeline_id)
+        self._delete(PipelineRecord, pipeline_id)
+        return 1
+
     # --- Training Jobs ---
     def list_jobs(self, session_id: str = None) -> list[dict]:
         return self._list(JobRecord, session_id)
 
     def get_job(self, job_id: str, session_id: str = None) -> dict | None:
         job = self._get(JobRecord, job_id)
-        if job and session_id and job.get("session_id") != session_id:
+        if job is None:
+            return None
+        j_session = job.get("session_id")
+        if session_id and session_id != "default_user" and j_session not in (session_id, "default_user", None):
             return None
         return job
 
@@ -212,15 +268,32 @@ class SQLStorage:
 
     def _atomic_json_write(self, path: Path, obj: dict) -> None:
         encoded = json.dumps(obj, indent=2, cls=SafeEncoder)
-        fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as f:
-                f.write(encoded)
-            os.replace(tmp_path, str(path))
-        except Exception:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_path)
-            raise
+        last_exc: Exception | None = None
+        for attempt in range(5):
+            tmp_path: str | None = None
+            try:
+                fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
+                    f.write(encoded)
+                os.replace(tmp_path, str(path))
+                return
+            except (PermissionError, OSError) as exc:
+                # On Windows, os.replace can fail with WinError 5/32 if the
+                # target is momentarily locked by a concurrent reader (e.g. the
+                # frontend polling EDA progress). Retry instead of aborting.
+                last_exc = exc
+                with contextlib.suppress(OSError):
+                    if tmp_path:
+                        os.unlink(tmp_path)
+                time.sleep(0.05 * (attempt + 1))
+                continue
+            except Exception:
+                with contextlib.suppress(OSError):
+                    if tmp_path:
+                        os.unlink(tmp_path)
+                raise
+        if last_exc is not None:
+            raise last_exc
 
     def _read_json_file(self, path: Path) -> dict | None:
         if not path.exists():

@@ -6,6 +6,7 @@ import {
   useCreatePipeline,
   useExecutePipeline,
   useUpdatePipeline,
+  useDeletePipeline,
   usePipelineSuggestions,
   useTargetDetection,
 } from '../modules/pipelines/hooks/usePipelines'
@@ -16,6 +17,7 @@ import { LoadingSpinner } from '../shared/components/LoadingSpinner'
 import { Pagination } from '../shared/components/Pagination'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
+import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatDate } from '../shared/utils/format'
 import type { ColumnSuggestion, EncodingConfig, ScalingConfig, SplitConfig, FeatureSelectionConfig, TargetDetectionResult } from '../core/api/pipelines.api'
 
@@ -62,8 +64,45 @@ export default function Preprocessing() {
   const createPipeline = useCreatePipeline()
   const executePipeline = useExecutePipeline()
   const updatePipeline = useUpdatePipeline()
+  const deletePipeline = useDeletePipeline()
   const { data: suggestionsData, isLoading: suggestionsLoading } = usePipelineSuggestions(selectedDatasetId)
   const { data: targetInfo } = useTargetDetection(selectedDatasetId, targetColumn || undefined)
+
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [confirmDeletePipeline, setConfirmDeletePipeline] = useState<{ id: string; name: string } | null>(null)
+
+  const handleDeletePipeline = async (id: string) => {
+    setDeleteError(null)
+    setPendingDeleteId(id)
+    try {
+      await deletePipeline.mutateAsync(id)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete pipeline')
+    } finally {
+      setPendingDeleteId(null)
+    }
+  }
+
+  const startRename = (p: { id: string; name: string }) => {
+    setRenamingId(p.id)
+    setRenameValue(p.name)
+  }
+
+  const commitRename = (id: string) => {
+    const name = renameValue.trim()
+    if (!name) return
+    updatePipeline.mutate({ id, body: { name } }, {
+      onSuccess: () => { setRenamingId(null); setRenameValue('') },
+    })
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
+  }
 
   const datasets = datasetsData?.items ?? []
   const cleanedDatasets = useMemo(() => datasets.filter((d) => d.status === 'ready' && d.is_cleaned === true), [datasets])
@@ -348,6 +387,22 @@ export default function Preprocessing() {
       {isLoading && <LoadingSpinner />}
       {error && <ErrorState message="Failed to load pipelines" onRetry={() => refetch()} />}
 
+      {deleteError && (
+        <p className="mb-4 text-secondary font-headline font-bold text-sm">Delete failed: {deleteError}</p>
+      )}
+
+      <ConfirmDialog
+        open={confirmDeletePipeline !== null}
+        title="Delete Pipeline"
+        message={`Delete pipeline "${confirmDeletePipeline?.name}"? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (confirmDeletePipeline) handleDeletePipeline(confirmDeletePipeline.id)
+          setConfirmDeletePipeline(null)
+        }}
+        onCancel={() => setConfirmDeletePipeline(null)}
+      />
+
       {!isLoading && !error && pipelines.length === 0 && !editing && (
         <EmptyState
           icon="account_tree"
@@ -377,7 +432,7 @@ export default function Preprocessing() {
                       Dataset: {datasets.find(d => d.id === p.dataset_id)?.name ?? p.dataset_id.slice(0, 8)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {statusBadge(p.status)}
                     {p.status === 'draft' || p.status === 'failed' ? (
                       <>
@@ -392,13 +447,35 @@ export default function Preprocessing() {
                         </Button>
                       </>
                     ) : p.status === 'completed' ? (
-                      <div className="flex gap-2">
+                      <>
                         <Badge variant="success">{p.train_rows ?? '?'} train / {p.test_rows ?? '?'} test</Badge>
                         <Button variant="primary" size="sm" onClick={() => navigate(`/training?pipeline=${p.id}&dataset=${p.dataset_id}`)}>
                           Train Models
                         </Button>
-                      </div>
+                        {renamingId === p.id ? (
+                          <>
+                            <input
+                              value={renameValue}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              autoFocus
+                              className="border-2 border-primary bg-surface p-1 text-sm font-body w-40"
+                            />
+                            <Button variant="primary" size="sm" onClick={() => commitRename(p.id)} disabled={updatePipeline.isPending}>Save</Button>
+                            <Button variant="ghost" size="sm" onClick={cancelRename}>Cancel</Button>
+                          </>
+                        ) : (
+                          <Button variant="ghost" size="sm" onClick={() => startRename(p)}>Edit</Button>
+                        )}
+                      </>
                     ) : null}
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      disabled={pendingDeleteId === p.id}
+                      onClick={() => setConfirmDeletePipeline({ id: p.id, name: p.name })}
+                    >
+                      {pendingDeleteId === p.id ? 'Deleting…' : 'Delete'}
+                    </Button>
                   </div>
                 </div>
                 {p.error_message && (

@@ -60,7 +60,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           title: "No Dataset Uploaded",
           message: "Upload a dataset first before accessing preprocessing.",
           actionLabel: "Upload Dataset",
-          actionTo: "/datasets/upload",
+          actionTo: "/datasets",
         }
       }
       break
@@ -70,7 +70,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           title: "No Dataset Uploaded",
           message: "Upload a dataset first before accessing preprocessing.",
           actionLabel: "Upload Dataset",
-          actionTo: "/datasets/upload",
+          actionTo: "/datasets",
         }
       } else if (!hasCleanedDataset) {
         block = {
@@ -87,7 +87,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           title: "No Dataset Uploaded",
           message: "Upload and preprocess a dataset before training.",
           actionLabel: "Upload Dataset",
-          actionTo: "/datasets/upload",
+          actionTo: "/datasets",
         }
       } else if (!hasCompletedPipeline) {
         block = {
@@ -104,7 +104,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           title: "No Dataset Uploaded",
           message: "Upload a dataset and train a model first.",
           actionLabel: "Upload Dataset",
-          actionTo: "/datasets/upload",
+          actionTo: "/datasets",
         }
       } else if (!hasCompletedModel && !hasAnyModel) {
         block = {
@@ -121,7 +121,7 @@ export function RouteGuard({ children, require }: RouteGuardProps) {
           title: "No Dataset Uploaded",
           message: "Upload a dataset and complete training first.",
           actionLabel: "Upload Dataset",
-          actionTo: "/datasets/upload",
+          actionTo: "/datasets",
         }
       } else if (!hasCompletedModel) {
         block = {

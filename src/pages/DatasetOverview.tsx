@@ -82,7 +82,7 @@ export default function DatasetOverview() {
           { label: 'Rows', value: dataset.row_count?.toLocaleString() ?? '—' },
           { label: 'Columns', value: dataset.column_count ?? '—' },
           { label: 'Size', value: formatFileSize(dataset.file_size_bytes) },
-          { label: 'Format', value: dataset.file_format.toUpperCase() },
+           { label: 'Format', value: (dataset.file_format ?? 'Unknown').toUpperCase() },
         ].map((s) => (
           <div key={s.label} className="bg-surface border-2 border-primary p-4">
             <span className="block font-headline text-[10px] font-bold uppercase text-on-surface-variant">{s.label}</span>

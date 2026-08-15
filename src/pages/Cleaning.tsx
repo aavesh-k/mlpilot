@@ -38,6 +38,7 @@ export default function Cleaning() {
   const { data: datasetsData, isLoading: dsLoading } = useDatasets()
   const [selectedId, setSelectedId] = useState<string | undefined>()
   const [viewRunId, setViewRunId] = useState<string | undefined>()
+  const [showReconfigure, setShowReconfigure] = useState(false)
 
   const { data: suggestions, isLoading: suggestionsLoading } = useCleaningSuggestions(selectedId)
   const { data: cleaningRuns } = useCleaningRuns(selectedId)
@@ -46,13 +47,14 @@ export default function Cleaning() {
 
   const datasets = datasetsData?.items ?? []
   const readyDatasets = datasets.filter((d) => d.status === 'ready')
+  const uncleanedReadyDatasets = readyDatasets.filter((d) => !d.is_cleaned)
 
   useEffect(() => {
-    if (!selectedId && readyDatasets.length > 0) {
-      const match = paramDatasetId && readyDatasets.some((d) => d.id === paramDatasetId)
-      setSelectedId(match ? paramDatasetId! : readyDatasets[0].id)
+    if (!selectedId && uncleanedReadyDatasets.length > 0) {
+      const match = paramDatasetId && uncleanedReadyDatasets.some((d) => d.id === paramDatasetId)
+      setSelectedId(match ? paramDatasetId! : uncleanedReadyDatasets[0].id)
     }
-  }, [readyDatasets, selectedId, paramDatasetId])
+  }, [uncleanedReadyDatasets, selectedId, paramDatasetId])
 
   const [removeDupes, setRemoveDupes] = useState(true)
   const [fixDtypes, setFixDtypes] = useState(true)
@@ -64,6 +66,7 @@ export default function Cleaning() {
   const handleSelectDataset = useCallback((id: string) => {
     setSelectedId(id)
     setViewRunId(undefined)
+    setShowReconfigure(false)
     setRemoveDupes(true)
     setFixDtypes(true)
     setStandardizeCat(true)
@@ -103,6 +106,16 @@ export default function Cleaning() {
   const report = viewRunId ? reportDetail : (executeMutation.data?.report ?? null)
   const isRunning = executeMutation.isPending
 
+  const alreadyCleaned = (cleaningRuns?.length ?? 0) > 0
+  const latestCleanedDatasetId = latestRun
+    ? datasets.find((d) => d.is_cleaned && d.cleaning_run_id === latestRun.run_id)?.id
+    : undefined
+  const activeRunId = viewRunId ?? executeMutation.data?.report?.run_id
+  const cleanedIdForUse = activeRunId
+    ? datasets.find((d) => d.is_cleaned && d.cleaning_run_id === activeRunId)?.id ??
+      (executeMutation.data?.dataset?.id as string | undefined)
+    : (executeMutation.data?.dataset?.id as string | undefined)
+
   return (
     <div className="p-8 lg:p-12">
       <PageHeader title="Data" accent="Cleaning" subtitle="Inspect and fix your data — every change is logged and reversible." />
@@ -111,9 +124,13 @@ export default function Cleaning() {
         <EmptyState icon="cleaning_services" title="No datasets ready" description="Upload a dataset first to clean it." />
       )}
 
-      {readyDatasets.length > 0 && (
+      {readyDatasets.length > 0 && uncleanedReadyDatasets.length === 0 && (
+        <EmptyState icon="cleaning_services" title="All datasets are cleaned" description="Every ready dataset has already been cleaned. Open a dataset from the Datasets page to view or use its cleaned version." />
+      )}
+
+      {uncleanedReadyDatasets.length > 0 && (
         <div className="flex gap-2 mb-8 flex-wrap">
-          {readyDatasets.map((ds) => (
+          {uncleanedReadyDatasets.map((ds) => (
             <Button key={ds.id} variant={selectedId === ds.id ? 'primary' : 'ghost'} size="sm" onClick={() => handleSelectDataset(ds.id)}>
               {ds.name}
             </Button>
@@ -121,9 +138,38 @@ export default function Cleaning() {
         </div>
       )}
 
+      {!report && !isRunning && alreadyCleaned && !showReconfigure && latestRun && (
+        <div className="mt-8 bg-surface border-2 border-primary p-6 neo-shadow">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h3 className="font-headline font-black text-lg uppercase">Already Cleaned</h3>
+              <p className="text-sm text-on-surface-variant mt-1">
+                {formatDate(latestRun.created_at)} · {latestRun.before.row_count} → {latestRun.after.row_count} rows, {latestRun.step_count} steps
+              </p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!latestCleanedDatasetId}
+                onClick={() => latestCleanedDatasetId && navigate(`/datasets/${latestCleanedDatasetId}`)}
+              >
+                Open Cleaned Dataset
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setViewRunId(latestRun.run_id); setShowReconfigure(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>
+                View Latest Report
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowReconfigure(true)}>
+                Re-clean
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {suggestionsLoading && <LoadingSpinner />}
 
-      {suggestions && !isRunning && !report && (
+      {suggestions && !isRunning && !report && (!alreadyCleaned || showReconfigure) && (
         <CleaningConfigPanel
           suggestions={suggestions.columns}
           removeDupes={removeDupes}
@@ -166,21 +212,21 @@ export default function Cleaning() {
           latestRun={latestRun}
           onNewCleaning={() => {
             setViewRunId(undefined)
+            setShowReconfigure(false)
             executeMutation.reset()
           }}
           onUseCleanedData={() => {
-            const cleanedId = executeMutation.data?.dataset?.id
-            if (cleanedId) navigate(`/datasets/${cleanedId}`)
+            if (cleanedIdForUse) navigate(`/datasets/${cleanedIdForUse}`)
           }}
           downloadUrl={selectedId && report?.run_id ? cleaningApi.getDownloadUrl(selectedId, report.run_id) : undefined}
         />
       )}
 
-      {cleaningRuns && cleaningRuns.length > 0 && !report && (
+      {cleaningRuns && cleaningRuns.length > 1 && !report && (
         <div className="mt-8 bg-surface border-2 border-primary p-6">
-          <h3 className="font-headline font-black text-lg uppercase mb-4">Previous Cleaning Runs</h3>
+          <h3 className="font-headline font-black text-lg uppercase mb-4">Earlier Cleaning Runs</h3>
           <div className="space-y-2">
-            {cleaningRuns.map((r) => (
+            {cleaningRuns.filter((r) => r.run_id !== latestRun?.run_id).map((r) => (
               <div key={r.run_id} className="flex items-center justify-between py-3 border-b border-primary last:border-b-0">
                 <div>
                   <span className="font-headline font-bold text-sm">{formatDate(r.created_at)}</span>

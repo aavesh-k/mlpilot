@@ -176,10 +176,17 @@ async def delete_dataset(
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
-    dest_dir = Path(dataset["file_path"]).parent
-    if dest_dir.exists():
-        shutil.rmtree(dest_dir, ignore_errors=True)
+    # Some records (e.g. partially-created or legacy entries) may lack a
+    # file_path; guard against that so deletion never 500s.
+    file_path = dataset.get("file_path")
+    if file_path:
+        dest_dir = Path(file_path).parent
+        if dest_dir.exists():
+            shutil.rmtree(dest_dir, ignore_errors=True)
 
+    storage.delete_eda(dataset_id)
+    storage.delete_pipelines_by_dataset(dataset_id, session_id=session_id)
+    storage.delete_models_by_dataset(dataset_id, session_id=session_id)
     storage.delete_dataset(dataset_id)
     return None
 

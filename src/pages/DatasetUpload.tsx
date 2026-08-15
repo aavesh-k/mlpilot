@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { useDatasets, useUploadDataset } from '../modules/datasets/hooks/useDatasets'
+import { useDatasets, useUploadDataset, useDeleteDataset } from '../modules/datasets/hooks/useDatasets'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
 import { LoadingSpinner } from '../shared/components/LoadingSpinner'
 import { Pagination } from '../shared/components/Pagination'
 import { Badge } from '../shared/components/ui/badge'
+import { Button } from '../shared/components/ui/button'
+import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatFileSize, formatDate } from '../shared/utils/format'
 import { apiClient } from '../core/api/client'
 
@@ -18,6 +20,22 @@ export default function DatasetUpload() {
   const [isDragOver, setIsDragOver] = useState(false)
   const { data, isLoading, error, refetch } = useDatasets(page)
   const uploadMutation = useUploadDataset()
+  const deleteMutation = useDeleteDataset()
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null)
+
+  const handleDelete = async (id: string) => {
+    setDeleteError(null)
+    setPendingDeleteId(id)
+    try {
+      await deleteMutation.mutateAsync(id)
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete dataset')
+    } finally {
+      setPendingDeleteId(null)
+    }
+  }
 
   const [demoLoading, setDemoLoading] = useState(false)
   const [demoError, setDemoError] = useState<string | null>(null)
@@ -147,6 +165,9 @@ return (
       <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
 
+        {deleteError && (
+          <p className="mb-4 text-secondary font-headline font-bold text-sm">Delete failed: {deleteError}</p>
+        )}
         {isLoading && <LoadingSpinner />}
         {error && <ErrorState message="Failed to load datasets" onRetry={() => refetch()} />}
         {!isLoading && !error && data && data.items.length === 0 && (
@@ -165,19 +186,41 @@ return (
                   <div>
                     <p className="font-headline font-bold">{ds.name}</p>
                     <p className="text-xs text-on-surface-variant">
-                      {formatFileSize(ds.file_size_bytes)} · {ds.row_count?.toLocaleString() ?? '—'} rows · {formatDate(ds.created_at)}
+                      {formatFileSize(ds.file_size_bytes ?? 0)} · {ds.row_count?.toLocaleString() ?? '—'} rows · {ds.created_at ? formatDate(ds.created_at) : '—'}
                     </p>
                   </div>
                 </div>
-                <Badge variant={ds.status === 'ready' ? 'success' : ds.status === 'failed' ? 'danger' : 'warning'}>
-                  {ds.status}
-                </Badge>
+                <div className="flex items-center gap-3 pl-4" onClick={(e) => e.stopPropagation()}>
+                  <Badge variant={ds.status === 'ready' ? 'success' : ds.status === 'failed' ? 'danger' : 'warning'}>
+                    {ds.status}
+                  </Badge>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    disabled={pendingDeleteId === ds.id}
+                    onClick={() => setConfirmDelete({ id: ds.id, name: ds.name })}
+                  >
+                    {pendingDeleteId === ds.id ? 'Deleting…' : 'Delete'}
+                  </Button>
+                </div>
               </div>
             ))}
             <Pagination page={data.page} perPage={data.per_page} total={data.total} onPageChange={setPage} />
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete Dataset"
+        message={`Delete dataset "${confirmDelete?.name}"? This permanently removes the file and cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (confirmDelete) handleDelete(confirmDelete.id)
+          setConfirmDelete(null)
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }

@@ -68,3 +68,13 @@ export function useUpdatePipeline() {
     },
   })
 }
+
+export function useDeletePipeline() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => pipelinesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines'] })
+    },
+  })
+}

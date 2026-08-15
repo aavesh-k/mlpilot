@@ -197,7 +197,7 @@ async def delete_pipeline(
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Cannot delete a running pipeline")
-    storage.delete_pipeline(pipeline_id)
+    storage.delete_pipeline_cascade(pipeline_id, session_id=session_id)
     return None
 
 
