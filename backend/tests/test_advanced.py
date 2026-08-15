@@ -104,9 +104,9 @@ def test_predict_and_explain_and_compare(client: TestClient) -> None:
     )
     assert score_resp.status_code == 200
     score_data = score_resp.json()
-    assert "prediction" in score_data["columns"]
+    assert "target(predicted)" in score_data["columns"]
     assert len(score_data["data"]) == 2
-    assert "prediction" in score_data["data"][0]
+    assert "target(predicted)" in score_data["data"][0]
 
     # Test predictions download
     filename = score_data["download_filename"]
@@ -120,3 +120,67 @@ def test_predict_and_explain_and_compare(client: TestClient) -> None:
     compare_data = compare_resp.json()
     assert len(compare_data["models"]) == 1
     assert compare_data["models"][0]["id"] == model_id
+
+
+def test_predict_on_preprocessed_export(client: TestClient) -> None:
+    # Train on the iris demo so a real preprocessing pipeline (scaling) exists.
+    ds_id = client.post("/api/v1/datasets/demo", json={"type": "iris"}).json()["id"]
+    clean_resp = client.post(f"/api/v1/datasets/{ds_id}/cleaning/execute", json={})
+    cleaned_ds_id = clean_resp.json()["dataset"]["id"]
+    pipe_resp = client.post("/api/v1/pipelines/", json={
+        "dataset_id": cleaned_ds_id,
+        "target_column": "species",
+        "problem_type": "classification"
+    })
+    pipe_id = pipe_resp.json()["id"]
+    client.post(f"/api/v1/pipelines/{pipe_id}/execute")
+
+    train_resp = client.post("/api/v1/training/", json={
+        "pipeline_id": pipe_id,
+        "algorithms": ["logistic_regression"],
+        "cv_folds": 3,
+        "tuning_enabled": False
+    })
+    model_id = train_resp.json()["models"][0]["id"]
+
+    # Wait for training to complete (poll the job).
+    job_id = train_resp.json()["job"]["id"]
+    deadline = time.time() + 10.0
+    while time.time() < deadline:
+        if client.get(f"/api/v1/training/jobs/{job_id}").json()["status"] == "completed":
+            break
+        time.sleep(0.1)
+
+    # The preprocessed test split is already scaled; scoring it WITHOUT the flag
+    # re-applies scaling (double preprocessing) and collapses to one class.
+    zf_bytes = client.get(f"/api/v1/training/models/{model_id}/export/preprocessed").content
+    import zipfile
+
+    with zipfile.ZipFile(io.BytesIO(zf_bytes)) as zf:
+        test_csv = zf.read("test_preprocessed.csv")
+
+    bad_resp = client.post(
+        f"/api/v1/training/models/{model_id}/predict",
+        files={"file": ("test.csv", io.BytesIO(test_csv), "text/csv")},
+    )
+    bad = bad_resp.json()
+    bad_correct = sum(
+        1 for row in bad["data"] if row["species"] == row["species(predicted)"]
+    )
+    bad_acc = bad_correct / len(bad["data"])
+    assert bad_acc < 0.8, "double-preprocessed scoring should be inaccurate"
+
+    # With preprocessed=True the preprocessor is skipped and predictions match.
+    good_resp = client.post(
+        f"/api/v1/training/models/{model_id}/predict?preprocessed=true",
+        files={"file": ("test.csv", io.BytesIO(test_csv), "text/csv")},
+    )
+    assert good_resp.status_code == 200
+    good = good_resp.json()
+    good_preds = [row["species(predicted)"] for row in good["data"]]
+    assert len(set(good_preds)) > 1, "preprocessed scoring should vary across classes"
+    correct = sum(
+        1 for row in good["data"] if row["species"] == row["species(predicted)"]
+    )
+    assert correct / len(good["data"]) > 0.8, "preprocessed scoring should be accurate"
+    assert bad_acc < correct / len(good["data"]), "preprocessed flag should improve accuracy"

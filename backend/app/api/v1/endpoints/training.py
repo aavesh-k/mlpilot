@@ -305,6 +305,22 @@ def _load_preprocessor(pipeline_id: str | None):
         return None
 
 
+def _load_label_encoder(pipeline_id: str | None):
+    d = _processed_dir(pipeline_id)
+    if not d:
+        return None
+    p = d / "label_encoder.pkl"
+    if not p.exists():
+        return None
+    try:
+        import cloudpickle
+
+        with open(p, "rb") as f:
+            return cloudpickle.load(f)
+    except Exception:
+        return None
+
+
 def _load_test_df(pipeline_id: str | None):
     d = _processed_dir(pipeline_id)
     if not d:
@@ -2257,6 +2273,7 @@ async def explain_model(
 async def predict_model(
     model_id: str,
     file: UploadFile = File(...),
+    preprocessed: bool = Query(False, description="Set to true when the uploaded data is already preprocessed (e.g. an exported test split) so the preprocessor is skipped."),
     session_id: str = Depends(get_session_id)
 ) -> dict:
     import cloudpickle
@@ -2296,8 +2313,14 @@ async def predict_model(
 
     original_df = df.copy()
 
-    # Drop target column from input features if present
+    # Drop target column from input features if present. The target is stored on
+    # the associated pipeline (the model record itself does not carry it), so
+    # fall back to the pipeline when the model has no target_column of its own.
     target_col = model.get("target_column")
+    if not target_col:
+        pipeline_rec = storage.get_pipeline(model.get("pipeline_id"), session_id=session_id)
+        if pipeline_rec:
+            target_col = pipeline_rec.get("target_column")
     if target_col and target_col in df.columns:
         df = df.drop(columns=[target_col])
 
@@ -2310,42 +2333,105 @@ async def predict_model(
 
     is_full_pipeline = isinstance(bundle, SklearnPipeline) and "model" in bundle.named_steps
 
-    # If the bundle is only the estimator, wrap it with the preprocessing
-    # pipeline so raw input data is transformed before prediction.
-    if is_full_pipeline:
+    # The preprocessor that was fit on the training data (used for column
+    # validation and for transforming raw input before prediction).
+    training_preprocessor = bundle.named_steps["preprocessor"] if is_full_pipeline else _load_preprocessor(model.get("pipeline_id"))
+
+    # Build the predictor. When the input is already preprocessed (e.g. an
+    # exported test split), skip the preprocessor and feed data straight to the
+    # estimator, otherwise transform raw input with the fitted preprocessor.
+    if preprocessed:
+        predictor = bundle.named_steps["model"] if is_full_pipeline else bundle
+    elif is_full_pipeline:
         predictor = bundle
     else:
-        preprocessor = _load_preprocessor(model.get("pipeline_id"))
-        if preprocessor is not None:
-            predictor = SklearnPipeline([("preprocessor", preprocessor), ("model", bundle)])
+        if training_preprocessor is not None:
+            predictor = SklearnPipeline([("preprocessor", training_preprocessor), ("model", bundle)])
+        elif model.get("pipeline_id"):
+            # A pipeline was used for training but its preprocessor is missing, so
+            # raw input cannot be transformed to match training. Scoring would
+            # otherwise silently return garbage (e.g. always the majority class).
+            raise ValidationError(
+                "Cannot score: this model's preprocessing pipeline is unavailable, "
+                "so raw input cannot be transformed to match the training data. "
+                "Retrain the model or restore its pipeline artifact."
+            )
         else:
             predictor = bundle
 
-    # Perform predictions
-    preds = predictor.predict(df)
-    original_df["prediction"] = preds
+    # Validate that the scoring dataset matches the model's expected feature
+    # structure. The fitted preprocessor expects the exact same input columns
+    # the model was trained on; a mismatch would otherwise surface as an opaque
+    # scikit-learn error. Column names are preserved through preprocessing, so
+    # this validation applies whether or not the input is already preprocessed.
+    names = getattr(training_preprocessor, "feature_names_in_", None)
+    expected_features = [str(n) for n in names] if names is not None else []
+    if expected_features:
+        input_cols = list(df.columns)
+        missing = [c for c in expected_features if c not in input_cols]
+        extra = [c for c in input_cols if c not in expected_features]
+        if missing or extra:
+            detail = (
+                "Cannot score: the uploaded dataset does not match the model's "
+                "training feature structure. This model was trained on the "
+                f"following features: {expected_features}. "
+            )
+            if missing:
+                detail += f"Missing required columns: {missing}. "
+            if extra:
+                detail += f"Unexpected extra columns: {extra}. "
+            detail += "Upload a dataset with the same features used during training."
+            raise ValidationError(detail)
 
-    # Try predicting probabilities
-    if hasattr(bundle, "predict_proba"):
+    # Perform predictions
+    try:
+        preds = predictor.predict(df)
+    except ValueError as exc:
+        raise ValidationError(
+            "Cannot score: the uploaded dataset is incompatible with the trained "
+            "model (e.g. a different feature structure, unseen categories, or "
+            "incompatible values). Use the same feature structure as the training data. "
+            f"Details: {exc}"
+        ) from exc
+
+    # Decode predictions back to original class labels for classification when a
+    # label encoder was persisted with the pipeline (otherwise keep raw output).
+    preds_out: Any = preds
+    label_encoder = _load_label_encoder(model.get("pipeline_id"))
+    if label_encoder is not None:
         try:
-            probas = bundle.predict_proba(df)
-            confidences = probas.max(axis=1)
-            original_df["confidence"] = confidences
+            preds_out = label_encoder.inverse_transform(np.asarray(preds).ravel())
         except Exception:
-            pass
+            preds_out = preds
+
+    # Build the downloadable result. The original upload (including the actual
+    # target when present) is kept, then the predicted target is appended right
+    # next to the actual target. No extra columns are added.
+    out_df = original_df.copy()
+    pred_col = f"{target_col}(predicted)" if target_col else "prediction"
+    out_df[pred_col] = list(preds_out)
+
+    # Position the predicted column next to the actual target column for a
+    # human-friendly layout.
+    if target_col and target_col in out_df.columns:
+        cols = list(out_df.columns)
+        cols.remove(pred_col)
+        target_idx = cols.index(target_col)
+        cols.insert(target_idx + 1, pred_col)
+        out_df = out_df[cols]
 
     # Save to predictions directory
     pred_dir = settings.DATA_DIR / "predictions"
     pred_dir.mkdir(parents=True, exist_ok=True)
     pred_filename = f"predictions_{model_id[:8]}_{uuid.uuid4().hex[:6]}.csv"
     output_path = pred_dir / pred_filename
-    original_df.to_csv(output_path, index=False)
+    out_df.to_csv(output_path, index=False)
 
     return {
         "model_id": model_id,
-        "rows": len(original_df),
-        "columns": list(original_df.columns),
-        "data": original_df.head(100).replace({np.nan: None}).to_dict(orient="records"),
+        "rows": len(out_df),
+        "columns": list(out_df.columns),
+        "data": out_df.head(100).replace({np.nan: None}).to_dict(orient="records"),
         "download_filename": pred_filename
     }
 

@@ -93,12 +93,17 @@ export const trainingApi = {
     return data
   },
 
-  async predict(modelId: string, file: File): Promise<any> {
+  async predict(modelId: string, file: File, preprocessed = false): Promise<any> {
     const formData = new FormData()
     formData.append('file', file)
-    const { data } = await apiClient.post(`/training/models/${modelId}/predict`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    const { data } = await apiClient.post(
+      `/training/models/${modelId}/predict`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        params: { preprocessed }
+      }
+    )
     return data
   },
 
