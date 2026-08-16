@@ -8,6 +8,10 @@
     }
   },
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://mlpilot-backend.onrender.com/api/:path*"
+    },
     { "source": "/(.*)", "destination": { "service": "frontend" } }
   ]
 }
