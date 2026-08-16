@@ -57,7 +57,7 @@ function DashboardContent() {
   if (error) {
     const isNetworkErr = axios.isAxiosError(error) && (!error.response || error.code === 'ERR_NETWORK')
     const errorMessage = isNetworkErr
-      ? 'Cannot connect to MLPilot backend API at http://localhost:8000. Please ensure the FastAPI backend is running (cd backend && uvicorn app.main:app --reload --port 8000).'
+      ? 'Cannot connect to the MLPilot backend API. Please ensure the backend service is running and reachable.'
       : 'Could not fetch your data. Please try again.'
 
     return (

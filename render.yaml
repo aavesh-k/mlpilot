@@ -1,0 +1,41 @@
+# Render deployment blueprint for the MLPilot FastAPI backend.
+#
+# How to use:
+#   1. Push this repo to GitHub.
+#   2. In Render, click "New" -> "Blueprint" and connect the repo.
+#   3. Render reads this file and creates the web service.
+#   4. In the service's "Environment" settings, set the two manual variables:
+#        - DATABASE_URL       : your Supabase/Neon Postgres connection string
+#                              (postgresql+psycopg2://user:pass@host:5432/postgres)
+#        - CORS_ORIGINS       : JSON list with the Vercel frontend URL,
+#                              e.g. ["https://mlpilot.vercel.app"]
+#   5. Deploy. Note the generated backend URL (https://mlpilot-backend.onrender.com).
+#
+# Free-tier notes:
+#   - Spins down after 15 min of inactivity (30-60s cold start).
+#   - Local disk (DATA_DIR) is ephemeral: uploaded datasets / trained model
+#     files are lost on cold start. The Postgres DB (DATABASE_URL) persists.
+#   - For a paid, always-on backend use plan: standard (see render.com/pricing).
+
+services:
+  - type: web
+    name: mlpilot-backend
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: DATABASE_URL
+        # Manual: paste your Supabase/Neon Postgres connection string.
+      - key: CORS_ORIGINS
+        # Manual: JSON list of allowed frontend origins, e.g.
+        # ["https://mlpilot.vercel.app"]
+      - key: DEBUG
+        value: "false"
+      - key: ENABLE_AUTO_CLEANUP
+        value: "true"
+      - key: DATA_DIR
+        value: "/opt/render/project/src/data"
