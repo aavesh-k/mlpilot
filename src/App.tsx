@@ -15,7 +15,6 @@ import Visualizations from "./pages/Visualizations"
 import ModelTraining from "./pages/ModelTraining"
 import ModelComparison from "./pages/ModelComparison"
 import Results from "./pages/Results"
-import Settings from "./pages/Settings"
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,7 +84,6 @@ export default function App() {
                   "Results",
                 )}
               />
-              <Route path="/settings" element={withErrorBoundary(<Settings />, "Settings")} />
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
           </Routes>

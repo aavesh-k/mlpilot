@@ -32,7 +32,7 @@ export default function Visualizations() {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <NavLink
             to="/compare"
-            className="bg-primary text-white font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
+            className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
           >
             View Leaderboard
           </NavLink>

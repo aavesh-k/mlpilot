@@ -78,7 +78,7 @@ function DashboardContent() {
       <div className="flex-1 overflow-y-auto p-8 lg:p-12">
         <section className="mb-16">
           <h1 className="font-headline text-6xl md:text-8xl font-black uppercase leading-none mb-4 tracking-tighter">
-            Welcome to <span className="text-black dark:text-white">ML</span><span className="text-secondary">Pilot</span>
+            Welcome to <span className="text-primary">ML</span><span className="text-secondary">Pilot</span>
           </h1>
           <p className="text-xl max-w-2xl text-on-surface-variant font-medium">
             Upload your first dataset to begin.
@@ -88,10 +88,10 @@ function DashboardContent() {
           to="/datasets"
           className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow w-full sm:max-w-md"
         >
-          <div className="w-16 h-16 bg-white border-2 border-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
+          <div className="w-16 h-16 bg-surface border-2 border-primary text-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
             <span className="material-symbols-outlined text-4xl font-bold">add</span>
           </div>
-          <span className="font-headline text-2xl font-black uppercase text-white tracking-tighter">Upload Dataset</span>
+          <span className="font-headline text-2xl font-black uppercase text-on-tertiary tracking-tighter">Upload Dataset</span>
         </NavLink>
       </div>
     )
@@ -136,11 +136,11 @@ function DashboardContent() {
           to="/datasets"
           className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow"
         >
-          <div className="w-16 h-16 bg-white border-2 border-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
+          <div className="w-16 h-16 bg-surface border-2 border-primary text-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
             <span className="material-symbols-outlined text-4xl font-bold">add</span>
           </div>
-          <span className="font-headline text-2xl font-black uppercase text-white tracking-tighter">New Dataset</span>
-          <span className="font-headline text-xs font-bold text-white/70 uppercase mt-2">Upload or import data</span>
+          <span className="font-headline text-2xl font-black uppercase text-on-tertiary tracking-tighter">New Dataset</span>
+          <span className="font-headline text-xs font-bold text-on-tertiary/70 uppercase mt-2">Upload or import data</span>
         </NavLink>
       </div>
     </div>

@@ -27,7 +27,7 @@ function BlockCard({ block }: { block: BlockState }) {
         <p className="text-on-surface-variant font-body mb-6">{block.message}</p>
         <NavLink
           to={block.actionTo}
-          className="inline-block bg-primary text-white font-headline font-bold uppercase text-sm px-8 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95"
+          className="inline-block bg-primary text-on-primary font-headline font-bold uppercase text-sm px-8 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95"
         >
           {block.actionLabel}
         </NavLink>

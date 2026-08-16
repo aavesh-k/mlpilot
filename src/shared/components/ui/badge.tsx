@@ -10,11 +10,11 @@ export function Badge({ className, variant = 'default', ...props }: BadgeProps) 
     <span
       className={cn(
         'font-headline text-[10px] font-black uppercase px-2 py-1 border-2 border-primary inline-block',
-        variant === 'default' && 'bg-surface-variant text-primary',
-        variant === 'success' && 'bg-green-200 text-green-900',
-        variant === 'warning' && 'bg-yellow-200 text-yellow-900',
-        variant === 'danger' && 'bg-secondary text-white',
-        variant === 'info' && 'bg-tertiary text-white',
+        variant === 'default' && 'bg-surface-variant text-on-surface-variant',
+        variant === 'success' && 'bg-success text-on-success',
+        variant === 'warning' && 'bg-warning-container text-on-warning-container',
+        variant === 'danger' && 'bg-error-container text-on-error-container',
+        variant === 'info' && 'bg-info-container text-on-info-container',
         className,
       )}
       {...props}

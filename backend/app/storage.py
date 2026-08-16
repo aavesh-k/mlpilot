@@ -20,7 +20,6 @@ from app.models import (
     JobRecord,
     ModelRecord,
     PipelineRecord,
-    SettingRecord,
 )
 
 
@@ -247,31 +246,6 @@ class SQLStorage:
                 self._remove_model_artifacts(model["id"])
         self._delete(JobRecord, job_id)
         return True
-
-    # --- Settings ---
-    def get_settings(self) -> dict:
-        with session_scope() as session:
-            model = session.get(SettingRecord, "app")
-            if model is None:
-                return {
-                    "api_endpoint": "/api/v1",
-                    "default_project": "MLPilot",
-                    "max_memory_gb": 32,
-                    "max_runtime_minutes": 240,
-                    "parallel_jobs": 3,
-                    "email_alerts": True,
-                    "webhook_url": "https://hooks.mlpilot.io/events",
-                }
-            return dict(model.value)
-
-    def save_settings(self, settings: dict) -> dict:
-        with session_scope() as session:
-            model = session.get(SettingRecord, "app")
-            if model is None:
-                session.add(SettingRecord(key="app", value=settings))
-            else:
-                model.value = settings
-            return dict(settings)
 
     # --- EDA Reports (file-backed, unchanged) ---
     def _eda_dir(self, dataset_id: str) -> Path:

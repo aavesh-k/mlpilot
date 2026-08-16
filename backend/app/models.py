@@ -46,10 +46,3 @@ class ModelRecord(BaseRecord, Base):
 class JobRecord(BaseRecord, Base):
     __tablename__ = "training_jobs"
 
-
-class SettingRecord(Base):
-    __tablename__ = "settings"
-
-    key: Mapped[str] = mapped_column(String(64), primary_key=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    value: Mapped[dict] = mapped_column(JSON, default=dict)

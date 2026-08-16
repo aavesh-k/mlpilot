@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
 import { useTrainModel, useJobs, useDeleteJob } from '../modules/training/hooks/useTraining'
 import type { AlgorithmInfo } from '../core/api/training.api'
@@ -43,6 +43,7 @@ const REGRESSION_ALGOS: AlgoOption[] = [
 
 export default function ModelTraining() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const paramPipelineId = searchParams.get('pipelineId')
   const [page, setPage] = useState(1)
   const [selectedPipelineId, setSelectedPipelineId] = useState('')
@@ -210,7 +211,7 @@ export default function ModelTraining() {
                             </div>
                           </div>
                           {showSlowWarning && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-secondary text-white text-[9px] font-headline font-black px-1.5 py-0.5 uppercase">
+                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-secondary text-on-secondary text-[9px] font-headline font-black px-1.5 py-0.5 uppercase">
                               <span className="material-symbols-outlined text-[10px]">warning</span>
                               Slow Model
                             </div>
@@ -375,7 +376,7 @@ export default function ModelTraining() {
                 </div>
 
                 {/* Live logs terminal box */}
-                <div className="flex-1 bg-primary text-white p-4 font-mono text-xs rounded-none border border-primary overflow-y-auto h-64 max-h-72">
+                <div className="flex-1 bg-primary text-on-primary p-4 font-mono text-xs rounded-none border border-primary overflow-y-auto h-64   max-h-72">
                   <div className="text-tertiary-container font-bold mb-2">=== ENGINE LIVE LOGS ===</div>
                   {activeJob.log ? (
                     <pre className="whitespace-pre-wrap leading-relaxed">{activeJob.log}</pre>
@@ -400,7 +401,7 @@ export default function ModelTraining() {
         <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Training Jobs History</h3>
 
         {cancelError && (
-          <div className="bg-red-100 border-l-4 border-red-500 p-3 text-xs font-body text-red-950 mb-4">
+          <div className="bg-error-container border-l-4 border-error p-3 text-xs font-body text-on-error-container mb-4">
             {cancelError}
           </div>
         )}
@@ -464,6 +465,15 @@ export default function ModelTraining() {
                           <Button variant="danger" size="sm" onClick={() => setConfirmDeleteJobId(job.id)}>
                             Delete
                           </Button>
+                          {job.status === 'completed' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => navigate(`/compare?pipelineId=${job.pipeline_id ?? 'all'}`)}
+                            >
+                              Leaderboard
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>

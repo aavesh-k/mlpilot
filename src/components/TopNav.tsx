@@ -1,5 +1,4 @@
 import { NavLink, useLocation } from "react-router-dom"
-import { useState, useEffect } from "react"
 
 interface TopNavProps {
   onToggleSidebar?: () => void
@@ -9,16 +8,10 @@ const links = [
   { to: "/", label: "Home" },
   { to: "/dashboard", label: "Dashboard" },
   { to: "/results", label: "Reports" },
-  { to: "/settings", label: "Settings" },
 ]
 
 export default function TopNav({ onToggleSidebar }: TopNavProps) {
-  const [dark, setDark] = useState(false)
   const location = useLocation()
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark)
-  }, [dark])
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/"
@@ -36,7 +29,7 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
           <span className="material-symbols-outlined text-2xl">menu</span>
         </button>
         <NavLink to="/" className="text-xl font-headline font-black tracking-tighter uppercase">
-          <span className="text-black dark:text-white">ML</span>
+          <span className="text-primary">ML</span>
           <span className="text-secondary">Pilot</span>
         </NavLink>
         <nav className="hidden lg:flex items-center gap-6 ml-8">
@@ -58,13 +51,6 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
         </nav>
       </div>
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => setDark(!dark)}
-          className="p-2 hover:bg-primary-container transition-colors cursor-pointer"
-          aria-label="Toggle theme"
-        >
-          <span className="material-symbols-outlined">{dark ? "light_mode" : "dark_mode"}</span>
-        </button>
         <NavLink
           to="/datasets"
           className="bg-primary text-on-primary font-headline text-xs uppercase font-bold px-6 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95"

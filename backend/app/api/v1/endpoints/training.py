@@ -482,25 +482,11 @@ def _run_multi_training_background(
         _unregister_cancel_event(job_id)
         return
 
-    resource_settings = storage.get_settings()
-    max_runtime_minutes = float(resource_settings.get("max_runtime_minutes", 0) or 0)
-
     job["status"] = "running"
     job["progress"] = 5.0
     job["run_started_at"] = datetime.now(UTC).isoformat()
     _append_log(job, f"Starting multi-model training pipeline. Folds: {cv_folds}, Tuning: {tuning_enabled}")
-    if max_runtime_minutes > 0:
-        _append_log(job, f"Resource limit: max runtime = {max_runtime_minutes:.0f} minutes")
     storage.save_job(job)
-
-    def _runtime_exceeded() -> bool:
-        if max_runtime_minutes <= 0:
-            return False
-        try:
-            start = datetime.fromisoformat(job["run_started_at"])
-        except Exception:
-            return False
-        return (datetime.now(UTC) - start).total_seconds() > max_runtime_minutes * 60
 
     problem_type = "classification"
     if pipeline_id:
@@ -534,16 +520,6 @@ def _run_multi_training_background(
 
         model_entry["status"] = "running"
         storage.save_model(model_entry)
-
-        if _runtime_exceeded():
-            _append_log(job, "Max runtime exceeded — aborting remaining training.")
-            job["status"] = "failed"
-            job["error_message"] = "Training aborted: exceeded configured max runtime limit."
-            job["progress"] = job.get("progress", 5.0)
-            storage.save_job(job)
-            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=idx)
-            _unregister_cancel_event(job_id)
-            return
 
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
         job_progress_next = 5.0 + ((idx + 1) / total_algos) * 60.0
@@ -628,11 +604,7 @@ def _run_multi_training_background(
 
     # Hyperparameter Tuning Step
     if tuning_enabled and len(completed_models_metrics) >= 1:
-        if _runtime_exceeded():
-            _append_log(job, "Max runtime exceeded during tuning — finalizing with baselines.")
-            _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
-            # Fall through to finalize with whatever completed
-        elif _is_cancelled(job_id):
+        if _is_cancelled(job_id):
             _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
             _unregister_cancel_event(job_id)
             return
@@ -735,8 +707,6 @@ def _run_multi_training_background(
                 _append_log(job, f"Hyperparameter tuning failed for {algo}: {e}")
 
     # Build final Leaderboard and serialize win bundles
-    if _runtime_exceeded() and job.get("status") not in ("failed",):
-        _append_log(job, "Max runtime exceeded — finalizing with available models.")
     if _is_cancelled(job_id):
         _cancel_remaining_models(job, selected_algos, model_ids_map, from_index=0)
         _unregister_cancel_event(job_id)
@@ -905,15 +875,6 @@ async def train_model(
     invalid = [a for a in selected_algos if a not in valid_algos]
     if invalid:
         raise ValidationError(f"Invalid algorithm(s): {', '.join(invalid)}")
-
-    # Enforce configured memory limit (US-27)
-    resource_settings = storage.get_settings()
-    max_memory_gb = float(resource_settings.get("max_memory_gb", 0) or 0)
-    if max_memory_gb > 0 and X_train.nbytes > max_memory_gb * (1024 ** 3):
-        raise ValidationError(
-            f"Training matrix ({X_train.nbytes / 1e9:.1f} GB) exceeds configured "
-            f"max memory ({max_memory_gb:.0f} GB). Reduce data size or raise the limit."
-        )
 
     job_id = str(uuid.uuid4())
     model_ids_map = {}

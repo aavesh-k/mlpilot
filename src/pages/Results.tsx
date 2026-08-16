@@ -271,8 +271,8 @@ export default function Results() {
                             {m.name}
                             {m.id === overallBestId && (
                               <>
-                                <Crown className="w-3.5 h-3.5 text-yellow-600 fill-yellow-600" />
-                                <span className="text-[11px] font-headline uppercase text-yellow-700">Best · {bestMetricLabel}</span>
+                                <Crown className="w-3.5 h-3.5 text-warning fill-warning" />
+                                <span className="text-[11px] font-headline uppercase text-warning">Best · {bestMetricLabel}</span>
                               </>
                             )}
                           </div>
@@ -337,7 +337,7 @@ export default function Results() {
                       onClick={() => handleTabChange(tab)}
                       className={`flex-1 py-3 text-center text-[11px] font-headline font-bold uppercase transition-colors border-r last:border-r-0 border-primary ${
                         selectedTab === tab
-                          ? 'bg-primary text-white'
+                          ? 'bg-primary text-on-primary'
                           : 'bg-surface hover:bg-surface-variant/30'
                       }`}
                     >
@@ -349,7 +349,7 @@ export default function Results() {
                 {/* Tab content 1: Exports & performance */}
                 {selectedTab === 'exports' && (
                   <div className="space-y-6">
-                    <div className="bg-yellow-100 border-l-4 border-primary p-4 text-xs font-body text-primary-dark">
+                    <div className="bg-warning-container border-l-4 border-warning p-4 text-xs font-body text-on-warning-container">
                       <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Executive Briefing</p>
                       This model was successfully trained on features extracted from target column{' '}
                       {resolvedTargetColumn ? (
@@ -387,7 +387,7 @@ export default function Results() {
                         className="flex items-center justify-between p-3 border border-primary bg-surface hover:bg-surface-variant/20 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
-                          <FileText className="w-5 h-5 text-indigo-600" />
+                          <FileText className="w-5 h-5 text-primary" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Executive HTML Report</p>
                             <p className="text-[11px] text-on-surface-variant">Includes EDA log, leaderboard & base64 plots</p>
@@ -402,7 +402,7 @@ export default function Results() {
                         className="flex items-center justify-between p-3 border border-primary bg-surface hover:bg-surface-variant/20 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
-                          <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                          <FileSpreadsheet className="w-5 h-5 text-primary" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Cleaned Dataset (CSV)</p>
                             <p className="text-[11px] text-on-surface-variant">Outliers capped & missing cells imputed</p>
@@ -418,7 +418,7 @@ export default function Results() {
                           className="flex items-center justify-between p-3 border border-primary bg-surface hover:bg-surface-variant/20 transition-colors group"
                         >
                           <div className="flex items-center gap-3">
-                            <FileArchive className="w-5 h-5 text-amber-600" />
+                            <FileArchive className="w-5 h-5 text-primary" />
                             <div className="text-left">
                               <p className="font-headline font-bold text-xs">Preprocessed splits (ZIP)</p>
                               <p className="text-[11px] text-on-surface-variant">Train/test splits in CSV format</p>
@@ -434,7 +434,7 @@ export default function Results() {
                         className="flex items-center justify-between p-3 border border-primary bg-surface hover:bg-surface-variant/20 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
-                          <Code className="w-5 h-5 text-violet-600" />
+                            <Code className="w-5 h-5 text-primary" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Python Inference Recipe</p>
                             <p className="text-[11px] text-on-surface-variant">Replicate pipeline cleaning & model execution</p>
@@ -449,7 +449,7 @@ export default function Results() {
                         className="flex items-center justify-between p-3 border border-primary bg-surface hover:bg-surface-variant/20 transition-colors group"
                       >
                         <div className="flex items-center gap-3">
-                          <Award className="w-5 h-5 text-blue-600" />
+                            <Award className="w-5 h-5 text-primary" />
                           <div className="text-left">
                             <p className="font-headline font-bold text-xs">Trained Model bundle (ZIP)</p>
                             <p className="text-[11px] text-on-surface-variant">Pickled estimator and pipeline transformers</p>
@@ -484,7 +484,7 @@ export default function Results() {
                     {explainLoading && <div className="text-center py-8 font-headline font-bold text-xs uppercase">Calculating explainability values...</div>}
 
                     {!explainLoading && explainError && (
-                      <div className="bg-red-100 border-l-4 border-red-500 p-4 text-xs font-body text-red-950">
+                       <div className="bg-error-container border-l-4 border-error p-4 text-xs font-body text-on-error-container">
                         <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Explanation Unavailable</p>
                         {explainError}
                       </div>
@@ -507,13 +507,13 @@ export default function Results() {
                                 <div key={attr.name} className="text-xs font-body">
                                   <div className="flex justify-between font-mono text-[11px] mb-0.5">
                                     <span className="truncate max-w-[150px] font-bold" title={attr.name}>{attr.name}</span>
-                                    <span className={isPositive ? 'text-green-600 font-bold' : 'text-red-600 font-bold'}>
+                                    <span className={isPositive ? 'text-success font-bold' : 'text-error font-bold'}>
                                       {isPositive ? '+' : ''}{val.toFixed(4)}
                                     </span>
                                   </div>
                                   <div className="w-full bg-surface-variant/30 h-1.5 border border-primary/20 relative">
                                     <div
-                                      className={`h-full ${isPositive ? 'bg-green-500' : 'bg-red-500'}`}
+                                      className={`h-full ${isPositive ? 'bg-success' : 'bg-error'}`}
                                       style={{
                                         width: `${Math.min(Math.abs(val) * 100, 100)}%`,
                                         marginLeft: isPositive ? '0' : 'auto'
@@ -606,14 +606,14 @@ export default function Results() {
                     )}
 
                     {scoreError && (
-                      <div className="bg-red-100 border-l-4 border-red-500 p-3 text-xs font-body text-red-950">
+                       <div className="bg-error-container border-l-4 border-error p-3 text-xs font-body text-on-error-container">
                         {scoreError}
                       </div>
                     )}
 
                     {scoreResult && (
                       <div className="space-y-4">
-                        <div className="bg-green-100 border-l-4 border-green-500 p-4 text-xs font-body text-green-950">
+                        <div className="bg-success-container border-l-4 border-success p-4 text-xs font-body text-on-success-container">
                           <p className="font-headline font-black text-[11px] uppercase mb-1 tracking-wider">Scoring Complete</p>
                           Successfully generated target predictions for {scoreResult.rows} rows.
                         </div>
@@ -621,16 +621,16 @@ export default function Results() {
                         <button
                           type="button"
                           onClick={() => trainingApi.downloadPredictions(scoreResult.download_filename)}
-                          className="w-full flex items-center justify-between p-3 border-2 border-primary bg-primary text-white hover:bg-primary-dark transition-colors group"
+                          className="w-full flex items-center justify-between p-3 border-2 border-primary bg-primary text-on-primary hover:bg-primary-container transition-colors group"
                         >
                           <div className="flex items-center gap-3">
-                            <Download className="w-5 h-5 text-white" />
+                            <Download className="w-5 h-5 text-on-primary" />
                             <div className="text-left">
                               <p className="font-headline font-bold text-xs uppercase">Download Predictions</p>
                               <p className="text-[11px] opacity-80">Full dataset with prediction column appended</p>
                             </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform text-white" />
+                          <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform text-on-primary" />
                         </button>
 
                         <div className="border border-primary p-3 bg-surface-variant/15">
@@ -716,7 +716,7 @@ export default function Results() {
                               <div className="flex flex-col items-center gap-0.5">
                                 <span>{m.name}</span>
                                 {m.id === compareBestId && (
-                                  <span className="text-[11px] font-headline normal-case font-bold text-yellow-700 flex items-center gap-1">
+                                  <span className="text-[11px] font-headline normal-case font-bold text-warning flex items-center gap-1">
                                     👑 Best by {cLabel}
                                   </span>
                                 )}

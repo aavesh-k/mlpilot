@@ -307,7 +307,7 @@ function CleaningConfigPanel({
               </div>
             )}
             {colsWithMissing.length === 0 && (
-              <p className="text-green-700 font-headline font-bold text-xs mt-3">No missing values detected.</p>
+              <p className="text-success font-headline font-bold text-xs mt-3">No missing values detected.</p>
             )}
           </div>
 
@@ -342,7 +342,7 @@ function CleaningConfigPanel({
               </div>
             )}
             {colsWithOutliers.length === 0 && (
-              <p className="text-green-700 font-headline font-bold text-xs mt-3">No outliers detected.</p>
+              <p className="text-success font-headline font-bold text-xs mt-3">No outliers detected.</p>
             )}
           </div>
 
@@ -392,7 +392,7 @@ function ToggleStep({ label, description, enabled, onToggle, hideToggle }: {
           onClick={() => onToggle(!enabled)}
           className={`w-12 h-6 border-2 border-primary relative transition-colors ${enabled ? 'bg-primary' : 'bg-surface-variant'}`}
         >
-          <div className={`absolute top-0.5 w-4 h-4 bg-white border border-primary transition-all ${enabled ? 'left-6' : 'left-0.5'}`} />
+          <div className={`absolute top-0.5 w-4 h-4 bg-surface border border-primary transition-all ${enabled ? 'left-6' : 'left-0.5'}`} />
         </button>
       )}
     </div>
@@ -455,7 +455,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
             <div key={i} className="border border-primary p-4 bg-surface-variant/20">
               <div className="flex items-start justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 bg-primary text-white font-headline font-bold text-xs flex items-center justify-center">{i + 1}</span>
+                  <span className="w-6 h-6 bg-primary text-on-primary font-headline font-bold text-xs flex items-center justify-center">{i + 1}</span>
                   {stepBadge(log.step)}
                   <span className="font-headline font-bold text-sm uppercase">{log.description}</span>
                 </div>
@@ -496,7 +496,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
                     {cc.before_missing > 0 || cc.after_missing > 0 ? (
                       <span>{cc.before_missing.toLocaleString()} → {cc.after_missing.toLocaleString()}</span>
                     ) : (
-                      <span className="text-green-700">0</span>
+                      <span className="text-success">0</span>
                     )}
                   </td>
                   <td className="p-2 font-body">
@@ -544,7 +544,7 @@ function SnapshotCard({ label, before, after }: { label: string; before: number;
         <span className="text-xs font-headline font-bold text-on-surface-variant">from {before.toLocaleString()}</span>
       </div>
       {diff !== 0 && (
-        <span className={`text-xs font-headline font-bold ${diff < 0 ? 'text-green-700' : 'text-secondary'}`}>
+        <span className={`text-xs font-headline font-bold ${diff < 0 ? 'text-success' : 'text-secondary'}`}>
           {diff < 0 ? '↓' : '↑'} {Math.abs(pct)}%
         </span>
       )}

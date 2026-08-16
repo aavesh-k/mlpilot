@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useModels } from '../modules/training/hooks/useTraining'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
 import { PageHeader } from '../shared/components/PageHeader'
@@ -26,9 +27,15 @@ const REGRESSION_METRICS = [
 export default function ModelComparison() {
   const { data: modelsData, isLoading: modelsLoading, error: modelsError, refetch } = useModels(1)
   const { data: pipelinesData, isLoading: pipelinesLoading } = usePipelines(1)
+  const [searchParams] = useSearchParams()
+  const paramPipelineId = searchParams.get('pipelineId')
 
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string>('all')
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string>(paramPipelineId || 'all')
   const [selectedMetric, setSelectedMetric] = useState<string>('')
+
+  useEffect(() => {
+    if (paramPipelineId) setSelectedPipelineId(paramPipelineId)
+  }, [paramPipelineId])
 
   const allModels = modelsData?.items ?? []
   const completedModels = allModels.filter((m) => m.metrics)

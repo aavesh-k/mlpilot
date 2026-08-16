@@ -125,8 +125,8 @@ function AutomatedInsightsSection({ findings }: { findings: any[] }) {
           const isCritical = finding.severity === 'critical'
           const isWarning = finding.severity === 'warning'
           const badgeVariant = isCritical ? 'danger' : isWarning ? 'warning' : 'info'
-          const borderClass = isCritical ? 'border-red-500 bg-red-50/50' : isWarning ? 'border-amber-500 bg-amber-50/50' : 'border-blue-500 bg-blue-50/50'
-          const textClass = isCritical ? 'text-red-950' : isWarning ? 'text-amber-950' : 'text-blue-950'
+          const borderClass = isCritical ? 'border-error bg-error-container' : isWarning ? 'border-warning bg-warning-container' : 'border-info bg-info-container'
+          const textClass = isCritical ? 'text-on-error-container' : isWarning ? 'text-on-warning-container' : 'text-on-info-container'
 
           return (
             <div key={idx} className={`border-2 p-4 neo-shadow-sm flex flex-col justify-between ${borderClass} ${textClass}`}>
@@ -250,7 +250,7 @@ function MissingnessSection({ missingness, matrix }: { missingness: MissingRow[]
     <div className="bg-surface border-2 border-primary p-6">
       <h3 className="font-headline font-black text-xl uppercase mb-4">Missing Values</h3>
       {missingness.length === 0 ? (
-        <p className="text-green-700 font-headline font-bold">No missing values detected.</p>
+        <p className="text-success font-headline font-bold">No missing values detected.</p>
       ) : (
         <>
           <div className="overflow-x-auto mb-6">
@@ -314,8 +314,7 @@ function MissingnessHeatmap({ matrix }: { matrix: MissingnessMatrix }) {
               y={ri * cellSize + 2}
               width={cellSize - 2}
               height={cellSize - 2}
-              fill={val === 1 ? '#dc2626' : '#e5e7eb'}
-              stroke="#d1d5db"
+              style={{ fill: val === 1 ? 'rgb(var(--chart-red))' : 'rgb(var(--chart-gray))', stroke: 'rgb(var(--chart-gray))' }}
               strokeWidth={0.5}
             />
           )
@@ -403,8 +402,8 @@ function BoxPlotSVG({ stats, width, height }: { stats: { min: number | null; q1:
       <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke="currentColor" strokeWidth={2} />
       <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
       <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} fill="rgba(0,85,255,0.3)" stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} stroke="#dc2626" strokeWidth={2} />
+      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} style={{ fill: 'rgba(var(--chart-blue), 0.3)' }} stroke="currentColor" strokeWidth={2} />
+      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
     </svg>
   )
 }
@@ -489,8 +488,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
                   y={i * size + 20}
                   width={size - 1}
                   height={size - 1}
-                  fill={val >= 0 ? `rgba(0,85,255,${r})` : `rgba(220,38,38,${r})`}
-                  stroke={isHigh ? '#f59e0b' : '#d1d5db'}
+                  style={{ fill: val >= 0 ? `rgba(var(--chart-blue), ${r})` : `rgba(var(--chart-red), ${r})`, stroke: isHigh ? 'rgb(var(--chart-amber))' : 'rgb(var(--chart-gray))' }}
                   strokeWidth={isHigh ? 2 : 0.5}
                 />
               )
@@ -560,8 +558,7 @@ function HistogramKDEChart({ plot, width, height }: { plot: DistributionPlot; wi
           y={histHeight - scaleH(c)}
           width={Math.max(binWidth - 1, 1)}
           height={scaleH(c)}
-          fill="rgba(0,85,255,0.3)"
-          stroke="rgba(0,85,255,0.6)"
+          style={{ fill: 'rgba(var(--chart-blue), 0.3)', stroke: 'rgba(var(--chart-blue), 0.6)' }}
           strokeWidth={0.5}
         />
       ))}
@@ -569,7 +566,7 @@ function HistogramKDEChart({ plot, width, height }: { plot: DistributionPlot; wi
         <polyline
           points={kde.x.map((x, i) => `${scaleX(x)},${histHeight - (kde.y[i] / Math.max(...kde.y, 0.001)) * histHeight}`).join(' ')}
           fill="none"
-          stroke="#dc2626"
+          style={{ stroke: 'rgb(var(--chart-red))' }}
           strokeWidth={2}
         />
       )}
@@ -591,7 +588,7 @@ function DuplicatesCard({ duplicates, totalRows }: { duplicates: { count: number
           </div>
         </>
       ) : (
-        <p className="text-green-700 font-headline font-bold">No duplicate rows found.</p>
+        <p className="text-success font-headline font-bold">No duplicate rows found.</p>
       )}
     </div>
   )
@@ -672,7 +669,7 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
     return (
       <div className="bg-surface border-2 border-primary p-6">
         <h3 className="font-headline font-black text-xl uppercase mb-4">Key Findings</h3>
-        <p className="text-green-700 font-headline font-bold">No significant findings detected. Dataset looks clean!</p>
+        <p className="text-success font-headline font-bold">No significant findings detected. Dataset looks clean!</p>
       </div>
     )
   }
@@ -721,7 +718,7 @@ function PotentialTargetsSection({ targets }: { targets: PotentialTarget[] }) {
         {targets.map((t) => (
           <div
             key={t.column}
-            className={`border-2 p-4 neo-shadow-sm ${t.is_imbalanced ? 'border-amber-500 bg-amber-50/50' : 'border-primary/40'}`}
+            className={`border-2 p-4 neo-shadow-sm ${t.is_imbalanced ? 'border-warning bg-warning-container' : 'border-primary/40'}`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="font-headline font-black text-sm uppercase">{t.column}</span>

@@ -281,7 +281,7 @@ export default function Preprocessing() {
                 key={s}
                 onClick={() => setStep(s)}
                 className={`px-4 py-2 font-headline font-bold text-xs uppercase transition-colors ${
-                  step === s ? 'bg-primary text-white' : 'text-on-surface-variant hover:text-primary'
+                  step === s ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'
                 }`}
               >
                 {i + 1}. {s === 'select-columns' ? 'Target & Columns' : s === 'config' ? 'Config' : 'Review & Execute'}
@@ -605,7 +605,7 @@ function SelectColumnsStep({
                   onClick={() => onSelectTarget(col)}
                   className={`p-3 border-2 text-left text-xs transition-all ${
                     isTarget
-                      ? 'border-primary bg-primary text-white'
+                      ? 'border-primary bg-primary text-on-primary'
                       : 'border-primary bg-surface-variant/20 hover:bg-surface-variant'
                   }`}
                 >
@@ -757,7 +757,7 @@ function ConfigStep({
                     key={col}
                     onClick={() => togglePassthrough(col)}
                     className={`px-2 py-1 text-xs border border-primary ${
-                      passthroughCols.includes(col) ? 'bg-primary text-white' : 'bg-surface-variant/20'
+                      passthroughCols.includes(col) ? 'bg-primary text-on-primary' : 'bg-surface-variant/20'
                     }`}
                   >
                     {col}
@@ -796,7 +796,7 @@ function ConfigStep({
                     )
                   }}
                   className={`px-2 py-1 text-xs border border-primary ${
-                    (scaleCols ?? numericCols).includes(col) ? 'bg-primary text-white' : 'bg-surface-variant/20'
+                    (scaleCols ?? numericCols).includes(col) ? 'bg-primary text-on-primary' : 'bg-surface-variant/20'
                   }`}
                 >
                   {col}
@@ -808,7 +808,7 @@ function ConfigStep({
 
         <Section label="Train / Test Split" description="Divide data for training and evaluation">
           {targetDetectionResult?.datetime_columns && targetDetectionResult.datetime_columns.length > 0 && (
-            <div className="bg-yellow-100 border-l-4 border-yellow-500 p-4 mb-4 text-xs text-yellow-800">
+            <div className="bg-warning-container border-l-4 border-warning p-4 mb-4 text-xs text-on-warning-container">
               <p className="font-headline font-black text-[10px] uppercase mb-1">⚠️ Time Series Leakage Warning</p>
               We detected datetime column(s) (<strong>{targetDetectionResult.datetime_columns.join(', ')}</strong>) in the dataset.
               Performing a random train/test split on time-ordered data can leak future information into the training set.

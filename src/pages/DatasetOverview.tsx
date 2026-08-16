@@ -54,14 +54,14 @@ export default function DatasetOverview() {
             </Badge>
             <NavLink
               to={`/cleaning?datasetId=${dataset.id}`}
-              className="bg-primary text-white font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
+              className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
             >
               {dataset.is_cleaned ? 'Re-Clean Dataset' : 'Clean Dataset First'}
             </NavLink>
             {dataset.is_cleaned ? (
               <NavLink
                 to={`/preprocessing?datasetId=${dataset.id}`}
-                className="bg-tertiary text-white font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 neo-shadow"
+                className="bg-tertiary text-on-tertiary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 neo-shadow"
               >
                 Build Pipeline
               </NavLink>
@@ -123,7 +123,7 @@ function WorkflowSteps({ datasetId }: { datasetId: string }) {
   const stepClass = (state: 'done' | 'active' | 'next') =>
     `flex items-center gap-2 px-4 py-2 border-2 border-primary font-headline text-xs font-bold uppercase transition-colors ${
       state === 'active'
-        ? 'bg-primary text-white'
+        ? 'bg-primary text-on-primary'
         : state === 'done'
           ? 'bg-primary-container text-primary'
           : 'bg-surface text-on-surface-variant'
@@ -281,7 +281,7 @@ function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
     <div className="bg-surface border-2 border-primary p-6">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Missing Values</h3>
       {missingness.length === 0 ? (
-        <p className="text-green-700 font-headline font-bold">No missing values detected.</p>
+         <p className="text-success font-headline font-bold">No missing values detected.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -395,8 +395,8 @@ function BoxPlotSVG({ stats, width, height }: { stats: { min: number | null; q1:
       <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke="currentColor" strokeWidth={2} />
       <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
       <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} fill="rgba(0,85,255,0.3)" stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} stroke="#dc2626" strokeWidth={2} />
+      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} style={{ fill: 'rgba(var(--chart-blue), 0.3)' }} stroke="currentColor" strokeWidth={2} />
+      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
     </svg>
   )
 }
@@ -479,8 +479,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
                       y={i * cell + labelPad}
                       width={cell}
                       height={cell}
-                      fill={val >= 0 ? `rgba(0,85,255,${intensity})` : `rgba(220,38,38,${intensity})`}
-                      stroke={isHigh ? '#f59e0b' : '#d1d5db'}
+                      style={{ fill: val >= 0 ? `rgba(var(--chart-blue), ${intensity})` : `rgba(var(--chart-red), ${intensity})`, stroke: isHigh ? 'rgb(var(--chart-amber))' : 'rgb(var(--chart-gray))' }}
                       strokeWidth={isHigh ? 2.5 : 0.5}
                     />
                     <text
@@ -489,7 +488,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fontSize={cell > 40 ? 11 : 9}
-                      fill={abs > 0.5 ? '#fff' : 'currentColor'}
+                      style={{ fill: abs > 0.5 ? 'var(--chart-strong)' : 'currentColor' }}
                       className="font-headline font-bold"
                     >
                       {val.toFixed(2)}
@@ -550,10 +549,10 @@ function MiniHistogram({ plot, width, height }: { plot: DistributionPlot; width:
   return (
     <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height}>
       {counts.map((c, i) => (
-        <rect key={i} x={scaleX(bins[i])} y={histHeight - (c / maxCount) * histHeight} width={Math.max(binW - 1, 1)} height={(c / maxCount) * histHeight} fill="rgba(0,85,255,0.3)" stroke="rgba(0,85,255,0.6)" strokeWidth={0.5} />
+        <rect key={i} x={scaleX(bins[i])} y={histHeight - (c / maxCount) * histHeight} width={Math.max(binW - 1, 1)} height={(c / maxCount) * histHeight} style={{ fill: 'rgba(var(--chart-blue), 0.3)', stroke: 'rgba(var(--chart-blue), 0.6)' }} strokeWidth={0.5} />
       ))}
       {plot.kde.y.length > 1 && (
-        <polyline points={plot.kde.x.map((x, i) => `${scaleX(x)},${histHeight - (plot.kde.y[i] / Math.max(...plot.kde.y, 0.001)) * histHeight}`).join(' ')} fill="none" stroke="#dc2626" strokeWidth={2} />
+        <polyline points={plot.kde.x.map((x, i) => `${scaleX(x)},${histHeight - (plot.kde.y[i] / Math.max(...plot.kde.y, 0.001)) * histHeight}`).join(' ')} fill="none" style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
       )}
     </svg>
   )

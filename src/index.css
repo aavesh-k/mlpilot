@@ -2,9 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   Design tokens — single source of truth (light theme).
+   All values are space-separated RGB triplets so Tailwind's
+   `rgb(var(--c-x) / <alpha-value>)` alpha modifiers work.
+   ============================================================ */
+:root {
+  --c-on-tertiary-fixed-variant: 26 26 26;
+  --c-on-secondary: 255 255 255;
+  --c-tertiary-fixed: 214 227 255;
+  --c-surface-bright: 250 247 242;
+  --c-tertiary-container: 214 227 255;
+  --c-on-surface-variant: 74 74 74;
+  --c-surface-tint: 26 26 26;
+  --c-tertiary: 0 85 255;
+  --c-primary-container: 255 204 0;
+  --c-on-tertiary-fixed: 26 26 26;
+  --c-primary-fixed-dim: 230 184 0;
+  --c-on-error: 255 255 255;
+  --c-on-primary: 255 255 255;
+  --c-on-tertiary: 255 255 255;
+  --c-inverse-surface: 26 26 26;
+  --c-on-secondary-fixed-variant: 26 26 26;
+  --c-error: 204 0 0;
+  --c-secondary: 230 59 46;
+  --c-primary-fixed: 255 204 0;
+  --c-on-tertiary-container: 26 26 26;
+  --c-surface-container-high: 232 221 212;
+  --c-inverse-primary: 245 240 232;
+  --c-secondary-fixed-dim: 255 179 171;
+  --c-background: 245 240 232;
+  --c-surface-dim: 214 209 201;
+  --c-surface-container: 238 233 224;
+  --c-outline-variant: 208 203 195;
+  --c-on-primary-fixed: 26 26 26;
+  --c-surface-container-low: 242 237 229;
+  --c-on-surface: 26 26 26;
+  --c-error-container: 255 218 214;
+  --c-on-primary-container: 26 26 26;
+  --c-on-error-container: 147 0 10;
+  --c-tertiary-fixed-dim: 168 198 255;
+  --c-surface-variant: 232 227 218;
+  --c-surface-container-highest: 226 221 212;
+  --c-secondary-fixed: 255 218 214;
+  --c-primary: 26 26 26;
+  --c-outline: 26 26 26;
+  --c-surface: 245 240 232;
+  --c-on-secondary-fixed: 26 26 26;
+  --c-secondary-container: 255 218 214;
+  --c-on-secondary-container: 26 26 26;
+  --c-on-background: 26 26 26;
+  --c-surface-container-lowest: 255 255 255;
+  --c-on-primary-fixed-variant: 26 26 26;
+  --c-inverse-on-surface: 245 240 232;
+  --c-surface-strong: 26 26 26;
+  --c-on-surface-strong: 255 255 255;
+  --c-success: 22 163 74;
+  --c-on-success: 255 255 255;
+  --c-success-container: 220 252 231;
+  --c-on-success-container: 20 83 45;
+  --c-warning: 202 138 4;
+  --c-warning-container: 254 243 199;
+  --c-on-warning-container: 60 40 4;
+  --c-info: 2 132 199;
+  --c-info-container: 224 242 254;
+  --c-on-info-container: 12 74 110;
+
+  /* Chart series colors (triplets for rgba() usage) */
+  --chart-blue: 0 85 255;
+  --chart-red: 220 38 38;
+  --chart-amber: 245 158 11;
+  --chart-gray: 209 213 219;
+  --chart-strong: #ffffff;
+}
+
 @layer base {
   body {
-    @apply bg-background text-primary font-body;
+    @apply bg-background text-on-surface font-body;
   }
 
   ::selection {
@@ -13,25 +87,26 @@
 }
 
 @layer utilities {
+  /* Neo-brutalist ink is driven by --c-primary. */
   .neo-shadow {
-    box-shadow: 6px 6px 0px 0px #1a1a1a;
+    box-shadow: 6px 6px 0px 0px rgb(var(--c-primary));
   }
 
   .neo-shadow-sm {
-    box-shadow: 4px 4px 0px 0px #1a1a1a;
+    box-shadow: 4px 4px 0px 0px rgb(var(--c-primary));
   }
 
   .neo-shadow-active {
-    box-shadow: 2px 2px 0px 0px #1a1a1a;
+    box-shadow: 2px 2px 0px 0px rgb(var(--c-primary));
     transform: translate(4px, 4px);
   }
 
   .neo-border {
-    border: 3px solid #1a1a1a;
+    border: 3px solid rgb(var(--c-primary));
   }
 
   .neo-border-sm {
-    border: 2px solid #1a1a1a;
+    border: 2px solid rgb(var(--c-primary));
   }
 
   .material-symbols-outlined {

@@ -18,7 +18,6 @@ from app.models import (
     JobRecord,
     ModelRecord,
     PipelineRecord,
-    SettingRecord,
 )
 
 
@@ -27,7 +26,6 @@ def truncate_tables():
     """Truncate all DB tables before each test function to isolate tests."""
     with SessionLocal() as session:
         for model in [
-            SettingRecord,
             JobRecord,
             ModelRecord,
             PipelineRecord,
