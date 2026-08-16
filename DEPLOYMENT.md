@@ -35,10 +35,11 @@ application code changes were needed — the app already supports Postgres
 3. In the service **Environment** tab, set the two manual variables:
    - `DATABASE_URL` → the Supabase URI from step 1.4
      (use the `postgresql+psycopg2://...` form).
-   - `CORS_ORIGINS` → `["https://<your-vercel-app>.vercel.app"]`
-     (use your real Vercel URL from step 3).
-4. Deploy. Once live, note the backend URL
-   (`https://mlpilot-backend.onrender.com`).
+    - `CORS_ORIGINS` → `["*"]` (the Vercel frontend calls the backend through a
+      Vercel rewrite proxy, so the browser request is same-origin and CORS is not
+      involved; `*` keeps direct API access open too).
+ 4. Deploy. Once live, note the backend URL
+    (`https://mlpilot-backend.onrender.com`).
 
 The first build installs pandas/scikit-learn/xgboost and can take a few minutes.
 `healthCheckPath` is `/api/v1/health`.
@@ -50,13 +51,16 @@ The first build installs pandas/scikit-learn/xgboost and can take a few minutes.
 1. In Vercel, **New Project → import the GitHub repo**.
 2. Framework preset: **Vite** (auto-detected from `vercel.json`).
    Build command `npm run build`, output `dist`.
-3. **Environment Variables** (Build & Development) — add:
-   - `VITE_API_BASE_URL` = `https://<your-backend>.onrender.com/api/v1`
-     (the Render URL from step 2.4, including `/api/v1`).
-4. Deploy. Your app is live at `https://<your-app>.vercel.app`.
+ 3. **Environment Variables** (Build & Development) — add:
+    - `VITE_API_BASE_URL` = `/api/v1`
+      (relative). `vercel.json` rewrites `/api/*` to the Render backend, so the
+      browser talks to Vercel same-origin and no CORS is needed.
+ 4. Deploy. Your app is live at `https://<your-app>.vercel.app`.
 
-> If you later add a custom domain, update `CORS_ORIGINS` on Render and
-> `VITE_API_BASE_URL` on Vercel to match, then redeploy both.
+> The frontend never calls Render directly: all `/api/*` traffic is proxied by
+> Vercel (see `vercel.json` `rewrites`). This keeps the dashboard free of CORS
+> errors. If you ever switch back to a direct backend URL, also set
+> `CORS_ORIGINS` on Render to your Vercel URL.
 
 ---
 
