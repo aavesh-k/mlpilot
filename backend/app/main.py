@@ -52,10 +52,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Single-user, no-auth app: credentials are never required, so keep
+# allow_credentials=False. This lets allow_origins=["*"] return
+# "Access-Control-Allow-Origin: *" for any frontend origin (e.g. Vercel),
+# including for browser CORS preflight (OPTIONS) requests.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
