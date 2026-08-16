@@ -5,13 +5,18 @@ import { apiClient } from '../api/client'
  * Polls GET /api/v1/health until the FastAPI backend is reachable.
  * Used as a readiness gate so the dashboard shows "Connecting to backend..."
  * instead of a hard error while the backend is still starting up.
+ *
+ * Polls indefinitely (no hard timeout) so a cold-start on Render's free tier
+ * self-heals: the first visitor's poll wakes the backend (~30–60s) and the
+ * gate then opens automatically — no manual warm-up required.
  */
-export function useBackendReady(pollMs = 1000, timeoutMs = 60_000) {
+export function useBackendReady(pollMs = 2000) {
   const [ready, setReady] = useState(false)
+  const [warming, setWarming] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    let elapsed = 0
+    const start = Date.now()
 
     const check = async () => {
       try {
@@ -19,10 +24,8 @@ export function useBackendReady(pollMs = 1000, timeoutMs = 60_000) {
         if (!cancelled) setReady(true)
       } catch {
         if (cancelled) return
-        elapsed += pollMs
-        if (elapsed < timeoutMs) {
-          setTimeout(check, pollMs)
-        }
+        if (Date.now() - start > 8000) setWarming(true)
+        setTimeout(check, pollMs)
       }
     }
 
@@ -30,7 +33,7 @@ export function useBackendReady(pollMs = 1000, timeoutMs = 60_000) {
     return () => {
       cancelled = true
     }
-  }, [pollMs, timeoutMs])
+  }, [pollMs])
 
-  return { ready }
+  return { ready, warming }
 }

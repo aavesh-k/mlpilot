@@ -7,7 +7,7 @@ import { ErrorState } from '../shared/components/ErrorState'
 import { useBackendReady } from '../core/hooks/useBackendReady'
 
 export default function Dashboard() {
-  const { ready } = useBackendReady()
+  const { ready, warming } = useBackendReady()
 
   if (!ready) {
     return (
@@ -16,7 +16,9 @@ export default function Dashboard() {
           <span className="material-symbols-outlined text-4xl animate-pulse text-secondary">sync</span>
           <p className="font-headline font-black text-2xl uppercase mt-4 tracking-tighter">Connecting to backend…</p>
           <p className="text-sm text-on-surface-variant mt-1">
-            Waiting for the MLPilot API to become available.
+            {warming
+              ? 'First load? The free-tier backend is warming up (can take ~30–60s).'
+              : 'Waiting for the MLPilot API to become available.'}
           </p>
         </div>
       </div>
