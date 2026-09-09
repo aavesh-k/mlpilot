@@ -80,7 +80,7 @@ return (
     <div className="p-4 md:p-8 lg:p-12 max-w-4xl">
       <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow mb-8">
+      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow mb-8">
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
@@ -117,7 +117,7 @@ return (
         )}
       </div>
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow mb-8">
+      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow mb-8">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Try a Demo Dataset</h3>
         <p className="text-on-surface-variant text-sm mb-4">Click a button below to instantly load a sample dataset and start the workflow.</p>
         {demoError && (
@@ -162,7 +162,7 @@ return (
         </div>
       </div>
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
 
         {deleteError && (

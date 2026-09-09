@@ -8,9 +8,9 @@ describe('Card', () => {
     expect(screen.getByText('Content')).toBeInTheDocument()
   })
 
-  it('should have neo-shadow class', () => {
+  it('should have brutal-shadow class', () => {
     const { container } = render(<Card />)
-    expect(container.firstChild).toHaveClass('neo-shadow')
+    expect(container.firstChild).toHaveClass('brutal-shadow')
   })
 })
 

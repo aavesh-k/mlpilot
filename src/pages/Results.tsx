@@ -195,7 +195,7 @@ export default function Results() {
           {/* Models Table List */}
           <div className="space-y-4">
             {selectedCompareIds.length >= 2 && (
-              <div className="bg-primary-container/20 border-2 border-primary p-4 neo-shadow-sm flex items-center justify-between">
+              <div className="bg-primary-container/20 border-2 border-primary p-4 brutal-shadow-sm flex items-center justify-between">
                 <span className="font-headline font-bold text-xs uppercase">
                   {selectedCompareIds.length} models selected for comparison
                 </span>
@@ -205,7 +205,7 @@ export default function Results() {
               </div>
             )}
 
-            <div className="bg-surface border-2 border-primary overflow-x-auto neo-shadow-sm">
+            <div className="bg-surface border-2 border-primary overflow-x-auto brutal-shadow-sm">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b-2 border-primary">
@@ -314,7 +314,7 @@ export default function Results() {
           {/* Model Details Tab Panel (full-width, stacked below the table) */}
           <div>
             {selectedModel ? (
-              <div className="bg-surface border-2 border-primary p-6 neo-shadow space-y-6">
+              <div className="bg-surface border-2 border-primary p-6 brutal-shadow space-y-6">
                 {/* Header */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -673,7 +673,7 @@ export default function Results() {
                 )}
               </div>
             ) : (
-              <div className="bg-surface border-2 border-primary border-dashed p-12 text-center neo-shadow">
+              <div className="bg-surface border-2 border-primary border-dashed p-12 text-center brutal-shadow">
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant block mb-2">info</span>
                 <span className="font-headline font-bold text-sm uppercase text-on-surface-variant">
                   Select a model to view details hub
@@ -687,7 +687,7 @@ export default function Results() {
       {/* Comparison Modal */}
       {isCompareModalOpen && (
         <div className="fixed inset-0 bg-primary/25 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-surface border-4 border-primary p-8 w-full max-w-4xl neo-shadow max-h-[85vh] overflow-y-auto">
+          <div className="bg-surface border-4 border-primary p-8 w-full max-w-4xl brutal-shadow max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6 pb-2 border-b-2 border-primary">
               <h3 className="font-headline font-black text-2xl uppercase tracking-tight">Model Comparison Matrix</h3>
               <button

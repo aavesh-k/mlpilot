@@ -162,7 +162,7 @@ export default function ModelTraining() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
           {/* Training Config Form */}
-          <div className="lg:col-span-7 bg-surface border-2 border-primary p-6 md:p-8 neo-shadow">
+          <div className="lg:col-span-7 bg-surface border-2 border-primary p-6 md:p-8 brutal-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Configuration</h3>
             
             {/* Select Preprocessed Pipeline */}
@@ -197,7 +197,7 @@ export default function ModelTraining() {
                           onClick={() => handleToggleAlgo(algo.id)}
                           className={`border-2 p-4 cursor-pointer relative select-none transition-all duration-200 ${
                             isSelected
-                              ? 'border-primary bg-primary-container/10 neo-shadow-sm'
+                              ? 'border-primary bg-primary-container/10 brutal-shadow-sm'
                               : 'border-primary/30 bg-surface/50 opacity-60 hover:opacity-100 hover:border-primary/80'
                           }`}
                         >
@@ -346,7 +346,7 @@ export default function ModelTraining() {
           </div>
 
           {/* Job Live Monitor / Terminal */}
-          <div className="lg:col-span-5 flex flex-col h-full bg-surface border-2 border-primary p-6 neo-shadow">
+          <div className="lg:col-span-5 flex flex-col h-full bg-surface border-2 border-primary p-6 brutal-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-4 tracking-tight">Job Monitor</h3>
             {activeJob ? (
               <div className="flex-1 flex flex-col min-h-[300px]">
@@ -397,7 +397,7 @@ export default function ModelTraining() {
       )}
 
       {/* Historical Training Jobs list */}
-      <div className="bg-surface border-2 border-primary p-6 md:p-8 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-6 md:p-8 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Training Jobs History</h3>
 
         {cancelError && (

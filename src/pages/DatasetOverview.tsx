@@ -54,14 +54,14 @@ export default function DatasetOverview() {
             </Badge>
             <NavLink
               to={`/cleaning?datasetId=${dataset.id}`}
-              className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
+              className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow"
             >
               {dataset.is_cleaned ? 'Re-Clean Dataset' : 'Clean Dataset First'}
             </NavLink>
             {dataset.is_cleaned ? (
               <NavLink
                 to={`/preprocessing?datasetId=${dataset.id}`}
-                className="bg-tertiary text-on-tertiary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 neo-shadow"
+                className="bg-tertiary text-on-tertiary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 brutal-shadow"
               >
                 Build Pipeline
               </NavLink>
@@ -69,7 +69,7 @@ export default function DatasetOverview() {
               <NavLink
                 to={`/cleaning?datasetId=${dataset.id}`}
                 title="Cleaning required before building a pipeline"
-                className="bg-surface-variant text-on-surface-variant font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary transition-all neo-shadow cursor-pointer"
+                className="bg-surface-variant text-on-surface-variant font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary transition-all brutal-shadow cursor-pointer"
               >
                 Build Pipeline (Clean First)
               </NavLink>

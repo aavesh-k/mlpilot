@@ -112,7 +112,7 @@ function AutomatedInsightsSection({ findings }: { findings: any[] }) {
   })
 
   return (
-    <div className="bg-surface border-2 border-primary p-6 neo-shadow space-y-4">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow space-y-4">
       <h3 className="font-headline font-black text-xl uppercase tracking-tight flex items-center gap-2">
         <span>💡 Automated Data Science Insights</span>
       </h3>
@@ -129,7 +129,7 @@ function AutomatedInsightsSection({ findings }: { findings: any[] }) {
           const textClass = isCritical ? 'text-on-error-container' : isWarning ? 'text-on-warning-container' : 'text-on-info-container'
 
           return (
-            <div key={idx} className={`border-2 p-4 neo-shadow-sm flex flex-col justify-between ${borderClass} ${textClass}`}>
+            <div key={idx} className={`border-2 p-4 brutal-shadow-sm flex flex-col justify-between ${borderClass} ${textClass}`}>
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-headline font-black text-sm uppercase tracking-tight">{finding.title}</span>
@@ -706,7 +706,7 @@ function FindingsSection({ findings }: { findings: Finding[] }) {
 function PotentialTargetsSection({ targets }: { targets: PotentialTarget[] }) {
   if (!targets || targets.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 md:p-8 neo-shadow">
+    <div className="bg-surface border-2 border-primary p-6 md:p-8 brutal-shadow">
       <h3 className="font-headline font-black text-xl uppercase tracking-tight mb-4 flex items-center gap-2">
         <span className="material-symbols-outlined text-secondary">flag</span>
         Potential Target Columns &amp; Class Balance
@@ -718,7 +718,7 @@ function PotentialTargetsSection({ targets }: { targets: PotentialTarget[] }) {
         {targets.map((t) => (
           <div
             key={t.column}
-            className={`border-2 p-4 neo-shadow-sm ${t.is_imbalanced ? 'border-warning bg-warning-container' : 'border-primary/40'}`}
+            className={`border-2 p-4 brutal-shadow-sm ${t.is_imbalanced ? 'border-warning bg-warning-container' : 'border-primary/40'}`}
           >
             <div className="flex items-center justify-between mb-2">
               <span className="font-headline font-black text-sm uppercase">{t.column}</span>

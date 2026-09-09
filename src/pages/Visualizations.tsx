@@ -12,7 +12,7 @@ export default function Visualizations() {
         action={<Badge variant="warning">Coming Soon</Badge>}
       />
 
-      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-2xl mx-auto border-2 border-primary bg-surface p-8 md:p-12 neo-shadow">
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-2xl mx-auto border-2 border-primary bg-surface p-8 md:p-12 brutal-shadow">
         <div className="w-20 h-20 bg-primary/10 border-2 border-primary rounded-full flex items-center justify-center mb-6">
           <span className="material-symbols-outlined text-5xl text-primary">monitoring</span>
         </div>
@@ -32,13 +32,13 @@ export default function Visualizations() {
         <div className="flex flex-wrap items-center justify-center gap-4">
           <NavLink
             to="/compare"
-            className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 neo-shadow"
+            className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow"
           >
             View Leaderboard
           </NavLink>
           <NavLink
             to="/results"
-            className="bg-surface text-primary font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-surface-variant transition-all active:scale-95 neo-shadow"
+            className="bg-surface text-primary font-headline font-bold uppercase text-xs px-6 py-3 border-2 border-primary hover:bg-surface-variant transition-all active:scale-95 brutal-shadow"
           >
             View Reports & Predictions
           </NavLink>

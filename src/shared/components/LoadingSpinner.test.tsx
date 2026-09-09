@@ -3,10 +3,11 @@ import { describe, it, expect } from 'vitest'
 import { LoadingSpinner, Skeleton, SkeletonTable, SkeletonCard } from './LoadingSpinner'
 
 describe('LoadingSpinner', () => {
-  it('should render a spinning element', () => {
+  it('should render a brutal loading element', () => {
     const { container } = render(<LoadingSpinner />)
-    const spinner = container.querySelector('.animate-spin')
-    expect(spinner).toBeInTheDocument()
+    const pulse = container.querySelector('.animate-pulse')
+    expect(pulse).toBeInTheDocument()
+    expect(container.textContent).toContain('loading mlpilot')
   })
 })
 
@@ -41,9 +42,9 @@ describe('SkeletonTable', () => {
 })
 
 describe('SkeletonCard', () => {
-  it('should render skeleton with neo-shadow class', () => {
+  it('should render skeleton with brutal-shadow class', () => {
     const { container } = render(<SkeletonCard />)
-    const card = container.querySelector('.neo-shadow')
+    const card = container.querySelector('.brutal-shadow')
     expect(card).toBeInTheDocument()
     const skeletons = card?.querySelectorAll('.animate-pulse')
     expect(skeletons?.length).toBe(3)

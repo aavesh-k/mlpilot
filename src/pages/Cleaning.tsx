@@ -139,7 +139,7 @@ export default function Cleaning() {
       )}
 
       {!report && !isRunning && alreadyCleaned && !showReconfigure && latestRun && (
-        <div className="mt-8 bg-surface border-2 border-primary p-6 neo-shadow">
+        <div className="mt-8 bg-surface border-2 border-primary p-6 brutal-shadow">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h3 className="font-headline font-black text-lg uppercase">Already Cleaned</h3>
@@ -190,7 +190,7 @@ export default function Cleaning() {
       )}
 
       {isRunning && (
-        <div className="bg-surface border-2 border-primary p-8 neo-shadow mt-8">
+        <div className="bg-surface border-2 border-primary p-8 brutal-shadow mt-8">
           <div className="flex items-center gap-4">
             <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
             <span className="font-headline font-bold text-lg uppercase">Running cleaning...</span>
@@ -264,7 +264,7 @@ function CleaningConfigPanel({
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border-2 border-primary p-6 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-4">Cleaning Steps</h3>
         <p className="text-sm text-on-surface-variant mb-6">Toggle each step on or off. Configure per-column strategies where available.</p>
 
@@ -428,7 +428,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
 
   return (
     <div className="space-y-8 mt-8">
-      <div className="bg-surface border-2 border-primary p-6 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="font-headline font-black text-xl uppercase">Cleaning Report</h3>

@@ -11,21 +11,21 @@ const items = [
 
 export default function BottomNav() {
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t-2 border-primary flex justify-around items-center py-2 px-2">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t-[3px] border-black flex justify-around items-center py-2 px-2">
       {items.map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
           end
           className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 px-3 py-1 rounded font-headline text-[10px] font-bold uppercase transition-colors ${
+            `flex flex-col items-center gap-0.5 px-3 py-1 font-mono text-[10px] font-black uppercase tracking-widest border-2 transition-colors btn-press ${
               isActive
-                ? "text-primary"
-                : "text-on-surface-variant hover:text-primary"
+                ? "bg-black text-white border-black"
+                : "bg-white text-black border-black hover:bg-[#ffd400]"
             }`
           }
         >
-          <span className="material-symbols-outlined text-2xl">{item.icon}</span>
+          <span className="material-symbols-outlined text-xl leading-none">{item.icon}</span>
           {item.label}
         </NavLink>
       ))}

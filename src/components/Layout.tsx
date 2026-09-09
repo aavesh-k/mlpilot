@@ -11,7 +11,7 @@ export default function Layout() {
   const hideSidebar = location.pathname === "/"
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className={`flex h-screen overflow-hidden ${hideSidebar ? "bg-brutal-grid" : "bg-brutal-grid"}`}>
       {!hideSidebar && <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {!hideSidebar && <TopNav onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />}

@@ -10,27 +10,27 @@ describe('Badge', () => {
 
   it('should apply default variant class', () => {
     render(<Badge>Default</Badge>)
-    expect(screen.getByText('Default').className).toContain('bg-surface-variant')
+    expect(screen.getByText('Default').className).toContain('bg-white')
   })
 
   it('should apply success variant class', () => {
     render(<Badge variant="success">Done</Badge>)
-    expect(screen.getByText('Done').className).toContain('bg-success')
-    expect(screen.getByText('Done').className).toContain('text-on-success')
+    expect(screen.getByText('Done').className).toContain('bg-[#c8ff00]')
+    expect(screen.getByText('Done').className).toContain('text-black')
   })
 
   it('should apply danger variant', () => {
     render(<Badge variant="danger">Failed</Badge>)
-    expect(screen.getByText('Failed').className).toContain('bg-error-container')
+    expect(screen.getByText('Failed').className).toContain('bg-[#ff0000]')
   })
 
   it('should apply warning variant', () => {
     render(<Badge variant="warning">Pending</Badge>)
-    expect(screen.getByText('Pending').className).toContain('bg-warning-container')
+    expect(screen.getByText('Pending').className).toContain('bg-[#ffd400]')
   })
 
   it('should apply info variant', () => {
     render(<Badge variant="info">Info</Badge>)
-    expect(screen.getByText('Info').className).toContain('bg-info-container')
+    expect(screen.getByText('Info').className).toContain('bg-[#e0f7ff]')
   })
 })

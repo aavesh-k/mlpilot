@@ -376,7 +376,7 @@ export default function Preprocessing() {
           )}
 
           {validationError && (
-            <p className="text-secondary font-headline font-bold text-xs mt-3">{validationError}</p>
+            <p className="text-[#ff0000] font-headline font-bold text-xs mt-3">{validationError}</p>
           )}
 
           <Button variant="ghost" size="sm" onClick={() => { setEditPipelineId(null); setIsCreating(false); setStep('select-columns'); setPipelineName(''); setValidationError('') }} className="mt-4">
@@ -389,7 +389,7 @@ export default function Preprocessing() {
       {error && <ErrorState message="Failed to load pipelines" onRetry={() => refetch()} />}
 
       {deleteError && (
-        <p className="mb-4 text-secondary font-headline font-bold text-sm">Delete failed: {deleteError}</p>
+        <p className="mb-4 text-[#ff0000] font-headline font-bold text-sm">Delete failed: {deleteError}</p>
       )}
 
       <ConfirmDialog
@@ -421,7 +421,7 @@ export default function Preprocessing() {
         <div className="space-y-4">
           {pipelines.map((p) => {
             return (
-              <div key={p.id} className="bg-surface border-2 border-primary p-6 neo-shadow">
+              <div key={p.id} className="bg-surface border-2 border-primary p-6 brutal-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="font-headline font-bold text-lg">{p.name}</h3>
@@ -481,7 +481,7 @@ export default function Preprocessing() {
                   </div>
                 </div>
                 {p.error_message && (
-                  <p className="text-secondary text-sm font-bold mb-2">{p.error_message}</p>
+                  <p className="text-[#ff0000] text-sm font-bold mb-2">{p.error_message}</p>
                 )}
                 <div className="flex gap-2 flex-wrap text-xs">
                   <Badge variant="info">{p.problem_type}</Badge>
@@ -546,12 +546,12 @@ function SelectColumnsStep({
 }) {
   const navigate = useNavigate()
   return (
-    <div className="bg-surface border-2 border-primary p-6 neo-shadow">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h4 className="font-headline font-black text-lg uppercase mb-6">1. Select Target & Columns</h4>
 
       {uncleanedDatasets.length > 0 && datasets.length === 0 && (
         <div className="bg-surface border-2 border-primary p-4 mb-6 border-l-8 border-l-secondary">
-          <h5 className="font-headline font-bold text-sm uppercase text-secondary mb-1">
+          <h5 className="font-headline font-bold text-sm uppercase text-[#ff0000] mb-1">
             ⚠️ Data Cleaning Required
           </h5>
           <p className="text-xs font-body mb-3">
@@ -629,7 +629,7 @@ function SelectColumnsStep({
         <div className="mb-5 p-4 border-2 border-primary bg-surface-variant/20">
           <div className="flex items-center gap-4 flex-wrap">
             <span className="font-headline font-bold text-sm uppercase">
-              Detected: <span className={targetDetectionResult.problem_type === 'classification' ? 'text-tertiary' : 'text-secondary'}>{targetDetectionResult.problem_type}</span>
+              Detected: <span className={targetDetectionResult.problem_type === 'classification' ? 'text-tertiary' : 'text-[#ff0000]'}>{targetDetectionResult.problem_type}</span>
             </span>
             <span className="text-xs text-on-surface-variant">{targetDetectionResult.unique_values} unique values · {targetDetectionResult.dtype}</span>
             <select
@@ -642,8 +642,8 @@ function SelectColumnsStep({
             </select>
           </div>
           {targetDetectionResult.imbalance?.is_imbalanced && (
-            <div className="mt-3 p-3 border-2 border-secondary bg-secondary/10">
-              <p className="font-headline font-bold text-xs uppercase text-secondary">Class Imbalance Detected</p>
+            <div className="mt-3 p-3 border-2 border-[#ff0000] bg-red-50">
+              <p className="font-headline font-bold text-xs uppercase text-[#ff0000]">Class Imbalance Detected</p>
               <p className="text-xs mt-1">
                 Ratio {targetDetectionResult.imbalance.imbalance_ratio.toFixed(1)}:1
                 (majority: {targetDetectionResult.imbalance.majority_class} @ {(targetDetectionResult.imbalance.majority_pct * 100).toFixed(0)}%,
@@ -726,7 +726,7 @@ function ConfigStep({
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border-2 border-primary p-6 neo-shadow">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
         <h4 className="font-headline font-black text-lg uppercase mb-4">2. Configure Pipeline</h4>
 
         <Section label="Categorical Encoding" description={`${catCount} categorical column(s)`}>
@@ -994,7 +994,7 @@ function ReviewStep({
   isPending: boolean
 }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6 neo-shadow">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h4 className="font-headline font-black text-lg uppercase mb-6">3. Review & Execute</h4>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -1011,8 +1011,8 @@ function ReviewStep({
       </div>
 
       {targetDetectionResult?.imbalance?.is_imbalanced && (
-        <div className="p-4 border-2 border-secondary bg-secondary/10 mb-6">
-          <p className="font-headline font-bold text-xs uppercase text-secondary">
+        <div className="p-4 border-2 border-[#ff0000] bg-red-50 mb-6">
+          <p className="font-headline font-bold text-xs uppercase text-[#ff0000]">
             ⚠ Class Imbalance: {targetDetectionResult.imbalance.imbalance_ratio.toFixed(1)}:1
           </p>
           <p className="text-xs mt-1">

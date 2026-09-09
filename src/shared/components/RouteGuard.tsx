@@ -21,7 +21,7 @@ interface BlockState {
 function BlockCard({ block }: { block: BlockState }) {
   return (
     <div className="p-8 lg:p-12 flex items-center justify-center min-h-[60vh]">
-      <div className="bg-surface border-2 border-primary p-8 neo-shadow max-w-lg w-full text-center">
+      <div className="bg-surface border-2 border-primary p-8 brutal-shadow max-w-lg w-full text-center">
         <span className="material-symbols-outlined text-6xl text-on-surface-variant mb-4 block">lock</span>
         <h2 className="font-headline text-2xl font-black uppercase mb-3">{block.title}</h2>
         <p className="text-on-surface-variant font-body mb-6">{block.message}</p>

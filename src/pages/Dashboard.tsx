@@ -86,7 +86,7 @@ function DashboardContent() {
         </section>
         <NavLink
           to="/datasets"
-          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow w-full sm:max-w-md"
+          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none brutal-shadow w-full sm:max-w-md"
         >
           <div className="w-16 h-16 bg-surface border-2 border-primary text-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
             <span className="material-symbols-outlined text-4xl font-bold">add</span>
@@ -115,7 +115,7 @@ function DashboardContent() {
           <NavLink
             key={ds.id}
             to={`/datasets/${ds.id}`}
-            className="bg-surface border-2 border-primary p-6 neo-shadow relative group block"
+            className="bg-surface border-2 border-primary p-6 brutal-shadow relative group block"
           >
             <h3 className="font-headline text-3xl font-bold mb-1 group-hover:text-tertiary transition-colors">{ds.name}</h3>
             <p className="text-on-surface-variant text-sm mb-6 font-medium">{ds.file_format} · {ds.status}</p>
@@ -134,7 +134,7 @@ function DashboardContent() {
 
         <NavLink
           to="/datasets"
-          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none neo-shadow"
+          className="bg-tertiary border-2 border-primary p-6 flex flex-col justify-center items-center group transition-all active:translate-x-1 active:translate-y-1 active:shadow-none brutal-shadow"
         >
           <div className="w-16 h-16 bg-surface border-2 border-primary text-primary mb-4 flex items-center justify-center transition-transform group-hover:rotate-90">
             <span className="material-symbols-outlined text-4xl font-bold">add</span>

@@ -8,13 +8,6 @@ interface ProgressBarProps {
   className?: string
 }
 
-/**
- * Neo-brutalist progress bar.
- *
- * The fill width is CSS-transitioned so the bar eases toward new values
- * instead of snapping, and an indeterminate shimmer is shown while `active`
- * to make a stalled-but-running job look alive rather than frozen.
- */
 export function ProgressBar({
   value,
   active = false,
@@ -25,19 +18,19 @@ export function ProgressBar({
 
   return (
     <div
-      className={`relative overflow-hidden border-2 border-primary bg-surface-variant ${heightClass} ${className}`}
+      className={`relative overflow-hidden border-2 border-black bg-white ${heightClass} ${className}`}
       role="progressbar"
       aria-valuenow={Math.round(clamped)}
       aria-valuemin={0}
       aria-valuemax={100}
     >
       <div
-        className="h-full bg-secondary transition-all duration-700 ease-out"
+        className="h-full bg-[#ffd400] border-r-2 border-black transition-all duration-700 ease-out"
         style={{ width: `${clamped}%` }}
       />
       {active && (
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="animate-indeterminate absolute inset-y-0 w-1/3 bg-white/30" />
+          <div className="animate-indeterminate absolute inset-y-0 w-1/3 bg-black/10" />
         </div>
       )}
     </div>

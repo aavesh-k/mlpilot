@@ -12,14 +12,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <button
         ref={ref}
         className={cn(
-          'font-headline font-bold uppercase transition-all cursor-pointer border-2 border-primary',
-          variant === 'primary' && 'bg-primary text-on-primary neo-shadow hover:bg-primary-container hover:text-on-primary-container active:translate-x-1 active:translate-y-1 active:shadow-none',
-          variant === 'secondary' && 'bg-background text-primary neo-shadow hover:bg-primary-container hover:text-on-primary-container',
-          variant === 'ghost' && 'bg-transparent text-primary hover:bg-primary-container border-transparent',
-          variant === 'danger' && 'bg-error text-on-error border-error neo-shadow hover:bg-error/90 hover:border-error/90',
-          size === 'sm' && 'text-xs px-3 py-1',
-          size === 'md' && 'text-sm px-6 py-3',
-          size === 'lg' && 'text-lg px-8 py-4',
+          'inline-flex items-center justify-center font-mono font-black uppercase tracking-widest transition-all cursor-pointer border-2 border-black rounded-none btn-press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none',
+          variant === 'primary' && 'bg-black text-white brutal-shadow hover:bg-black/90 active:shadow-none',
+          variant === 'secondary' && 'bg-[#ffd400] text-black brutal-shadow hover:bg-[#ffe066] active:shadow-none',
+          variant === 'ghost' && 'bg-white text-black brutal-shadow hover:bg-[#ffd400] active:shadow-none',
+          variant === 'danger' && 'bg-[#ff0000] text-white border-black brutal-shadow hover:bg-red-700 active:shadow-none',
+          size === 'sm' && 'text-xs px-3 py-1.5 h-8',
+          size === 'md' && 'text-sm px-6 py-3 h-9',
+          size === 'lg' && 'text-base px-8 py-4 h-12',
           className,
         )}
         {...props}

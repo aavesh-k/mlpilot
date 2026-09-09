@@ -110,7 +110,7 @@ export default function ModelComparison() {
       <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
 
       {/* Filters bar */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8 bg-surface border-2 border-primary p-4 neo-shadow">
+      <div className="flex flex-col md:flex-row gap-4 mb-8 bg-surface border-2 border-primary p-4 brutal-shadow">
         <div className="flex-1">
           <label className="font-headline font-bold text-[10px] uppercase block mb-1">Filter by Pipeline</label>
           <select
@@ -156,7 +156,7 @@ export default function ModelComparison() {
         <>
           {/* Best Model Showcase */}
           {dynamicBestModel && (
-            <div className="border-2 border-primary p-6 neo-shadow mb-8 bg-primary-container/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="border-2 border-primary p-6 brutal-shadow mb-8 bg-primary-container/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-2xl">🏆</span>
@@ -184,7 +184,7 @@ export default function ModelComparison() {
           )}
 
           {/* Leaderboard Table */}
-          <div className="bg-surface border-2 border-primary overflow-x-auto neo-shadow">
+          <div className="bg-surface border-2 border-primary overflow-x-auto brutal-shadow">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b-2 border-primary bg-surface-variant/20">

@@ -20,7 +20,7 @@ describe('Button', () => {
   it('should apply variant class', () => {
     const { container } = render(<Button variant="secondary">Cancel</Button>)
     const button = container.querySelector('button')
-    expect(button?.className).toContain('neo-shadow')
+    expect(button?.className).toContain('brutal-shadow')
   })
 
   it('should support disabled state', () => {

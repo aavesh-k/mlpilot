@@ -3,61 +3,83 @@
 @tailwind utilities;
 
 /* ============================================================
-   Design tokens — single source of truth (light theme).
-   All values are space-separated RGB triplets so Tailwind's
-   `rgb(var(--c-x) / <alpha-value>)` alpha modifiers work.
+   Brutalist Typing Punk — Design tokens
+   Source: design.md (TypeWithMe) — applied to MLPilot
+   Zero radius, hard offset shadows, thick black borders,
+   loud palette: ink/black, paper/white, acid #c8ff00,
+   safety #ffd400, alert red #ff0000.
+   All RGB triplets for Tailwind rgb(var(--c-x)/<alpha>) usage.
    ============================================================ */
 :root {
-  --c-on-tertiary-fixed-variant: 26 26 26;
-  --c-on-secondary: 255 255 255;
-  --c-tertiary-fixed: 214 227 255;
-  --c-surface-bright: 250 247 242;
-  --c-tertiary-container: 214 227 255;
-  --c-on-surface-variant: 74 74 74;
-  --c-surface-tint: 26 26 26;
-  --c-tertiary: 0 85 255;
-  --c-primary-container: 255 204 0;
-  --c-on-tertiary-fixed: 26 26 26;
-  --c-primary-fixed-dim: 230 184 0;
-  --c-on-error: 255 255 255;
-  --c-on-primary: 255 255 255;
-  --c-on-tertiary: 255 255 255;
-  --c-inverse-surface: 26 26 26;
-  --c-on-secondary-fixed-variant: 26 26 26;
-  --c-error: 204 0 0;
-  --c-secondary: 230 59 46;
-  --c-primary-fixed: 255 204 0;
-  --c-on-tertiary-container: 26 26 26;
-  --c-surface-container-high: 232 221 212;
-  --c-inverse-primary: 245 240 232;
-  --c-secondary-fixed-dim: 255 179 171;
-  --c-background: 245 240 232;
+  /* Core — light (only theme, dark tokens deferred) */
+  --c-background: 247 247 242;          /* oklch(0.97 0.005 95) warm paper */
+  --c-on-background: 0 0 0;
+  --c-foreground: 0 0 0;
+  --c-on-foreground: 255 255 255;
+
+  --c-surface: 255 255 255;             /* --card / --popover white */
+  --c-surface-variant: 244 244 240;     /* muted */
   --c-surface-dim: 214 209 201;
+  --c-surface-bright: 255 255 255;
   --c-surface-container: 238 233 224;
-  --c-outline-variant: 208 203 195;
-  --c-on-primary-fixed: 26 26 26;
   --c-surface-container-low: 242 237 229;
-  --c-on-surface: 26 26 26;
-  --c-error-container: 255 218 214;
-  --c-on-primary-container: 26 26 26;
-  --c-on-error-container: 147 0 10;
-  --c-tertiary-fixed-dim: 168 198 255;
-  --c-surface-variant: 232 227 218;
-  --c-surface-container-highest: 226 221 212;
-  --c-secondary-fixed: 255 218 214;
-  --c-primary: 26 26 26;
-  --c-outline: 26 26 26;
-  --c-surface: 245 240 232;
-  --c-on-secondary-fixed: 26 26 26;
-  --c-secondary-container: 255 218 214;
-  --c-on-secondary-container: 26 26 26;
-  --c-on-background: 26 26 26;
   --c-surface-container-lowest: 255 255 255;
-  --c-on-primary-fixed-variant: 26 26 26;
-  --c-inverse-on-surface: 245 240 232;
-  --c-surface-strong: 26 26 26;
+  --c-surface-container-high: 232 221 212;
+  --c-surface-container-highest: 226 221 212;
+  --c-surface-tint: 0 0 0;
+  --c-on-surface: 0 0 0;
+  --c-on-surface-variant: 115 115 115;  /* muted-foreground oklch(0.45 0 0) */
+
+  /* Primary = ink */
+  --c-primary: 0 0 0;
+  --c-on-primary: 255 255 255;
+  --c-primary-container: 255 212 0;     /* safety yellow #ffd400 — highlights, active states */
+  --c-on-primary-container: 0 0 0;
+  --c-primary-fixed: 255 212 0;
+  --c-primary-fixed-dim: 230 191 0;
+  --c-on-primary-fixed: 0 0 0;
+  --c-on-primary-fixed-variant: 0 0 0;
+  --c-inverse-primary: 247 247 242;
+  --c-inverse-surface: 0 0 0;
+  --c-inverse-on-surface: 247 247 242;
+
+  /* Secondary = acid green + ice blue */
+  --c-secondary: 200 255 0;             /* acid #c8ff00 — header, create-room */
+  --c-on-secondary: 0 0 0;
+  --c-secondary-container: 224 247 255; /* ice #e0f7ff — join-room */
+  --c-on-secondary-container: 0 0 0;
+  --c-secondary-fixed: 255 218 214;
+  --c-secondary-fixed-dim: 255 179 171;
+  --c-on-secondary-fixed: 0 0 0;
+  --c-on-secondary-fixed-variant: 0 0 0;
+
+  /* Tertiary — keep for charts/accents, mapped to brutal blue */
+  --c-tertiary: 0 85 255;               /* #0055ff */
+  --c-on-tertiary: 255 255 255;
+  --c-tertiary-container: 214 227 255;
+  --c-on-tertiary-container: 0 0 0;
+  --c-tertiary-fixed: 214 227 255;
+  --c-tertiary-fixed-dim: 168 198 255;
+  --c-on-tertiary-fixed: 0 0 0;
+  --c-on-tertiary-fixed-variant: 0 0 0;
+
+  /* Error / destructive — alert red #ff0000 */
+  --c-error: 255 0 0;
+  --c-on-error: 255 255 255;
+  --c-error-container: 255 218 214;
+  --c-on-error-container: 147 0 10;
+
+  /* Outline / borders — always black in brutal light mode */
+  --c-outline: 0 0 0;
+  --c-outline-variant: 0 0 0;
+  --c-on-tertiary: 255 255 255;
+
+  /* Strong surface for brutal dark blocks */
+  --c-surface-strong: 0 0 0;
   --c-on-surface-strong: 255 255 255;
-  --c-success: 22 163 74;
+
+  /* Semantic extras */
+  --c-success: 5 154 46;                /* #059a2e correct */
   --c-on-success: 255 255 255;
   --c-success-container: 220 252 231;
   --c-on-success-container: 20 83 45;
@@ -68,45 +90,112 @@
   --c-info-container: 224 242 254;
   --c-on-info-container: 12 74 110;
 
-  /* Chart series colors (triplets for rgba() usage) */
+  /* Brand hex triplets (for direct usage) */
+  --c-acid: 200 255 0;                  /* #c8ff00 */
+  --c-safety: 255 212 0;                /* #ffd400 */
+  --c-ice: 224 247 255;                 /* #e0f7ff */
+
+  /* Radius — zero everywhere */
+  --radius: 0rem;
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+
+  /* Chart series */
   --chart-blue: 0 85 255;
   --chart-red: 220 38 38;
-  --chart-amber: 245 158 11;
+  --chart-amber: 255 212 0;
   --chart-gray: 209 213 219;
   --chart-strong: #ffffff;
+
+  /* Typing-specific (kept for brutal text selection) */
+  --typing-correct: #059a2e;
+  --typing-incorrect: #ff0000;
+  --typing-cursor: #ffd400;
+  --typing-accent: #ffd400;
+}
+
+* {
+  border-radius: 0 !important;
 }
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   body {
-    @apply bg-background text-on-surface font-body;
+    @apply bg-background text-on-surface;
+    font-family: "Inter", system-ui, sans-serif;
   }
 
   ::selection {
     @apply bg-primary-container text-on-primary-container;
+    background: #ffd400;
+    color: #000;
+  }
+
+  /* Remove shadcn default rounding globally */
+  :root {
+    --radius: 0rem;
   }
 }
 
 @layer utilities {
-  /* Neo-brutalist ink is driven by --c-primary. */
+  /* Brutalist hard shadows — no blur */
+  .brutal-shadow {
+    box-shadow: 4px 4px 0 0 #000;
+  }
+  .brutal-shadow-sm {
+    box-shadow: 3px 3px 0 0 #000;
+  }
+  .brutal-shadow-lg {
+    box-shadow: 6px 6px 0 0 #000;
+  }
+  .brutal-shadow-xl {
+    box-shadow: 8px 8px 0 0 #000;
+  }
+
+  /* Legacy aliases — map neo to brutal */
   .neo-shadow {
-    box-shadow: 6px 6px 0px 0px rgb(var(--c-primary));
+    box-shadow: 4px 4px 0 0 #000;
   }
-
   .neo-shadow-sm {
-    box-shadow: 4px 4px 0px 0px rgb(var(--c-primary));
+    box-shadow: 3px 3px 0 0 #000;
   }
-
   .neo-shadow-active {
-    box-shadow: 2px 2px 0px 0px rgb(var(--c-primary));
+    box-shadow: 2px 2px 0 0 #000;
     transform: translate(4px, 4px);
   }
 
+  .brutal-border {
+    border: 2px solid #000;
+  }
+  .brutal-border-thick {
+    border: 3px solid #000;
+  }
   .neo-border {
-    border: 3px solid rgb(var(--c-primary));
+    border: 3px solid #000;
+  }
+  .neo-border-sm {
+    border: 2px solid #000;
   }
 
-  .neo-border-sm {
-    border: 2px solid rgb(var(--c-primary));
+  /* Press interaction — collapses shadow */
+  .btn-press {
+    transition: transform 0.05s ease, box-shadow 0.05s ease;
+  }
+  .btn-press:active {
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 0 #000 !important;
+  }
+
+  /* Grid paper background — 28px lines rgba(0,0,0,.06) */
+  .bg-brutal-grid {
+    background-color: rgb(var(--c-background));
+    background-image:
+      linear-gradient(to right, rgba(0,0,0,0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.06) 1px, transparent 1px);
+    background-size: 28px 28px;
   }
 
   .material-symbols-outlined {
@@ -114,23 +203,38 @@
   }
 }
 
-/* Animated indeterminate overlay for progress bars that are actively
-   running but not yet advancing — signals liveness so the UI never looks frozen. */
-@keyframes mlp-indeterminate {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(420%);
-  }
+/* Keyframes from TypeWithMe */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+@keyframes pop {
+  0% { transform: scale(0.95); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-blink {
+  animation: blink 1s steps(1) infinite;
+}
+.animate-pop {
+  animation: pop 0.3s ease-out;
 }
 
+@keyframes mlp-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(420%); }
+}
 .animate-indeterminate {
   animation: mlp-indeterminate 1.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .animate-blink,
+  .animate-pop,
   .animate-indeterminate {
     animation: none;
+  }
+  .btn-press {
+    transition: none;
   }
 }

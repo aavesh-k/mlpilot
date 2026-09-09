@@ -18,11 +18,12 @@ describe('PageHeader', () => {
     expect(screen.queryByText('Manage your training runs')).not.toBeInTheDocument()
   })
 
-  it('should render accent word with secondary color', () => {
+  it('should render accent word with brutal highlight', () => {
     render(<PageHeader title="Model" accent="Comparison" />)
     expect(screen.getByText('Model')).toBeInTheDocument()
     const accentEl = screen.getByText('Comparison')
-    expect(accentEl.className).toContain('text-secondary')
+    expect(accentEl.className).toContain('bg-[#ffd400]')
+    expect(accentEl.className).toContain('border-2')
   })
 
   it('should render action element when provided', () => {
