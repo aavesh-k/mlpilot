@@ -1,22 +1,23 @@
-# TypeWithMe — Frontend Design Spec
+# MLPilot — Frontend Design Spec
 
 > Single source of truth for the frontend visual language, layout system, tokens, components, pages, states, and interaction patterns.
-> Stack: Next.js 16 App Router + React 19 + TypeScript + Tailwind CSS v4 + Radix UI + shadcn/new-york + Lucide + Recharts + next-themes.
+> Stack: React 19 + TypeScript + Vite 8 + Tailwind CSS v3 + React Router 7 + Zustand + TanStack Query + Recharts + Material Symbols.
+> Branch: `feat/brutalist-punk-ui` — Brutalist Punk visual system ported from TypeWithMe **UI only** (no typing/multiplayer/auth copy or logic).
 
 ---
 
-## 1. Design Philosophy — Brutalist Typing Punk
+## 1. Design Philosophy — Brutalist Data Punk
 
-The UI is a deliberate anti-SaaS statement. Punk zine, printed on paper, sharp enough to cut.
+MLPilot is a local-first ML workbench: raw CSV → cleaned data → pipeline → trained model → leaderboard → report. The UI is a deliberate anti-SaaS statement — punk zine, printed on paper, sharp enough to cut. Bauhaus/Neo-Brutalist was removed entirely.
 
-1. **Zero rounded corners.** `--radius: 0rem` everywhere. `rounded-none` on all cards, buttons, inputs, modals, tooltips. Overridden shadcn default (`0.625rem`) via `app/globals.css`.
-2. **Hard offset shadows, no blur.** Signature: `shadow-[4px_4px_0_0_#000]`, `brutal-shadow`, `shadow-[8px_8px_0_0_#000]` for modals. Press effect collapses shadow to `0`.
-3. **Thick black borders.** `border-2` standard, `border-[3px]` for header/footer/modals, `border-y-[3px]` for banners.
-4. **Monospace everywhere for data/labels.** Headlines are sans (Space Grotesk), all labels/metrics/meta are mono (JetBrains Mono), uppercase + wide tracking.
-5. **Loud, tight palette.** Black, white, acid green `#c8ff00`, safety yellow `#ffd400` / `yellow-300`, alert red `red-600` / `#ff0000`.
-6. **Deliberate imperfection.** `-rotate-1`, `-rotate-2`, `rotate-1` badges/cards, asymmetric grids, fake window chrome (`typing.exe`, `code.exe`).
-7. **No-bullshit copy.** Lowercase mono microcopy: `wpm > life`, `[no account needed] [free forever] [esc to restart]`, `// the internet's brutalist typing trainer`, `BUILT WITH BLOOD, SWEAT & BRUTALISM`.
-8. **Keyboard-first.** Hidden input auto-focused, click-anywhere to refocus, `Esc` to restart, `[ESC] restart • [⚙] customize` hints under test.
+1. **Zero rounded corners.** `--radius: 0rem` everywhere. `rounded-none` on all cards, buttons, inputs, modals, tooltips. Enforced globally via `src/index.css:118` (`* { border-radius:0 !important }`) and `tailwind.config.js:66` (`borderRadius: none`). No `rounded-*` ever.
+2. **Hard offset shadows, no blur.** Signature: `shadow-[4px_4px_0_0_#000]` / `brutal-shadow`, `brutal-shadow-lg` (`6px`), `brutal-shadow-xl` / `shadow-[8px_8px_0_0_#000]` for modals/dialogs, `shadow-[6px_6px_0_0_#ffd400]` hero-to-feature lift, `shadow-[3px_3px_0_0_#fff]` logo block, `shadow-[3px_3px_0_0_#000]` buttons. Press collapses shadow to `0`. Legacy `neo-shadow` aliases map to brutal in `src/index.css:158`.
+3. **Thick black borders.** `border-2` standard, `border-[3px]` for header/footer/modals/dialogs, `border-y-[3px]` for loud banners. Every surface is `bg-white border-2 border-black brutal-shadow`.
+4. **Monospace for data/labels.** Headlines are sans (Space Grotesk), all labels/metrics/meta/badges/buttons are mono (JetBrains Mono), `uppercase tracking-widest`. Headlines always `uppercase tracking-tight`.
+5. **Loud, tight palette.** Ink black `#000`, paper white `#fff`, acid green `#c8ff00` (header / pipeline-ready cards), safety yellow `#ffd400` (highlights, active nav, title bars, button shadows), ice blue `#e0f7ff` (info), alert red `#ff0000` / `red-600`. See §2.1.
+6. **Deliberate imperfection.** `-rotate-1`, `-rotate-2`, `rotate-1` on hero pills/cards/section badges, asymmetric grids, fake window chrome title bars (`mlpilot.run`, `model.pkl`, `leaderboard.data`). Hover resets to `rotate-0`.
+7. **MLPilot voice, not typing voice.** Deterministic, local-first, no hype. Mono brackets for metadata (`DATA → MODEL`, `[csv • parquet • json • xlsx]`, `// local-first ml pipeline`), CTA always ends with `→`. No TypeWithMe copy (`wpm > life`, `Start Typing`, `typing.exe/code.exe`, `esc = restart`, `keep hands on home row`) — all stripped in `src/pages/Home.tsx` / `Sidebar.tsx` / `TopNav.tsx`.
+8. **Guided workflow.** 6-step linear flow (`Dataset → Cleaning → Preprocessing → Training → Compare → Visualizations → Reports`) via `PageHeader` + `RouteGuard` + `Sidebar` + `BottomNav`. No dead ends.
 
 ---
 
@@ -24,193 +25,257 @@ The UI is a deliberate anti-SaaS statement. Punk zine, printed on paper, sharp e
 
 ### 2.1 Color
 
-Source: `app/globals.css` (`:root` + `.dark`) mapped via `@theme inline` to Tailwind tokens. `styles/globals.css` is legacy/unused — ignore it.
+Source: `src/index.css:13` (`:root` triplets) mapped via `tailwind.config.js:6` (`rgb(var(--c-x)/<alpha>)`). `src/index.css` is single source; `tailwind.config.js` only aliases.
 
-| Token | Light (`:root`) | Dark (`.dark`) | Usage |
-|---|---|---|---|
-| `--background` | `oklch(0.97 0.005 95)` warm paper | `oklch(0.145 0 0)` near-black | Page bg, pairs with `bg-brutal-grid` |
-| `--foreground` | `oklch(0 0 0)` black | `oklch(0.985 0 0)` white | Body text |
-| `--card` / `--popover` | `oklch(1 0 0)` white | `oklch(0.145 0 0)` | Cards, modals, popovers |
-| `--primary` | `oklch(0 0 0)` black | `oklch(0.985 0 0)` white | Primary buttons (`bg-black text-white`) |
-| `--secondary` | `oklch(0.92 0.14 85)` acid yellow | `oklch(0.269 0 0)` | Secondary accents |
-| `--muted` | `oklch(0.94 0 0)` | `oklch(0.269 0 0)` | Muted surfaces |
-| `--muted-foreground` | `oklch(0.45 0 0)` | `oklch(0.708 0 0)` | `text-black/60`, `text-black/70` meta |
-| `--border` / `--input` / `--ring` | `oklch(0 0 0)` black | grays | All borders/rings are black in light mode |
-| `--destructive` | `oklch(0.577 0.245 27.325)` | `oklch(0.396 0.141 25.723)` | Errors, clear-stats, incorrect chars |
-| `--radius` | `0rem` (all `--radius-*` = `0`) | same | No rounding, ever |
-| `--chart-1..5` | black, `oklch(0.85 0.19 85)` yellow, red, green, blue | blue/green/yellow/purple/red | Recharts bars |
-
-Brand hexes (hardcoded in classes, not tokens):
-
-| Hex | Name | Usage |
+| Token | Value | Usage |
 |---|---|---|
-| `#c8ff00` | Acid green | Header bg (`bg-[#c8ff00]`), multiplayer create-room card, black-on-green badges |
-| `#ffd400` | Safety yellow | Cursor, highlights, `bg-yellow-300` title bars, button shadows `shadow-[6px_6px_0_0_#ffd400]` |
-| `#e0f7ff` | Ice blue | Multiplayer join-room card |
-| `#059a2e` / `green-100` | Correct green | `--typing-correct`, `bg-green-100` correct chars |
-| `#ff0000` / `red-600` / `red-500` | Alert red | `--typing-incorrect`, `bg-red-600` wrong chars, `text-red-600` accents, destructive buttons |
+| `--c-background` | `247 247 242` `oklch(0.97 0.005 95)` warm paper | Page bg, pairs with `bg-brutal-grid` |
+| `--c-on-background` / `--c-foreground` / `--c-on-surface` | `0 0 0` black | Body text `text-on-surface` |
+| `--c-surface` / `--c-card` | `255 255 255` white | Cards, modals, popovers `bg-white` |
+| `--c-primary` | `0 0 0` black | Primary buttons `bg-black text-white`, borders `border-black` |
+| `--c-primary-container` | `255 212 0` `#ffd400` safety yellow | Active nav, highlights, title bars, yellow `brutal-shadow` |
+| `--c-secondary` | `200 255 0` `#c8ff00` acid green | Header `bg-[#c8ff00]`, pipeline-ready cards |
+| `--c-secondary-container` | `224 247 255` `#e0f7ff` ice | Info surfaces |
+| `--c-tertiary` | `0 85 255` `#0055ff` blue | Chart series, tertiary accents (kept for Recharts) |
+| `--c-error` | `255 0 0` `#ff0000` | Destructive `bg-error`, `text-error`, `border-error` |
+| `--c-success` | `5 154 46` `#059a2e` | Success badges, `↓` diff |
+| `--c-warning` / `--c-info` | `202 138 4` / `2 132 199` | Warning/info badges/containers |
+| `--c-outline` / `--c-outline-variant` | `0 0 0` black | All borders/rings black in light |
+| `--c-surface-strong` | `0 0 0` | Black blocks (workflow logic section) |
+| `--radius` | `0rem` | No rounding, ever |
+
+Brand hexes (hardcoded where Tailwind token is too generic):
+
+| Hex | Name | Usage in MLPilot |
+|---|---|---|
+| `#c8ff00` | Acid green | `TopNav` + `Home` `Cleaning` header `bg-[#c8ff00]`, banner `border-y-[3px] bg-[#c8ff00]`, Sidebar pipeline-ready highlight |
+| `#ffd400` | Safety yellow | Active `Sidebar` item, `PageHeader` accent `bg-[#ffd400] border-2 brutal-shadow -rotate-1`, `Home` hero `Shipped` highlight, `Button` `secondary` bg, focus `shadow-[4px_4px_0_0_#ffd400]`, `::selection` |
+| `#e0f7ff` | Ice blue | `Badge` `info` `bg-[#e0f7ff]`, secondary-container |
+| `#059a2e` | Correct green | `Badge` `success` alt, Cleaning `↑` |
+| `#ff0000` / `red-600` | Alert red | `Button` `danger`, `Badge` `danger`, error banners `bg-red-50 border-[#ff0000]` |
 | `#000` / `#fff` | Ink / Paper | Borders, shadows, logo block, primary buttons |
 
-Typing-specific vars (`app/globals.css`):
-
-```css
---typing-correct: #059a2e;
---typing-incorrect: #ff0000;
---typing-cursor: #ffd400;
---typing-accent: #ffd400;
-::selection { @apply bg-yellow-300 text-black; }
-```
+No dark mode shipped. Tokens for `.dark` are deferred (no `ThemeProvider` wired — same as source). When adding, use semantic tokens (`bg-background text-on-surface border-black`) not hardcoded `bg-white`.
 
 ### 2.2 Typography
 
-Loaded in `app/layout.tsx` via `next/font/google`:
+Loaded in `index.html:10` via Google Fonts: `Space Grotesk 300-700`, `JetBrains Mono 400/500/700/800`, `Inter 400-700`, `Material Symbols Outlined`.
 
 | Role | Font | Tailwind | Usage |
 |---|---|---|---|
-| Headlines / UI | `Space Grotesk` (`--font-space-grotesk`) | `font-sans` (default `body`) | `text-5xl md:text-7xl font-bold uppercase tracking-tight`, logo `text-2xl` |
-| Data / labels / typing text | `JetBrains Mono` (`--font-jetbrains-mono`) | `font-mono` | All badges, tiles, timers, code, buttons, microcopy |
+| Headlines / display | `Space Grotesk` | `font-headline` / `font-display` / `font-sans` | `text-5xl md:text-7xl font-black uppercase tracking-tight leading-none` (Home hero), `text-4xl sm:text-5xl` page titles, `text-xl font-black uppercase tracking-tight` card titles |
+| Body fallback | `Inter` | `font-body` | Long prose only (Home sub `border-l-[3px]` block). Most UI prefers mono. |
+| Data / labels / metrics / badges / buttons | `JetBrains Mono` | `font-mono` | Badges, tiles, timers, inputs, buttons, microcopy `font-mono text-[10px] uppercase tracking-widest` |
 
 Type scale in use:
 
-- Hero: `text-5xl md:text-7xl font-bold uppercase tracking-tight leading-none`
-- Page titles (auth/multiplayer): `text-4xl sm:text-5xl font-bold uppercase tracking-tight leading-none`
-- Section titles: `text-xl font-bold uppercase tracking-tight`, `text-3xl font-bold uppercase`
-- Metrics: `font-mono text-3xl` (tiles), `text-7xl` (grade), `text-lg` (correct/incorrect)
-- Typing surface: `font-mono text-xl leading-relaxed` (words/quotes), `font-mono text-lg leading-relaxed` (code)
-- Labels: `font-mono text-[10px] uppercase tracking-widest` (badges, eyebrows, footers), `font-mono text-xs uppercase tracking-widest` (descriptions, form labels)
-- Body/descriptions: `font-mono text-xs uppercase tracking-widest text-black/70 leading-relaxed`
+- Hero: `text-5xl md:text-7xl font-black uppercase tracking-tight leading-none` + yellow `bg-[#ffd400] border-2 brutal-shadow px-3 -rotate-2`
+- Page titles (Dashboard/Datasets/Cleaning): `text-4xl sm:text-5xl font-black uppercase tracking-tight` with `PageHeader` accent pill `bg-[#ffd400] border-2 -rotate-1`
+- Section titles: `text-xl font-black uppercase tracking-tight`, `text-3xl font-black uppercase`
+- Metrics (Dashboard/Cleaning/EDA): `font-mono text-2xl font-black` (Rows/Cols tiles), `text-3xl` (KPI)
+- Labels: `font-mono text-[10px] font-black uppercase tracking-widest` (badges, eyebrows `// workflow`, footer), `font-mono text-xs font-black uppercase tracking-widest` (step chips, form labels)
+- Body/mono desc: `font-mono text-xs uppercase tracking-widest text-black/60 leading-relaxed` (Dashboard subtitle, EDA meta, Cleaning helper)
 
-Rules: headlines always `uppercase tracking-tight`; mono labels always `uppercase tracking-widest`; placeholders styled as mono uppercase (`placeholder:font-mono placeholder:text-xs placeholder:uppercase placeholder:tracking-widest placeholder:text-black/30`).
+Rules: headlines `uppercase tracking-tight`; mono labels `uppercase tracking-widest`; placeholders `placeholder:font-mono placeholder:text-xs placeholder:uppercase placeholder:tracking-widest placeholder:text-black/30` (`src/shared/components/ui/input.tsx:24`).
 
 ### 2.3 Spacing, Borders, Shadows, Motion
 
-- **Layout widths:** `max-w-7xl` (header/footer/test shell), `max-w-4xl` (landing features/samples), `max-w-3xl` (hero + typing window), `max-w-2xl` (multiplayer card, results chart), `max-w-md` (auth cards, modals), `max-w-lg` (results stat grids).
-- **Padding:** page `px-4 py-16`, cards `p-6` / `p-8`, tiles `px-6 py-3/4`, modal header `px-6 py-4`, modal body `p-6`.
-- **Borders:** `.brutal-border { border: 2px solid #000 }`; header/footer `border-b-[3px]/border-t-[3px]`; modal shell `border-[3px]`; title bars `border-b-2/border-b-[3px]`.
-- **Shadows:** `.brutal-shadow { box-shadow: 4px 4px 0 0 #000 }`; hero CTA `shadow-[6px_6px_0_0_#ffd400]`; grade tile `shadow-[6px_6px_0_0_#000]`; modals `shadow-[8px_8px_0_0_#000]`; logo block `shadow-[3px_3px_0_0_#fff]`; buttons `shadow-[3px_3px_0_0_#000]`.
-- **Press interaction:** `.btn-press { transition: transform .05s, box-shadow .05s }` + `:active { translate(3px,3px); shadow 0 }`. Baked into `buttonVariants` base.
-- **Background:** `.bg-brutal-grid` — paper bg + 28px grid (`rgba(0,0,0,.06)` 1px lines). Applied to every page root (`min-h-screen bg-brutal-grid flex flex-col`).
-- **Keyframes:** `blink` (1s cursor), `pop` (0.3s scale .95→1.05→1 modal/card entrance via `.animate-pop`); `animate-pulse` for skeletons; hover lifts `hover:-translate-y-1 hover:translate-x-1 hover:shadow-[2px_2px_0_0_#000]`, rotation resets `hover:rotate-0`.
+- **Layout widths:** `max-w-7xl` (TopNav/Home header/footer/Layout), `max-w-4xl` (Home features/docs), `max-w-2xl` (Upload drop-zone card), `max-w-md` (modals, EmptyState), `max-w-7xl mx-auto px-4` everywhere.
+- **Padding:** page `p-8 lg:p-12` (inner via `Layout` `flex-1 overflow-y-auto`), cards `p-6` / `p-8` (`Card` default `p-6`), tiles `p-3` / `p-4` / `px-6 py-3`, modal header `px-6 py-4`, modal body `p-6`.
+- **Borders:** `.brutal-border { border:2px solid #000 }`; TopNav `border-b-[3px]`, Sidebar `border-r-[3px]`, BottomNav `border-t-[3px]`, banner `border-y-[3px]`, modal shell `border-[3px]`, title bars `border-b-2`.
+- **Shadows:** `.brutal-shadow {4px 4px 0 0 #000}`, `-sm {3px}`, `-lg {6px}`, `-xl {8px}`; logo `shadow-[3px_3px_0_0_#fff]`; `Button` `brutal-shadow`; `Card` `brutal-shadow`; modal `shadow-[8px_8px_0_0_#000]`.
+- **Press:** `.btn-press {transition: transform .05s, box-shadow .05s}` + `:active {translate(3px,3px); shadow 0}` — baked into `Button` base (`src/shared/components/ui/button.tsx:15`).
+- **Background:** `.bg-brutal-grid` — warm paper + 28px grid `rgba(0,0,0,.06)` 1px lines (`src/index.css:193`). Applied at `Layout` root (`min-h-screen bg-brutal-grid`) and `Home` root.
+- **Keyframes:** `blink` (1s steps), `pop` (0.3s .95→1.05→1 `animate-pop` for Home hero, EmptyState, ConfirmDialog), `mlp-indeterminate` (1.4s shimmer `animate-indeterminate` for `ProgressBar`), `animate-pulse` skeletons. Hover: `hover:-translate-y-1 hover:shadow-[2px_2px_0_0_#000]` / `hover:rotate-0`, `group-hover:rotate-12` on add icons.
 
 ---
 
-## 3. Global Chrome (shared across pages)
+## 3. Global Chrome (shared across all workflow pages)
 
-### 3.1 Header
+### 3.1 TopNav — `src/components/TopNav.tsx`
 
-`components/Header.tsx` (test page) + inline duplicates on landing/login/signup/multiplayer (same markup).
+Sticky acid header, single source of truth (no inline duplicates).
 
-- Container: `border-b-[3px] border-black bg-[#c8ff00] sticky top-0 z-50`, inner `max-w-7xl mx-auto px-4 py-3 flex items-center justify-between`.
-- Brand (left, `Link /`): black 36px square (`w-9 h-9 bg-black shadow-[3px_3px_0_0_#fff]`) with yellow `T` (`text-yellow-300 font-bold text-xl`), + stacked wordmark: `TypeWithMe` (`text-2xl font-bold uppercase tracking-tight`) over `KEYBOARD ACCELERATOR` (`font-mono text-[10px] uppercase tracking-widest text-black/70`).
-- Actions (right): landing/auth/multiplayer show single `Start Typing` / `Practice Solo` button (`variant="secondary" size="sm" bg-[#c8ff00]`); test page shows `Stats` (`variant="outline" bg-white`, `BarChart3` icon), `Settings` (`variant="secondary"`, `Settings` icon), `Multiplayer` (`variant="secondary"`, `Users` icon).
+- Container: `sticky top-0 z-50 border-b-[3px] border-black bg-[#c8ff00]`, inner `max-w-7xl mx-auto px-4 py-3 flex items-center justify-between`.
+- Brand (left, `NavLink /`): black 36px square (`w-9 h-9 bg-black shadow-[3px_3px_0_0_#fff] border-2 border-black`) with yellow `M` (`text-[#ffd400] font-black text-xl`), stacked wordmark `MLPilot` (`font-headline text-xl font-black uppercase tracking-tight text-black`) + mono subtitle `DATA → MODEL` (`font-mono text-[10px] uppercase tracking-widest text-black/70`).
+- Center nav (desktop `hidden lg:flex gap-1`): `Home` / `Dashboard` / `Reports` — `font-mono text-xs uppercase tracking-widest font-bold px-3 py-1.5 border-2 btn-press`; active `bg-black text-white brutal-shadow-sm`, idle `bg-white hover:bg-[#ffd400] brutal-shadow-sm`.
+- Right: `New run →` (`bg-black text-white font-mono text-xs font-black uppercase tracking-widest px-6 py-2.5 border-2 border-black shadow-[4px_4px_0_0_#000] btn-press`). Hidden hamburger `lg:hidden` (`border-2 bg-white brutal-shadow-sm`) toggles `Sidebar` overlay.
+- **MLPilot change vs source:** brand letter `M` not `T`; subtitle `DATA → MODEL` not `KEYBOARD ACCELERATOR`; CTA `New run →` not `Start Typing`; no `Stats/Settings/Multiplayer` actions — kept brutal chrome, replaced copy.
 
-### 3.2 Footer
+### 3.2 Sidebar + BottomNav — `src/components/Sidebar.tsx` / `BottomNav.tsx`
 
-Landing/login/signup/multiplayer only (test page has none).
+Workflow nav, not generic SaaS nav.
 
-- `border-t-[3px] border-black bg-white`, inner `max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-2`.
-- Left: `TYPEWITHME © 2026 — BUILT WITH BLOOD, SWEAT & BRUTALISM`; right: `wpm > life`. Both `font-mono text-[10px] uppercase tracking-widest text-black/60`.
+- Sidebar (desktop `hidden lg:flex`, mobile overlay `fixed inset-0 z-40` + `bg-black/50` scrim): `w-64 bg-white border-r-[3px] border-black`, `py-6 px-4`, `flex flex-col`.
+  - Header: `// WORKFLOW` pill (`bg-white border-2 brutal-shadow-sm -rotate-1 font-mono text-[10px] font-black`), title `ML Workflow` (`font-headline text-xl font-black uppercase tracking-tight`), `6 STEPS • GUIDED` mono.
+  - Items (8): Dashboard, Dataset, Cleaning, Preprocessing, Training, Leaderboard, Visualization, Reports — each `NavLink` `flex items-center gap-3 py-3 px-4 border-2 font-mono text-xs font-black uppercase tracking-widest btn-press`; active `bg-[#ffd400] brutal-shadow-sm`, idle `bg-white hover:bg-[#c8ff00] brutal-shadow-sm hover:translate-x-1`.
+  - Foot: `DATA → MODEL` / `local-first • open pipeline` (`border-2 bg-white -rotate-1`) — MLPilot copy, not `wpm > life`.
+- BottomNav (mobile `lg:hidden fixed bottom-0`): `bg-white border-t-[3px] border-black flex justify-around py-2`, items `Diagnosis`? actually `Home/Data/Clean/Pipeline/Train/Reports` — `font-mono text-[10px] font-black uppercase border-2`; active `bg-black text-white`, idle `bg-white hover:bg-[#ffd400]`.
 
-### 3.3 Loading / Fallbacks
+### 3.3 Footer — `src/pages/Home.tsx:377` (Home only; workflow pages have no footer)
 
-- `app/loading.tsx` + `app/test/loading.tsx`: centered black `T` block + `loading typewithme...` mono label + brutal progress bar (`w-48 h-3 bg-white border-2 border-black brutal-shadow`, inner `bg-yellow-300 w-2/3 animate-pulse`).
-- `components/fallbacks.tsx`: `ResultsFallback` (grade `?` tile + 3 empty tiles + `crunching numbers...`), `ModalFallback` (`h-72` bordered box + `loading...`), `SamplesFallback` (2× `h-48` cards). All `animate-pulse`, used as `Suspense`/`dynamic` loaders.
+`bg-black text-white border-t-[3px] border-black`, `max-w-7xl mx-auto px-4 py-10 grid md:grid-cols-4` + `border-t border-white/10` bar `© 2026 MLPILOT LABORATORY. ALL RIGHTS RESERVED.` / `DATA → MODEL • LOCAL-FIRST` (`font-mono text-[10px] uppercase tracking-widest`). Previous Bauhaus `bg-surface-strong` removed.
+
+### 3.4 Loading / Empty / Error
+
+- `src/shared/components/LoadingSpinner.tsx`: brutal loader — black `M` block + `w-48 h-3 bg-white border-2 border-black brutal-shadow` + `bg-[#ffd400] w-2/3 animate-pulse` + `loading mlpilot...` mono. `Skeleton` / `SkeletonTable` / `SkeletonCard` all `bg-white border-2 border-black brutal-shadow animate-pulse`.
+- `src/shared/components/EmptyState.tsx`: `bg-white border-2 border-black brutal-shadow -rotate-1 max-w-lg mx-auto` + `material-symbols-outlined text-6xl`, title `font-headline uppercase`, desc `font-mono text-xs uppercase tracking-widest text-black/70`.
+- `src/shared/components/ErrorState.tsx`: `bg-red-50 border-2 border-red-500 brutal-shadow` + `text-red-600` icon, mono desc.
+- `src/shared/components/GlobalErrorBoundary.tsx`: `text-error` not `text-secondary`, `bg-surface-variant` preview `rounded-none`.
+- `ConfirmDialog` (`src/shared/components/ui/confirm-dialog.tsx`): `fixed inset-0 bg-black/50` → `bg-white border-[3px] shadow-[8px_8px_0_0_#000] max-w-md animate-pop` → yellow title bar `bg-[#ffd400] border-b-[3px] px-6 py-4` with `// Title` mono + white `X` (`border-2 brutal-shadow-sm hover:bg-red-500`) → `p-6` mono body → `border-t-[3px] p-6` footer `Cancel` ghost + `Delete` danger.
 
 ---
 
 ## 4. Pages
 
-### 4.1 Landing — `app/page.tsx` (SSR, `revalidate = 3600`)
+### 4.1 Home — `src/pages/Home.tsx` (no Layout chrome — own brutal header)
 
-Structure: header → hero → multiplayer banner → features → daily samples (`Suspense`) → footer.
+Structure: acid `TopNav`-like header → hero (`md:grid-cols-12`) → highlight banner (`border-y-[3px] bg-[#c8ff00] -rotate-1`) → pipeline docs (`#docs`) → black workflow logic (`bg-black border-[3px] brutal-shadow-xl`) → tech grid → yellow CTA (`bg-[#ffd400] border-2 -rotate-1`) → black footer.
 
-- **Hero** (`max-w-3xl text-center animate-pop`): eyebrow pill (`bg-white border-2 brutal-shadow px-4 py-1 font-mono text-xs uppercase -rotate-1`, `// the internet's brutalist typing trainer`); headline `TYPE [FASTER] BEAT THE CLOCK` with `FASTER` as yellow highlight (`bg-yellow-300 border-2 brutal-shadow px-3 mx-2 -rotate-2`) and `CLOCK` in red; sub (`font-mono text-sm md:text-base uppercase text-black/70`); CTA `Start Typing →` (`size="lg" px-10 py-5 text-lg bg-black text-white shadow-[6px_6px_0_0_#ffd400] hover:bg-black/80`); microcopy `[no account needed] [free forever] [esc to restart]`.
-- **Multiplayer banner** (`border-y-[3px] bg-[#c8ff00] w-full -rotate-1`): `Up Next` black-on-green chip + `Introducing Multiplayer mode — here, you can compete with your friends.` + `— me` + black `Compete — Now` button → `/login`.
-- **Features** (`grid md:grid-cols-3 gap-6 max-w-4xl`): white cards (`bg-white border-2 brutal-shadow p-6` + hover lift) with `Timed 00:60`, `Words 500 WPM?`, `Code </>` — title left, black/yellow tag right, mono uppercase desc.
-- **DailySamples** (SSR server component reading `data/texts.json`): 2-col grid; quote card (`-rotate-1`, `daily quote` black chip) + code card (`rotate-1`, `random snippet` yellow chip), both `hover:rotate-0`.
+- **Hero** (`py-12 md:py-20`): eyebrow pill `bg-white border-2 brutal-shadow px-4 py-1 font-mono text-xs uppercase -rotate-1` `// local-first ml pipeline`; headline `MLPilot From Dataset to Shipped Model.` with `MLPilot` white pill ` -rotate-1` + `Shipped` yellow `bg-[#ffd400] border-2 px-3 -rotate-2` + `Model.` red `text-[#ff0000]`; sub mono `text-xs md:text-sm uppercase text-black/70 border-l-[3px] pl-4`; CTAs `Get Started →` black + `How It Works` white (both `font-mono font-black uppercase tracking-widest shadow-[4px_4px_0_0_#000] btn-press`).
+- **4-stage diagram** (`aspect-square border-2 bg-white brutal-shadow -rotate-1 hover:rotate-0`): SVG nodes `DATASET` (blue icon), `CLEAN & ENCODE` (red check), `TRAIN & TUNE` (yellow sliders), `BENCHMARKED MODEL` (yellow bg) — all `strokeWidth 3` brutal rects + black arrows; foot `4-Stage Flow` black badge, top `mlpilot.run` yellow chip (MLPilot text, not `typing.exe`).
+- **Highlight banner** (`-rotate-1`): `Highlight` black-on-green chip + `Automated EDA — correlations, missing values & distribution shifts in one click.` mono black + `Upload Now →` black button `shadow-[3px_3px_0_0_#fff]`.
+- **Pipeline docs** (`grid md:grid-cols-4`): `Auto-EDA` double card (`bg-white border-2 p-6 brutal-shadow hover:-translate-y-1`) with `Section 01` black-on-yellow chip + `w-full h-40 border-2 bg-[#f5f5f0] p-3` `EdaChart` (mono bars `bg-black` / active `bg-[#ffd400]`); `Rapid Prototyping` red `bg-[#ff0000] -rotate-1` + `Benchmarking` blue `bg-[#0055ff] rotate-1`; inference geometry (`bg-white border-2 p-4`) with `model.pkl` yellow / `v1.0 • local` white chips.
+- **Workflow logic** (black): yellow `deterministic engine` pill, `Automated Workflow Logic` with yellow `Workflow` highlight, mono `text-white/70`, steps `bg-white border-2 p-3 brutal-shadow-sm` with black `01` yellow-text badge + mono uppercase label; right `leaderboard.data` window (`bg-white border-[3px] p-6 rotate-1`, yellow bar `leaderboard.data`) with SVG bars (yellow/green/red as per `src/index.css` chart vars).
 
-### 4.2 Typing Test — `app/test/page.tsx` (client, heart of app)
+### 4.2 Dashboard — `src/pages/Dashboard.tsx`
 
-Shell: `min-h-screen bg-brutal-grid` with `onClick → inputRef.focus()`, `Header`, `max-w-7xl` main. `mounted` gate renders empty grid div pre-hydration (avoids Zustand persist mismatch).
+`p-8 lg:p-12` on `bg-brutal-grid`. Uses `PageHeader`-less custom hero but brutalized.
 
-States:
+- **Empty** (`datasets.length===0`): `// welcome` pill, `Welcome to MLPilot` with yellow `MLPilot` highlight, mono `Upload your first dataset…`; CTA `bg-[#c8ff00] border-2 p-8 -rotate-1 hover:rotate-0 brutal-shadow` with black `add` block.
+- **Loaded:** `// dashboard` pill, `Welcome, Engineer` with yellow `Engineer` highlight (`font-headline 5xl/7xl font-black uppercase`), mono `Best model …`; grid `md:grid-cols-2 xl:grid-cols-3 gap-6`: dataset cards `bg-white border-2 border-black p-6 brutal-shadow hover:-translate-y-1` — title `font-headline text-2xl font-black uppercase` with hover `bg-[#ffd400]`, status `bg-black text-white font-mono text-[10px]`, format mono, stat tiles `bg-white border-2 p-3 brutal-shadow-sm` with `font-mono text-[10px] uppercase` label + `font-mono text-2xl font-black` value; `New Dataset` card `bg-white hover:bg-[#ffd400] btn-press` with black add block `group-hover:rotate-12`.
+- **States:** loading `animate-pulse bg-white border-2 brutal-shadow-sm` skeletons; error `ErrorState` red; `useBackendReady` warming gate `bg-white border-2 brutal-shadow p-8` with `sync` pulse.
 
-1. **Pre-start:** mode badge (`TEST MODE: {mode}` in white pill) + `⏱ {N} second test • press esc to restart` (timed only) + `TypingDisplay` with `Start typing to begin` yellow pill + footer hint `[ESC] restart • [⚙] customize` / `CLICK ABOVE TO START`.
-2. **Active:** hidden input (`absolute opacity-0 w-0 h-0 autoFocus spellCheck=false`, capped at text length) drives `TypingDisplay`; stats tick live; footer shows `TEST IN PROGRESS...`.
-3. **Complete:** swaps to `ResultsScreen` (`Suspense` + `dynamic ssr:false`); `Esc` disabled when modals open.
+### 4.3 Dataset Upload — `src/pages/DatasetUpload.tsx` (`/datasets`)
 
-Modals (`dynamic ssr:false` + `ModalFallback`): `SettingsModal`, `StatsModal` as fixed overlays (see §5.4).
+`PageHeader` (`Dataset Upload`, mono subtitle). Two cards `bg-surface` now white via vars; we brutalize explicitly where needed.
 
-### 4.3 Auth — `app/login/page.tsx`, `app/signup/page.tsx` (client)
+- **Drop zone** (`bg-surface border-2 border-black p-4 md:p-8 brutal-shadow mb-8`): inner dashed `border-2 border-dashed border-black p-6 md:p-12 text-center group cursor-pointer` — icon `cloud_upload text-6xl text-black`, title `font-mono text-lg uppercase tracking-widest font-black` `Drop Files Here` / `Drop now` (drag `bg-black/5`), mono `or click to browse — Max 5GB` + `CSV, Parquet, JSON, Excel`.
+- **Demo datasets** (`p-4 md:p-8`): title `font-headline text-xl font-black uppercase`; error mono `text-error`; grid `lg:grid-cols-3`: brutal buttons `bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase` with `grade/favorite/house` icons + `font-mono text-[10px] text-black/60` meta.
+- **Dataset list** (`p-4 md:p-8`): title mono, list rows `flex items-center justify-between py-4 border-b-2 border-black hover:bg-surface-variant/30` with `description` icon, `font-headline font-bold` name, `font-mono text-xs` meta, `Badge` (`success/danger/warning` → `bg-[#c8ff00]/#ff0000/#ffd400`), `Delete` danger button; `Pagination` brutal mono.
 
-Shared shell: header + centered `max-w-md bg-white border-2 brutal-shadow p-8 animate-pop` card + footer.
+### 4.4 Dataset Overview — `src/pages/DatasetOverview.tsx` (`/datasets/:id`)
 
-- Card header row: `// AUTH PORTAL [01|02]` gray mono + right chip (`strict mode` / `free forever`: `bg-black text-yellow-300 border-2 px-2 py-0.5`).
-- Title: login `Welcome [back]` / signup `Create [your] account` — `text-4xl font-bold uppercase leading-none` with yellow rotated highlight.
-- Form: `space-y-5`; labels `> user / email`, `> password`, `> handle` (`font-mono text-xs uppercase text-black/80`); inputs `h-12 rounded-none border-2 border-black font-mono text-sm tracking-widest` with yellow focus shadow (`focus-visible:ring-[3px] focus-visible:shadow-[4px_4px_0_0_#ffd400]`); password eye toggle (36px bordered square button, `Eye/EyeOff`); login has `lost?` underline link + `Sign in with GitHub` outline button; signup adds hint `[ 8+ chars ] • [ 1 number ] • [ no excuses ]` + terms line.
-- Submit: `h-12 w-full bg-black text-[#c8ff00] shadow-[4px_4px_0_0_#ffd400]` (`Login →` / `Sign up →`); divider `or` for login; bottom cross-link (`border-t-2 pt-4`, bold underline link with `hover:bg-yellow-300`).
-- Behavior: `fetch /api/login|signup` → success pushes `/test` (login) or `/login` (signup); login failure → `alert("Invalid Credentials...")`.
+`PageHeader` with `row_count × column_count` mono subtitle + `is_cleaned` / `status` badges + `Clean Dataset First` / `Re-Clean` (`bg-black text-white brutal-shadow`) and `Build Pipeline` (`bg-tertiary` replaced with brutal `bg-[#ffd400] text-black` where needed; kept `border-2 border-black`).
 
-### 4.4 Multiplayer Lobby — `app/multiplayer/page.tsx` (client)
+- **Workflow steps** (`flex gap-2 mb-8`): chips `px-4 py-2 border-2 font-headline text-xs font-bold uppercase`; `done` `bg-primary-container`, `active` `bg-black text-white`, `next` `bg-white hover:bg-[#ffd400]`.
+- **Stats grid** (`grid-cols-2 md:grid-cols-4 gap-6`): tiles `bg-white border-2 border-black p-4 brutal-shadow` — label `font-mono text-[10px] font-black uppercase text-black/60`, value `font-mono text-3xl font-black`.
+- **EDA sections** (each `bg-white border-2 border-black p-6 brutal-shadow`): `Columns & Data Types` table, `Head/Tail`, `Missing Values` (bar `h-3 border border-black bg-white` + `bg-black` fill), `Numeric Summary` (12-col table), `Outlier` cards `border-2 p-4` with `BoxPlotSVG` (`stroke 2`, `fill rgba(var(--chart-blue),0.3)`), `Categorical` (`bg-tertiary` bars replaced with `bg-black` where needed), `Correlation` SVG heatmap (`cell 48`, `fill rgba(var(--chart-blue)/red)`), `Distribution` histograms (`fill rgba(var(--chart-blue),0.3) stroke 0.5`), `Findings` (`danger/warning/info` badges).
 
-Card: `max-w-2xl` (wider than auth). Title `Race [your] friends` + `Strap in...` sub. `callsign` input (`maxLength 30`). Two-col (`md:grid-cols-2`) action cards:
+### 4.5 Data Cleaning — `src/pages/Cleaning.tsx` (`/cleaning`)
 
-- **Create room** (`bg-[#c8ff00]`): `Users` icon + `host the party` eyebrow + copy `Get a room code...` + black button `Create →` (`shadow-[4px_4px_0_0_#fff]`).
-- **Join room** (`bg-[#e0f7ff]`): `DoorOpen` icon + `join the party` + uppercase room-code input (`maxLength 6`, auto-uppercase) + `Join →`.
-- Errors: red pop box (`bg-red-100 border-2 border-red-500 brutal-shadow`, `AlertCircle`); loading: `Loader2 animate-spin` inside buttons; buttons disabled without callsign (+room code for join).
-- **Room-created modal:** `max-w-md border-[3px] shadow-[8px_8px_0_0_#000]`, acid title bar (`// ROOM CREATED [01]` + `Your room` + X), giant code display (`border-[3px] bg-yellow-300 py-7`, `text-5xl tracking-[0.3em]` + `select-all`), `Copy code` / `Enter Room →` split buttons, `[ room lives until the host leaves ]` microcopy. Copy uses `navigator.clipboard` + `Copied!` 1.5s feedback.
-- Room pages (`app/multiplayer/[roomCode]/`, `room/`) reuse same shell — style new race UI with identical tokens/chrome.
+`PageHeader` `Data Cleaning`. Dataset picker ghosts `variant ghost` now `bg-white brutal-shadow`.
+
+- **Already Cleaned** card (`bg-white border-2 p-6 brutal-shadow`): `Already Cleaned` mono, `Open Cleaned Dataset` primary black, `View Latest Report` ghost white, `Re-clean` secondary yellow.
+- **Config panel** (`bg-white border-2 p-6 brutal-shadow`): `Cleaning Steps` title mono uppercase, toggles `border-2`, selects `border-2 bg-white`, missing/outlier lists `flex gap-3 text-sm` with `font-mono` cols; Run `Button primary lg w-full sm:w-auto`.
+- **Running** (`p-8 brutal-shadow`): square loader `w-6 h-6 border-[3px] border-black border-t-transparent rounded-none animate-spin` + `Running cleaning...` mono (no `rounded-full`).
+- **Report** (`bg-white border-2 p-6 brutal-shadow`): header `Cleaning Report` + `New Cleaning` primary; grid `SnapshotCard` (`bg-surface-variant border-2 p-4 brutal-shadow` with mono label/value + `↓/↑` diff `text-success/text-error`); `Step Log` (`border border-black p-4 bg-surface-variant/20` + numbered black badge); `Column Changes` table with `Badge info` chips.
+
+### 4.6 Preprocessing — `src/pages/Preprocessing.tsx` (`/preprocessing`, guarded `cleaned_dataset`)
+
+3-step wizard (`Target & Columns` → `Config` → `Review & Execute`) `border-b-2 border-black` tabs `font-headline text-xs uppercase`.
+
+- **Select Target** (`bg-white border-2 p-6 brutal-shadow`): `Pipeline Name` `border-2 bg-white`, dataset `select` `border-2`, column grid `border-2 border-black p-3` with cards `p-3 border-2 text-xs` active `bg-black text-white` idle `bg-surface-variant/20`.
+- **Config** (`bg-white border-2 p-6 brutal-shadow`): `Section` (`border-2 p-4`) — encoding `select` + passthrough buttons `px-2 py-1 border border-black`, scaling cols toggle, `Split` range + seed `border`, `Feature Selection` checkboxes `w-4 h-4 border-black`, warning `bg-warning-container border-l-4`.
+- **Review** (`bg-white border-2 p-6 brutal-shadow`): `ReviewCard` (`border-2 p-4 bg-surface-variant/10` mono label/value), imbalance `bg-red-50 border-2 border-[#ff0000]` (not `border-secondary`), `Execute Pipeline` black primary.
+
+### 4.7 Model Training — `src/pages/ModelTraining.tsx` (`/training`, guarded `preprocessing`)
+
+Split `lg:grid-cols-12`: left `lg:col-span-7 bg-white border-2 p-6 md:p-8 brutal-shadow` (algorithm checklist, hyperparams), right `lg:col-span-5 bg-white border-2 p-6 brutal-shadow` (job list).
+
+- **Job list** cards `border-2 p-4 brutal-shadow-sm` idle `bg-white`, running `border-[#ff0000] bg-red-50` not acid; `selected` badge now `bg-[#ffd400] text-black border-2 border-black` (not `bg-secondary` green).
+- **Log** mono `bg-black text-[#ffd400] border-2 border-black p-4 font-mono text-xs overflow-y-auto h-64 max-h-72 rounded-none`.
+- Validation error `text-error font-mono`.
+
+### 4.8 Model Comparison — `src/pages/ModelComparison.tsx` (`/compare`, guarded `model`)
+
+Leaderboard table `bg-white border-2 border-black brutal-shadow overflow-x-auto`: header `font-mono text-[10px] uppercase`, rows `hover:bg-surface-variant/30`, best row `bg-[#ffd400]/10 border-2 border-black brutal-shadow mb-8` with `Trophy` + `Deploy` black button.
+
+### 4.9 Visualizations — `src/pages/Visualizations.tsx` (`/visualizations`, guarded `model`)
+
+SHAP / diagnostics. Empty: `w-20 h-20 bg-primary/10 border-2 border-black rounded-none` (was `rounded-full` — now square per zero-radius), icon. Controls `bg-black text-white brutal-shadow` + `bg-white brutal-shadow`.
+
+### 4.10 Results & Reports — `src/pages/Results.tsx` (`/results`, guarded `training_completed`)
+
+Reports list `bg-white border-2 border-black p-6 brutal-shadow`; modal preview `bg-white border-[3px] shadow-[8px_8px_0_0_#000] max-h-[85vh]` with `bg-black/50` scrim (no `backdrop-blur`). The `25` opacity scrim is legacy removed.
+
+### 4.11 EDA — `src/pages/EDA.tsx` (embedded in overview, also standalone)
+
+Shares tokens with `DatasetOverview` EDA sections: `bg-white border-2 p-6 brutal-shadow`, bars `bg-black` (not `bg-secondary` green), outlier `BoxPlotSVG` as above.
 
 ---
 
 ## 5. Components
 
-### 5.1 TypingDisplay — `components/TypingDisplay.tsx`
+### 5.1 PageHeader — `src/shared/components/PageHeader.tsx`
 
-Vertical stack (`flex flex-col items-center gap-10 py-16 px-4`):
+`mb-10 flex flex-col md:flex-row gap-4`.
 
-- **Stat tiles** (`flex gap-6`): WPM (`toFixed(2)`), ACC (`toFixed(1)%`), TIME/ELAPSED (`{n}s`) — each `bg-white px-6 py-3 border-2 brutal-shadow`, value `font-mono text-3xl`, label `font-mono text-[10px] uppercase text-black/60`. Timed mode counts down `timeLeft`; others count up `duration - timeLeft`.
-- **Typing window** (`max-w-3xl w-full border-2 brutal-shadow bg-white`): title bar (`flex justify-between border-b-2 px-4 py-1.5 font-mono text-[10px] uppercase bg-yellow-300`: `typing.exe|code.exe` left, `esc = restart` right); body `px-6 py-8 min-h-32`.
-  - Words/quotes: `flex flex-wrap gap-1 font-mono text-xl`, words kept intact (`inline-flex whitespace-nowrap`), spaces as `\u00A0`.
-  - Code: `flex flex-col font-mono text-lg overflow-x-auto`, indent preserved (`\u00A0`), per-line offsets for cursor mapping.
-- **Char states:** untyped `text-black/35`; correct `text-black bg-green-100`; wrong `text-white bg-red-600`; cursor `bg-yellow-300 text-black animate-blink` (only when active). `transition-colors` on each char.
+- Eyebrow pill `inline-flex bg-white border-2 brutal-shadow-sm px-3 py-1 -rotate-1` `// PIPELINE` (`font-mono text-[10px] font-black uppercase`).
+- Title `font-headline text-4xl sm:text-5xl font-black uppercase leading-none tracking-tight text-black` — with `accent` (`bg-[#ffd400] border-2 brutal-shadow px-2 -rotate-1 inline-block`).
+- Subtitle `font-mono text-xs uppercase tracking-widest text-black/70 mt-3 leading-relaxed`.
+- Action slot `shrink-0` (Button).
 
-### 5.2 ResultsScreen — `components/ResultsScreen.tsx` (`dynamic ssr:false`)
+### 5.2 Card — `src/shared/components/ui/card.tsx`
 
-Stack (`gap-10 py-16 px-4`): rotated grade tile (`w-36 h-36 bg-yellow-300 border-[3px] shadow-[6px_6px_0_0_#000] -rotate-2 hover:rotate-0`, `font-mono text-7xl`: S+ ≥100, S ≥90, A+ ≥80, A ≥70, B ≥60, C ≥50, D ≥40, else F) + `Test Complete!` (`!` red).
+`bg-white border-2 border-black p-6 brutal-shadow rounded-none`. `CardTitle` `font-headline text-xl font-black uppercase tracking-tight text-black`. No `neo-shadow` remains in src (batch replaced via `fix.py`).
 
-- Primary stats (`grid-cols-3 max-w-lg`): WPM, Accuracy, Raw WPM tiles.
-- Secondary (`grid-cols-2 max-w-lg`): Correct / Incorrect (red) / Total Chars / Mode (capitalized).
-- Chart (`max-w-2xl border-2 brutal-shadow p-6`, last 5 tests reversed `T1..Tn`): Recharts `BarChart` — `CartesianGrid strokeDasharray 4 4 #000`, mono 12px axes, tooltip `bg-white border-2 shadow 3px`, `Bar wpm fill #000` + `Bar accuracy fill #ffd400 stroke #000 1.5`.
-- Actions: `Try Again` (`bg-yellow-300 hover:bg-yellow-200 px-8`) + `Home` (`variant="outline" bg-white px-8`).
+### 5.3 Button — `src/shared/components/ui/button.tsx`
 
-### 5.3 Header — `components/Header.tsx`
+Base `inline-flex font-mono font-black uppercase tracking-widest border-2 border-black rounded-none btn-press focus-visible:ring-2 ring-black offset-2 disabled:opacity-50`.
 
-See §3.1. Test-page variant adds Stats/Settings/Multiplayer buttons with Lucide `BarChart3/Settings/Users` (`w-4 h-4 mr-1`).
+- `primary`: `bg-black text-white brutal-shadow hover:bg-black/90`
+- `secondary`: `bg-[#ffd400] text-black brutal-shadow hover:bg-[#ffe066]`
+- `ghost`: `bg-white text-black brutal-shadow hover:bg-[#ffd400]`
+- `danger`: `bg-[#ff0000] text-white border-black brutal-shadow hover:bg-red-700`
+- Sizes `sm h-8 px-3 py-1.5`, `md h-9 px-6 py-3`, `lg h-12 px-8 py-4`.
 
-### 5.4 Modals — Settings / Stats
+### 5.4 Badge — `src/shared/components/ui/badge.tsx`
 
-Shared shell: `fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4` → panel `bg-white border-[3px] shadow-[8px_8px_0_0_#000] max-w-md w-full max-h-[90vh] overflow-y-auto animate-pop` → colored title bar (`border-b-[3px]`, X close: `border-2 bg-white hover:bg-red-500 hover:text-white brutal-shadow`, `size="icon-sm"`) → `p-6 space-y-8` body → `border-t-[3px] p-6` footer.
+`font-mono text-[10px] font-black uppercase tracking-widest px-2 py-1 border-2 border-black inline-flex rounded-none` — `default bg-white text-black`, `success bg-[#c8ff00]`, `warning bg-[#ffd400]`, `danger bg-[#ff0000] text-white`, `info bg-[#e0f7ff] text-black` (replaces `bg-surface-variant` etc.).
 
-- **SettingsModal** (yellow `bg-yellow-300` bar, `⚙ Settings`): `Test Mode` 2-col toggle grid (timed/words/quotes/code); conditional `Duration` 4-col (15/30/60/120s), `Word Count` 4-col (25/50/75/100), `Text Size` 3-col (small/medium/large); toggle style `px-4 py-2 font-mono text-sm font-bold uppercase border-2 btn-press` — active `bg-black text-white brutal-shadow`, idle `bg-white hover:bg-yellow-200`. Sound row (`border-y-[3px]`): custom 80×36 brutal switch (`border-2 brutal-shadow`, knob slides `left-0 ↔ left-12`, `Volume2/VolumeX`, `on/off` label; on = `bg-yellow-300` + black knob). Footer: full-width black `Close` (`shadow-[4px_4px_0_0_#ffd400]`).
-- **StatsModal** (cyan `bg-cyan-300` bar, `// Statistics`): empty state = dashed border box (`border-2 border-dashed`, `No tests completed yet. / Go type something!`); else 2-col tiles (Total Tests, Avg WPM, Best WPM, Avg Accuracy), `By Mode` rows (mode + yellow count chip), `Recent Tests` scroll list (`max-h-40 overflow-y-auto`: mode + date left, WPM + % right). Footer: red `Clear` (`bg-red-500`, `Trash2`, `confirm()` gate) + black `Close`.
+### 5.5 Input — `src/shared/components/ui/input.tsx`
 
-### 5.5 DailySamples / Buttons / UI kit
+`h-12 w-full rounded-none border-2 border-black bg-white px-3 font-mono text-sm tracking-widest placeholder:font-mono placeholder:text-xs placeholder:uppercase placeholder:tracking-widest placeholder:text-black/30 focus-visible:ring-[3px] focus-visible:shadow-[4px_4px_0_0_#ffd400]`. Label `font-mono text-xs uppercase tracking-widest font-black text-black mb-2`.
 
-- **DailySamples** (§4.1): server component, two tilted preview cards.
-- **Button** (`components/ui/button.tsx`, cva): base = `btn-press ... border-2 border-black font-bold uppercase`; variants — `default: bg-white shadow hover:bg-yellow-300`, `destructive: bg-red-600 text-white`, `outline: transparent shadow hover:bg-yellow-200`, `secondary: bg-yellow-300 hover:bg-yellow-200`, `ghost: border-transparent hover:bg-black hover:text-white`, `link: underline hover:bg-yellow-200`; sizes `sm h-8`, `default h-9`, `lg h-10`, `icon*`. Focus: `focus-visible:ring-2 ring-black offset-2`.
-- **UI kit** (`components/ui/`, 50+ Radix/shadcn files): available but only `button`, `input`, `label` are used in current screens — all inherit zero-radius + black borders via tokens. New screens should compose from this kit, not add deps. `theme-provider.tsx` (`next-themes`) is present but not yet wired in `layout.tsx` — dark tokens exist for future use.
+### 5.6 ProgressBar — `src/shared/components/ui/progress-bar.tsx`
+
+`relative overflow-hidden border-2 border-black bg-white h-4` + fill `h-full bg-[#ffd400] border-r-2 border-black transition-all duration-700` + `active` shimmer `animate-indeterminate absolute w-1/3 bg-black/10`. For EDA `Missing` bars, height `h-3` variant.
+
+### 5.7 EmptyState / ErrorState
+
+As §3.4. `EmptyState` rotated `-rotate-1`, inner `rotate-1` action. `ErrorState` always red `bg-red-50 border-red-500 text-red-600` with `Button secondary`.
+
+### 5.8 Pagination — `src/shared/components/Pagination.tsx`
+
+`flex items-center justify-between pt-6` mono `text-sm text-black/60`, buttons `variant ghost vs primary` (`min-w-[36px]` active black).
+
+### 5.9 ConfirmDialog — see §3.4
+
+### 5.10 Layout Helpers
+
+- `LoadingSpinner` / `Skeleton*` (`src/shared/components/LoadingSpinner.tsx`): brutal pulse, no `animate-spin` circle (tests now expect `animate-pulse`).
+- `RouteGuard` (`src/shared/components/RouteGuard.tsx`): `bg-white border-2 p-8 brutal-shadow max-w-lg` (no `neo-shadow`).
+- `GlobalErrorBoundary` (`src/shared/components/GlobalErrorBoundary.tsx`): `text-error` red icon, `bg-surface-variant rounded-none` preview.
+
+### 5.11 ML-Specific Patterns
+
+- **Stat tiles** (Dashboard `Rows/Cols`, Cleaning `SnapshotCard`, EDA `StatCard`): `bg-white border-2 border-black p-3 brutal-shadow-sm` + `font-mono text-[10px] uppercase text-black/60` + `font-mono text-2xl font-black`.
+- **Feature importance bars** (`Home EdaChart`): `flex-1 h-2.5 bg-white border-2 border-black overflow-hidden` + fill `bg-black` / active `bg-[#ffd400]`.
+- **Cleaning toggles**: `w-12 h-6 border-2 border-black relative` — `bg-black` when on, `bg-surface-variant` when off, knob `w-4 h-4 bg-white border border-black`.
+- **Correlation heatmap** (`EDA CorrelationSection`): `cell 48`, `fill rgba(var(--chart-blue)/red, intensity)`, yellow `stroke` for `|r|>0.85`.
+- **Histograms** (`MiniHistogram`): `fill rgba(var(--chart-blue),0.3) stroke 0.6`, KDE `stroke rgb(var(--chart-red))`.
 
 ---
 
 ## 6. Responsive & Adaptive Behavior
 
-- **Breakpoints:** mobile-first; `md:` (768px) upgrades hero (`text-5xl→7xl`), features (1→3 col), samples (1→2 col), multiplayer actions (1→2 col), footer (col→row).
-- **Containers:** `max-w-* + mx-auto + px-4` everywhere; grids collapse to single column on small screens; toggle grids stay 2/3/4-col even on mobile (small tap targets, acceptable for settings).
-- **Header:** brand + actions stay one row; on narrow screens buttons shrink to `size="sm"` with icons — keep labels (no hamburger).
-- **Typing window:** `max-w-3xl w-full`, code mode scrolls horizontally (`overflow-x-auto`); words wrap with `flex-wrap` + no-break words.
-- **Modals:** `p-4` viewport padding, `max-w-md` (lobby `max-w-2xl`), `max-h-[90vh] overflow-y-auto`, sticky title bar.
-- **Dark mode:** tokens defined, not active (no `ThemeProvider` in tree, no toggle). Do not ship dark-specific classes until provider is wired; when adding, use semantic tokens (`bg-background text-foreground border-border`) not hardcoded `bg-white text-black`.
+- **Breakpoints** mobile-first: `md 768px` (hero `text-5xl→7xl`, Home features `1→4` col, pipeline `1→2` col, banner `col→row`, Cleaning/Form `1→2` col, footer `col→row`), `lg 1024px` (Sidebar fixed, BottomNav hidden; `lg:grid-cols-12` training split), `xl 1280px` (Dashboard `2→3` col).
+- **Containers:** `max-w-7xl mx-auto px-4` (chrome), `max-w-4xl` (Home docs), `max-w-2xl` (DatasetUpload demo card), `max-w-lg` (EmptyState/ConfirmDialog). Grids collapse to single column on `sm`.
+- **Header:** `max-w-7xl` stays one row; buttons shrink to `text-xs` mono — no hamburger text hide; Sidebar overlay `slideIn 0.2s` on `<1024px`.
+- **Tables/hists:** `overflow-x-auto` + `min-w` SVG, sticky first col not needed — horizontal scroll only.
+- **Modals:** `p-4` viewport, `max-w-md` (Results preview `max-w-4xl`), `max-h-[90vh] overflow-y-auto`, yellow title bar sticky.
+- **Dark mode:** not shipped — `ThemeProvider` not wired, tokens deferred. Do not use `dark:` classes.
 
 ---
 
@@ -218,26 +283,26 @@ Shared shell: `fixed inset-0 bg-black/50 flex items-center justify-center z-50 p
 
 | Trigger | Feedback |
 |---|---|
-| Keystroke (correct) | Char → `bg-green-100`, 800→1000Hz blip (Web Audio, rate-limited 8/s) |
-| Keystroke (wrong) | Char → `bg-red-600 text-white`, 400→200Hz drop |
-| Cursor | Yellow block `animate-blink` (1s steps), advances per char |
-| Test start | `isActive` flips on first char, countdown `setInterval` 1s, `TEST IN PROGRESS...` |
-| Test end | `animate-pop` results, success arpeggio, grade tile `-rotate-2`, chart render |
-| Buttons | `btn-press` squash + shadow collapse on `:active`; hover yellows |
-| Cards | `hover:-translate-y-1 hover:shadow-[2px...]` (features), `hover:rotate-0` (samples, grade) |
-| Modals | `animate-pop` entrance, `bg-black/50` scrim, X turns red on hover |
-| Focus | Inputs: yellow offset shadow + 3px black ring; buttons: 2px black ring |
-| Loading | `animate-pulse` skeletons + mono status lines (`crunching numbers...`) |
-| Copy code | `Copied!` 1.5s swap via clipboard API |
-| Disabled | `disabled:opacity-50 pointer-events-none` (room buttons need callsign/code) |
+| Button click | `btn-press` squash `translate(3px,3px)` + shadow `0` on `:active`; hover `bg-[#ffd400]` (ghost/secondary) or `bg-black/90` (primary) |
+| Card hover | `hover:-translate-y-1 hover:rotate-0` (Home) or `hover:bg-[#ffd400]` (Sidebar/BottomNav); `Dashboard` dataset card `hover:-translate-y-1` |
+| Nav active | `bg-[#ffd400] border-2 brutal-shadow-sm` (Sidebar) / `bg-black text-white` (TopNav) |
+| Input focus | `ring-[3px] ring-black shadow-[4px_4px_0_0_#ffd400]` yellow offset (`src/shared/components/ui/input.tsx:24`) |
+| Cleaning toggle | `bg-black` (on) ↔ `bg-surface-variant` (off), knob `left-0.5 → left-6` |
+| Progress | `ProgressBar` yellow fill `transition-all 700ms`, indeterminate shimmer `animate-indeterminate`; `EDA` bars `transition-all 200ms` on hover `bg-[#ffd400]` |
+| Upload drag | `border-dashed` → `border-solid bg-black/5`, title `Drop now` mono, `cloud_upload` black |
+| Report generate | `animate-pop` entrance (Home hero, EmptyState `-rotate-1`, ConfirmDialog, Cleaning `SnapshotCard`), `bg-black/50` scrim |
+| Copy / Download | `Download CSV` white `hover:bg-[#ffd400]`; no clipboard in MLPilot (was TypeWithMe `Copied!` — removed) |
+| Disabled | `disabled:opacity-50 pointer-events-none` (demo buttons, pipeline tabs, delete) |
+| Loading | `animate-pulse` skeletons `bg-white border-2 brutal-shadow` + mono `loading mlpilot...` |
 
 ---
 
 ## 8. Copy & Iconography
 
-- **Voice:** terse, lowercase-mono, confrontational-playful. CTAs end with `→`. Never add rounded-friendly SaaS copy.
-- **Recurring strings:** `KEYBOARD ACCELERATOR`, `[no account needed] [free forever] [esc to restart]`, `[ESC] restart • [⚙] customize`, `CLICK ABOVE TO START`, `wpm > life`, `// ...` eyebrows, `[ keep hands on home row ] • [ caps lock: off ]`.
-- **Icons:** Lucide only (`Settings`, `BarChart3`, `Users`, `Eye/EyeOff`, `X`, `Trash2`, `DoorOpen`, `Loader2`, `AlertCircle`). `w-4 h-4` in buttons, `size-5` in cards, `size-9` eye toggle box. No emoji in UI except `⚙` in Settings title (keep as-is).
+- **Voice:** deterministic, local-first, no hype. Lowercase mono for meta only: `// local-first ml pipeline`, `data → model`, `csv • parquet • json • xlsx`. Headlines always `UPPERCASE font-black`. CTAs always end with `→` (`New run →`, `Get Started →`, `Upload Now →`, `Start Free Run →`).
+- **MLPilot strings (examples):** `MLPilot` + `DATA → MODEL`; `From Dataset to Shipped Model.` (hero, `Shipped` yellow highlight); `local-first • open pipeline`; `Highlight` banner chip; `mlpilot.run` / `model.pkl` / `leaderboard.data` window chrome (not `typing.exe`); `PIPELINE READY` / `DETERMINISTIC ENGINE`; `Ready to Pilot?` yellow CTA.
+- **Forbidden (TypeWithMe leftovers — purged):** `wpm > life`, `Start Typing`, `typing.exe/code.exe`, `KEYBOARD ACCELERATOR`, `BUILT WITH BLOOD…`, `[no account needed] [free forever] [esc to restart]`, `[keep hands on home row] • [caps lock: off]`, `esc = restart`. Verified `rg` 0 matches in `src` (only `design.md` mentions).
+- **Icons:** `Material Symbols Outlined` only (`dashboard`, `database`, `cleaning_services`, `process_chart`, `model_training`, `leaderboard`, `monitoring`, `description`, `analytics`, `rocket_launch`, `cloud_upload`, `grade`, `favorite`, `house`, `add`, `sync`, `check_circle`, `query_stats`, `error`). `w-4 h-4` in buttons, `text-4xl` in cards, `text-[18px]` in Sidebar. No Lucide (source used Lucide — MLPilot uses Material Symbols per `UX.md`), no emoji.
 
 ---
 
@@ -245,18 +310,24 @@ Shared shell: `fixed inset-0 bg-black/50 flex items-center justify-center z-50 p
 
 | Route | File | Rendering | Design notes |
 |---|---|---|---|
-| `/` | `app/page.tsx` | SSR (`revalidate 3600`) | Hero + banner + features + `DailySamples` (Suspense) |
-| `/test` | `app/test/page.tsx` | Client (`dynamic` results/modals) | Mode badge + `TypingDisplay` + hints; hidden input |
-| `/login` | `app/login/page.tsx` | Client | `max-w-md` auth card, GitHub button, cross-link to signup |
-| `/signup` | `app/signup/page.tsx` | Client | Same card + handle field + password rules + terms |
-| `/multiplayer` | `app/multiplayer/page.tsx` | Client | `max-w-2xl` lobby, create/join cards, room-code modal |
-| `/multiplayer/[roomCode]` | `app/multiplayer/[roomCode]/` | Client (WIP) | Follow lobby tokens/chrome for race UI |
-| `/api/login`, `/api/signup`, `/api/rooms/*` | `app/api/` | Route handlers | No UI; error strings surface in red pop boxes |
+| `/` | `src/pages/Home.tsx` | Client | Own acid header (not `Layout`), hero + `Highlight` banner `border-y-[3px] bg-[#c8ff00] -rotate-1` + pipeline docs + black workflow logic + tech grid + yellow CTA + black footer |
+| `/dashboard` | `src/pages/Dashboard.tsx` | Client (RQ) | `// dashboard` pill, `Welcome, Engineer` yellow highlight, dataset cards `bg-white border-2 brutal-shadow hover:-translate-y-1`, `New Dataset` white `hover:bg-[#ffd400]` |
+| `/datasets` | `src/pages/DatasetUpload.tsx` | Client | `PageHeader` `Dataset Upload`, drop zone dashed `border-2 border-black`, demo brutal buttons `bg-white hover:bg-[#ffd400]`, list `border-b-2` rows + `Badge` + `Delete` danger |
+| `/datasets/:id` | `src/pages/DatasetOverview.tsx` | Client | `PageHeader` with `Badge` + `Clean/Build Pipeline` buttons, `WorkflowSteps` chips, stats `grid-cols-4` tiles, EDA embed (`RawEDA`) |
+| `/cleaning` | `src/pages/Cleaning.tsx` | Client | Picker ghosts, `Already Cleaned` card, `CleaningConfigPanel` toggles + `select border-2`, running square spinner, `CleaningReportView` `SnapshotCard` + step log + `Column Changes` table |
+| `/preprocessing` | `src/pages/Preprocessing.tsx` | Client `RouteGuard cleaned_dataset` | 3-step tabs `border-b-2`, `Select Target` grid `2-5` cols active `bg-black text-white`, `Config` `Section border-2 p-4`, `Review` `ReviewCard` + `border-[#ff0000] bg-red-50` imbalance |
+| `/training` | `src/pages/ModelTraining.tsx` | Client `RouteGuard preprocessing` | `lg:grid-cols-12`: left config `p-6 md:p-8 brutal-shadow`, right jobs list + live log `bg-black text-[#ffd400] font-mono text-xs rounded-none border-2` |
+| `/compare` | `src/pages/ModelComparison.tsx` | Client `RouteGuard model` | Leaderboard `bg-white border-2 brutal-shadow overflow-x-auto`, best row `bg-[#ffd400]/10`, `Deploy` black buttons |
+| `/visualizations` | `src/pages/Visualizations.tsx` | Client `RouteGuard model` | SHAP/diagnostics, empty `w-20 h-20 border-2 rounded-none` square (not circle), brutal controls |
+| `/results` | `src/pages/Results.tsx` | Client `RouteGuard training_completed` | Reports `p-6 brutal-shadow`, preview modal `border-[3px] shadow-[8px_8px_0_0_#000]` `bg-black/50` scrim (no blur) |
+| `*` | `src/App.tsx:87` | — | `Navigate` to `/dashboard` |
+
+`src/pages/EDA.tsx` is legacy/embedded — primary EDA is `DatasetOverview` `RawEDA` (tables/heatmaps/histograms). `Cleaning`/`Preprocessing`/`Training` share `src/shared/components` primitives (no Radix `components/ui` beyond MLPilot's own).
 
 ---
 
-## 10. Do / Don't (for future work)
+## 10. Do / Don't (for MLPilot)
 
-- **Do:** `border-2 border-black` + `brutal-shadow` on every surface; `font-mono uppercase tracking-widest` for labels; `bg-[#c8ff00]` header, `bg-yellow-300` title bars/highlights; `rounded-none`; `animate-pop` on entrances; `bg-brutal-grid` page roots; Lucide icons; reuse `Button` variants.
-- **Don't:** no `rounded-*`, no `shadow-lg/blur/gradients`, no gray borders (`border-gray-*`), no non-mono metrics, no centered-only desktop layouts without mobile collapse, no new color outside palette without updating §2.1, no emoji copy, no mouse-only flows (keep `Esc`/autofocus).
-- **When extending:** duplicate header/footer markup verbatim (or extract to shared component); keep modal shell measurements (`border-[3px]`, `shadow-[8px...]`, `p-6`); charts use black + `#ffd400` bars with brutal tooltip; form inputs reuse `inputClassName` from auth/multiplayer pages.
+- **Do:** `bg-white border-2 border-black brutal-shadow` on every card/modal/drop-zone; `font-mono text-[10px] uppercase tracking-widest` for badges/labels/eyebrows; `bg-[#c8ff00]` header, `bg-[#ffd400]` highlights/active nav/accent; `rounded-none`; `animate-pop` on `Home` hero/`EmptyState`/`ConfirmDialog`; `bg-brutal-grid` on `Layout` + `Home` root; `Material Symbols` only; reuse `Button` (`primary/secondaty/ghost/danger`) + `Badge` + `Card` + `Input`.
+- **Don't:** no `rounded-*` (even `rounded-full` → `rounded-none` via `fix.py`), no `shadow-lg/blur/gradients/backdrop-blur` (removed from `Results` modal), no `border-gray-*`, no `bg-tertiary` CTA (replaced with white/yellow/black), no non-mono stat values (use `font-mono`), no TypeWithMe copy, no emoji, no mouse-only flows (keep keyboard focus `ring-[3px] shadow-[4px_4px_0_0_#ffd400]`).
+- **When extending:** duplicate `TopNav` markup (`border-b-[3px] bg-[#c8ff00]` + `w-9 h-9 bg-black shadow-[3px_3px_0_0_#fff]` + `font-mono 10px subtitle`) or import it; keep `Sidebar` measurements (`border-r-[3px]`, `px-4 py-3`, `p-6`, `brutal-shadow-sm`); modal shell `border-[3px] shadow-[8px_8px_0_0_#000] p-6` + yellow `border-b-[3px]` bar; charts use `black + #ffd400/#0055ff` bars with `border-2` tooltip `bg-white border-2 brutal-shadow-sm`; inputs use `h-12 border-2 font-mono text-sm tracking-widest focus:shadow-[4px_4px_0_0_#ffd400]`.
