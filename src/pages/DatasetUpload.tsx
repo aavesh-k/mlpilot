@@ -80,7 +80,7 @@ return (
     <div className="p-4 md:p-8 lg:p-12 max-w-4xl">
       <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow mb-8">
+      <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow mb-8">
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
@@ -90,12 +90,12 @@ return (
             isDragOver ? 'border-solid bg-primary/5' : ''
           }`}
         >
-          <span className="material-symbols-outlined text-6xl text-on-surface-variant group-hover:text-primary transition-colors">cloud_upload</span>
-          <p className="font-headline font-black text-xl uppercase mt-4">
+          <span className="material-symbols-outlined text-6xl text-black group-hover:text-black transition-colors">cloud_upload</span>
+          <p className="font-mono font-black text-lg uppercase tracking-widest text-black mt-4">
             {isDragOver ? 'Drop now' : 'Drop Files Here'}
           </p>
-          <p className="text-on-surface-variant text-sm font-medium mt-2">or click to browse — Max 5GB</p>
-          <p className="text-xs text-on-surface-variant mt-1">CSV, Parquet, JSON, Excel</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2">or click to browse — Max 5GB</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-black/50 mt-1">CSV, Parquet, JSON, Excel</p>
         </div>
         <input
           id="file-input"
@@ -105,7 +105,7 @@ return (
           onChange={handleFileSelect}
         />
         {uploadMutation.isError && (
-          <p className="mt-4 text-secondary font-headline font-bold text-sm">
+          <p className="mt-4 text-error font-mono font-bold text-sm">
             Upload failed: {toApiError(uploadMutation.error).message}
           </p>
         )}
@@ -117,11 +117,11 @@ return (
         )}
       </div>
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow mb-8">
+      <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow mb-8">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Try a Demo Dataset</h3>
         <p className="text-on-surface-variant text-sm mb-4">Click a button below to instantly load a sample dataset and start the workflow.</p>
         {demoError && (
-          <p className="mb-4 text-secondary font-headline font-bold text-sm">
+          <p className="mb-4 text-error font-mono font-bold text-sm">
             Failed to load demo: {demoError}
           </p>
         )}
@@ -135,38 +135,38 @@ return (
           <button
             onClick={() => loadDemoDataset('iris')}
             disabled={demoLoading}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-2xl mb-2">grade</span>
-            <span className="text-xs font-bold">Iris Classification</span>
-            <span className="text-xs text-on-surface-variant">150 samples, 4 features</span>
+            <span className="material-symbols-outlined text-2xl mb-1">grade</span>
+            <span>Iris Classification</span>
+            <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">150 samples, 4 features</span>
           </button>
           <button
             onClick={() => loadDemoDataset('breast_cancer')}
             disabled={demoLoading}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-2xl mb-2">favorite</span>
-            <span className="text-xs font-bold">Breast Cancer</span>
-            <span className="text-xs text-on-surface-variant">569 samples, 30 features</span>
+            <span className="material-symbols-outlined text-2xl mb-1">favorite</span>
+            <span>Breast Cancer</span>
+            <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">569 samples, 30 features</span>
           </button>
           <button
             onClick={() => loadDemoDataset('housing')}
             disabled={demoLoading}
-            className="flex flex-col items-center border-2 border-primary rounded px-4 py-3 hover:border-primary/90 transition-colors cursor-pointer disabled:opacity-50"
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
           >
-            <span className="material-symbols-outlined text-2xl mb-2">house</span>
-            <span className="text-xs font-bold">Housing Regression</span>
-            <span className="text-xs text-on-surface-variant">489 samples, 8 features</span>
+            <span className="material-symbols-outlined text-2xl mb-1">house</span>
+            <span>Housing Regression</span>
+            <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">489 samples, 8 features</span>
           </button>
         </div>
       </div>
 
-      <div className="bg-surface border-2 border-primary p-4 md:p-8 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
 
         {deleteError && (
-          <p className="mb-4 text-secondary font-headline font-bold text-sm">Delete failed: {deleteError}</p>
+          <p className="mb-4 text-error font-mono font-bold text-sm">Delete failed: {deleteError}</p>
         )}
         {isLoading && <LoadingSpinner />}
         {error && <ErrorState message="Failed to load datasets" onRetry={() => refetch()} />}

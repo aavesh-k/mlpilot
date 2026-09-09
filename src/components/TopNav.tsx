@@ -40,7 +40,7 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
                 ML<span className="text-black">Pilot</span>
               </span>
               <span className="font-mono text-[10px] uppercase tracking-widest text-black/70 font-bold hidden sm:block">
-                PIPELINE ACCELERATOR
+                DATA → MODEL
               </span>
             </div>
           </NavLink>

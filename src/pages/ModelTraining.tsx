@@ -162,7 +162,7 @@ export default function ModelTraining() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
           {/* Training Config Form */}
-          <div className="lg:col-span-7 bg-surface border-2 border-primary p-6 md:p-8 brutal-shadow">
+          <div className="lg:col-span-7 bg-surface border-2 border-primary p-6 brutal-shadow md:p-8 brutal-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Configuration</h3>
             
             {/* Select Preprocessed Pipeline */}
@@ -211,7 +211,7 @@ export default function ModelTraining() {
                             </div>
                           </div>
                           {showSlowWarning && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-secondary text-on-secondary text-[9px] font-headline font-black px-1.5 py-0.5 uppercase">
+                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-[#ffd400] text-black border-2 border-black text-[9px] font-headline font-black px-1.5 py-0.5 uppercase">
                               <span className="material-symbols-outlined text-[10px]">warning</span>
                               Slow Model
                             </div>
@@ -329,7 +329,7 @@ export default function ModelTraining() {
                 </div>
 
                 {validationError && (
-                  <p className="text-secondary font-headline font-bold text-xs mb-4">{validationError}</p>
+                  <p className="text-error font-mono font-bold text-xs mb-4">{validationError}</p>
                 )}
 
                 <Button
@@ -397,7 +397,7 @@ export default function ModelTraining() {
       )}
 
       {/* Historical Training Jobs list */}
-      <div className="bg-surface border-2 border-primary p-6 md:p-8 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow md:p-8 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Training Jobs History</h3>
 
         {cancelError && (
@@ -448,7 +448,7 @@ export default function ModelTraining() {
                             <Button
                               variant="secondary"
                               size="sm"
-                              className="text-secondary border-secondary"
+                              className="text-error border-error"
                               onClick={async () => {
                                 setCancelError(null)
                                 try {

@@ -550,7 +550,7 @@ function SelectColumnsStep({
       <h4 className="font-headline font-black text-lg uppercase mb-6">1. Select Target & Columns</h4>
 
       {uncleanedDatasets.length > 0 && datasets.length === 0 && (
-        <div className="bg-surface border-2 border-primary p-4 mb-6 border-l-8 border-l-secondary">
+        <div className="bg-surface border-2 border-primary p-4 brutal-shadow mb-6 border-l-8 border-l-secondary">
           <h5 className="font-headline font-bold text-sm uppercase text-[#ff0000] mb-1">
             ⚠️ Data Cleaning Required
           </h5>

@@ -87,7 +87,7 @@ export default function DatasetOverview() {
           { label: 'Size', value: formatFileSize(dataset.file_size_bytes) },
            { label: 'Format', value: (dataset.file_format ?? 'Unknown').toUpperCase() },
         ].map((s) => (
-          <div key={s.label} className="bg-surface border-2 border-primary p-4">
+          <div key={s.label} className="bg-surface border-2 border-primary p-4 brutal-shadow">
             <span className="block font-headline text-[10px] font-bold uppercase text-on-surface-variant">{s.label}</span>
             <span className="text-3xl font-headline font-black">{s.value}</span>
           </div>
@@ -95,7 +95,7 @@ export default function DatasetOverview() {
       </div>
 
       {isProcessing && (
-        <div className="bg-surface border-2 border-primary p-6 mb-8">
+        <div className="bg-surface border-2 border-primary p-6 brutal-shadow mb-8">
           <h3 className="font-headline font-black text-sm uppercase mb-3">Analyzing dataset...</h3>
           <ProgressBar value={progressPct} active={isProcessing} heightClass="h-4" />
           <p className="mt-2 text-xs text-on-surface-variant font-headline font-bold">{status?.step ?? 'Starting...'} ({progressPct}%)</p>
@@ -105,7 +105,7 @@ export default function DatasetOverview() {
       {report && !isProcessing && <RawEDA report={report} />}
 
       {!report && !isProcessing && status?.status === 'failed' && (
-        <div className="bg-surface border-2 border-primary p-6">
+        <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
           <ErrorState title="EDA Failed" message={status.error ?? 'An error occurred.'} />
         </div>
       )}
@@ -188,7 +188,7 @@ function RawEDA({ report }: { report: EDAReport }) {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-sm uppercase mb-2">{label}</h3>
       <span className="text-3xl font-headline font-black">{value}</span>
       <span className="block text-sm text-on-surface-variant font-body">{sub}</span>
@@ -198,7 +198,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 
 function ColumnListSection({ columns, memory }: { columns: EDAReport['columns']; memory: EDAReport['memory_usage'] }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Columns & Data Types</h3>
       <p className="text-sm text-on-surface-variant mb-4">Memory: {memory.formatted}</p>
       <div className="overflow-x-auto">
@@ -229,11 +229,11 @@ function HeadTailSection({ head, tail, columns }: { head: Record<string, unknown
   if (head.length === 0) return null
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-surface border-2 border-primary p-6 overflow-x-auto">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
         <h3 className="font-headline font-black text-lg uppercase mb-3">Head (first 10 rows)</h3>
         <DataTable rows={head} columns={columns} />
       </div>
-      <div className="bg-surface border-2 border-primary p-6 overflow-x-auto">
+      <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
         <h3 className="font-headline font-black text-lg uppercase mb-3">Tail (last 5 rows)</h3>
         <DataTable rows={tail} columns={columns} />
       </div>
@@ -278,7 +278,7 @@ function formatCellValue(val: unknown): string {
 
 function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Missing Values</h3>
       {missingness.length === 0 ? (
          <p className="text-success font-headline font-bold">No missing values detected.</p>
@@ -303,7 +303,7 @@ function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
                     <td className="p-3 font-body text-sm">{pct.toFixed(1)}%</td>
                     <td className="p-3">
                       <div className="h-3 w-full max-w-[200px] border border-primary bg-surface-variant relative">
-                        <div className="h-full bg-secondary" style={{ width: `${Math.min(pct, 100)}%` }} />
+                        <div className="h-full bg-black" style={{ width: `${Math.min(pct, 100)}%` }} />
                       </div>
                     </td>
                   </tr>
@@ -320,7 +320,7 @@ function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
 function NumericSummarySection({ summary }: { summary: NumericSummaryRow[] }) {
   if (summary.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 overflow-x-auto">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Numeric Summary</h3>
       <table className="w-full text-left text-xs">
         <thead>
@@ -356,7 +356,7 @@ function NumericSummarySection({ summary }: { summary: NumericSummaryRow[] }) {
 function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
   if (outliers.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Outlier Detection (IQR 1.5× Rule)</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {outliers.map((o) => {
@@ -404,7 +404,7 @@ function BoxPlotSVG({ stats, width, height }: { stats: { min: number | null; q1:
 function CategoricalSection({ categories }: { categories: CategoricalSummaryRow[] }) {
   if (categories.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Categorical Columns</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {categories.map((cat) => (
@@ -451,7 +451,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
   const h = gridW + labelPad + bottomPad
 
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Correlation Matrix (Pearson)</h3>
       <div className="overflow-x-auto mb-4">
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ minWidth: w }}>
@@ -523,7 +523,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
 function DistributionSection({ plots }: { plots: DistributionPlot[] }) {
   if (plots.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Distributions</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {plots.slice(0, 6).map((plot) => (
@@ -561,7 +561,7 @@ function MiniHistogram({ plot, width, height }: { plot: DistributionPlot; width:
 function DataTypeIssuesSection({ issues }: { issues: EDAReport['data_type_issues'] }) {
   if (issues.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Data Type Sanity Checks</h3>
       <div className="space-y-4">
         {issues.map((issue) => (
@@ -584,7 +584,7 @@ function DataTypeIssuesSection({ issues }: { issues: EDAReport['data_type_issues
 function ConstantColumnsSection({ columns }: { columns: EDAReport['constant_columns'] }) {
   if (columns.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Constant / Near-Constant Columns</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {columns.map((col) => (
@@ -603,7 +603,7 @@ function ConstantColumnsSection({ columns }: { columns: EDAReport['constant_colu
 function FindingsSection({ findings }: { findings: EDAReport['findings'] }) {
   if (findings.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6">
+    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Findings</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {findings.map((f, i) => (

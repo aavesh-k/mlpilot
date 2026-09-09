@@ -686,7 +686,7 @@ export default function Results() {
 
       {/* Comparison Modal */}
       {isCompareModalOpen && (
-        <div className="fixed inset-0 bg-primary/25 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-primary/25  flex items-center justify-center p-4 z-50">
           <div className="bg-surface border-4 border-primary p-8 w-full max-w-4xl brutal-shadow max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6 pb-2 border-b-2 border-primary">
               <h3 className="font-headline font-black text-2xl uppercase tracking-tight">Model Comparison Matrix</h3>

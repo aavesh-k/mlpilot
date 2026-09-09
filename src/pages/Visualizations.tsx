@@ -13,7 +13,7 @@ export default function Visualizations() {
       />
 
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center max-w-2xl mx-auto border-2 border-primary bg-surface p-8 md:p-12 brutal-shadow">
-        <div className="w-20 h-20 bg-primary/10 border-2 border-primary rounded-full flex items-center justify-center mb-6">
+        <div className="w-20 h-20 bg-primary/10 border-2 border-primary rounded-none-full flex items-center justify-center mb-6">
           <span className="material-symbols-outlined text-5xl text-primary">monitoring</span>
         </div>
 

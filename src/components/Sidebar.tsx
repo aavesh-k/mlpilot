@@ -58,9 +58,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           </NavLink>
         ))}
       </nav>
-      <div className="mt-6 border-2 border-black bg-[#c8ff00] p-3 -rotate-1">
-        <p className="font-mono text-[10px] uppercase tracking-widest font-black text-black">wpm &gt; life</p>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-black/70">[no magic] [just math]</p>
+      <div className="mt-6 border-2 border-black bg-white p-3 -rotate-1">
+        <p className="font-mono text-[10px] uppercase tracking-widest font-black text-black">DATA → MODEL</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-black/60">local-first • open pipeline</p>
       </div>
     </div>
   )

@@ -80,7 +80,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col leading-none">
               <span className="font-headline font-black text-xl uppercase tracking-tight text-black">MLPilot</span>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-black/70 font-bold">PIPELINE ACCELERATOR</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-black/70 font-bold">DATA → MODEL</span>
             </div>
           </NavLink>
           <div className="flex items-center gap-3">
@@ -88,7 +88,7 @@ export default function Home() {
               Dashboard
             </NavLink>
             <NavLink to="/datasets" className="bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-6 py-2 shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press">
-              Start Typing →
+              New run →
             </NavLink>
           </div>
         </div>
@@ -98,7 +98,7 @@ export default function Home() {
         <section className="py-12 md:py-20 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
           <div className="md:col-span-7 flex flex-col items-center md:items-start text-center md:text-left">
             <div className="inline-flex bg-white border-2 border-black brutal-shadow px-4 py-1 font-mono text-xs uppercase tracking-widest font-black -rotate-1 mb-6">
-              // the internet&apos;s brutalist ml trainer
+              // local-first ml pipeline
             </div>
             <h1 className="font-headline text-5xl md:text-7xl font-black uppercase leading-none tracking-tight mb-6">
               <span className="inline-block bg-white border-2 border-black brutal-shadow px-2 -rotate-1">MLPilot</span>
@@ -119,7 +119,6 @@ export default function Home() {
                 How It Works
               </a>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-black/60 mt-4">[no account needed] [free forever] [esc to restart]</p>
           </div>
           <div className="md:col-span-5 relative">
             <div className="w-full aspect-square border-2 border-black bg-white brutal-shadow relative overflow-hidden -rotate-1 hover:rotate-0 transition-transform">
@@ -184,7 +183,7 @@ export default function Home() {
                 </g>
               </svg>
               <div className="absolute bottom-3 right-3 bg-black text-white px-3 py-1 font-mono text-[10px] font-black uppercase tracking-widest border-2 border-black">4-Stage Flow</div>
-              <div className="absolute top-3 left-3 bg-[#ffd400] border-2 border-black px-2 py-0.5 font-mono text-[10px] font-black uppercase">typing.exe</div>
+              <div className="absolute top-3 left-3 bg-[#ffd400] border-2 border-black px-2 py-0.5 font-mono text-[10px] font-black uppercase">mlpilot.run</div>
             </div>
           </div>
         </section>
@@ -192,7 +191,7 @@ export default function Home() {
         {/* Multiplayer-style banner repurposed as MLPilot banner */}
         <div className="w-full border-y-[3px] border-black bg-[#c8ff00] -rotate-1 my-8 py-4 px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="bg-black text-[#c8ff00] font-mono text-[10px] font-black uppercase px-2 py-1 border-2 border-black">Up Next</span>
+            <span className="bg-black text-[#c8ff00] font-mono text-[10px] font-black uppercase px-2 py-1 border-2 border-black">Highlight</span>
             <span className="font-mono text-xs uppercase font-black tracking-widest text-black">Automated EDA — correlations, missing values & distribution shifts in one click.</span>
           </div>
           <NavLink to="/datasets" className="bg-black text-white font-mono text-xs font-black uppercase px-5 py-2 border-2 border-black shadow-[3px_3px_0_0_#fff] btn-press shrink-0">
@@ -275,8 +274,8 @@ export default function Home() {
                 <rect x="360" y="86" width="16" height="74" fill="#0055ff" />
                 <text x="300" y="186" className="font-headline" fontSize="12" fontWeight="700" letterSpacing="1" fill="currentColor">OUTPUT</text>
               </svg>
-              <div className="absolute top-3 left-3 bg-[#ffd400] border-2 border-black px-2 py-1 font-mono text-[10px] font-black uppercase">code.exe</div>
-              <div className="absolute top-3 right-3 bg-white border-2 border-black px-2 py-1 font-mono text-[10px] uppercase">esc = restart</div>
+              <div className="absolute top-3 left-3 bg-[#ffd400] border-2 border-black px-2 py-1 font-mono text-[10px] font-black uppercase">model.pkl</div>
+              <div className="absolute top-3 right-3 bg-white border-2 border-black px-2 py-1 font-mono text-[10px] uppercase">v1.0 • local</div>
             </div>
           </div>
         </section>
@@ -306,7 +305,7 @@ export default function Home() {
             <div className="hidden lg:flex items-center justify-center">
               <div className="w-full max-w-sm bg-white border-[3px] border-black p-6 brutal-shadow rotate-1">
                 <div className="bg-[#ffd400] border-b-2 border-black -mx-6 -mt-6 mb-6 px-4 py-2 flex justify-between">
-                  <span className="font-mono text-[10px] font-black uppercase">leaderboard.exe</span>
+                  <span className="font-mono text-[10px] font-black uppercase">leaderboard.data</span>
                   <span className="font-mono text-[10px]">✕</span>
                 </div>
                 <svg
@@ -369,7 +368,6 @@ export default function Home() {
             >
               Start Free Run →
             </NavLink>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-black/60 mt-4">[keep hands on home row] • [caps lock: off]</p>
           </div>
         </section>
       </div>
@@ -426,7 +424,7 @@ export default function Home() {
         </div>
         <div className="max-w-7xl mx-auto px-4 py-4 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
           <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">© 2026 MLPILOT LABORATORY. ALL RIGHTS RESERVED.</span>
-          <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">wpm &gt; life</span>
+          <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">DATA → MODEL • LOCAL-FIRST</span>
         </div>
       </footer>
     </div>

@@ -192,7 +192,7 @@ export default function Cleaning() {
       {isRunning && (
         <div className="bg-surface border-2 border-primary p-8 brutal-shadow mt-8">
           <div className="flex items-center gap-4">
-            <div className="w-6 h-6 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-[3px] border-black border-t-transparent rounded-none animate-spin" />
             <span className="font-headline font-bold text-lg uppercase">Running cleaning...</span>
           </div>
         </div>
@@ -223,7 +223,7 @@ export default function Cleaning() {
       )}
 
       {cleaningRuns && cleaningRuns.length > 1 && !report && (
-        <div className="mt-8 bg-surface border-2 border-primary p-6">
+        <div className="mt-8 bg-surface border-2 border-primary p-6 brutal-shadow">
           <h3 className="font-headline font-black text-lg uppercase mb-4">Earlier Cleaning Runs</h3>
           <div className="space-y-2">
             {cleaningRuns.filter((r) => r.run_id !== latestRun?.run_id).map((r) => (
@@ -544,7 +544,7 @@ function SnapshotCard({ label, before, after }: { label: string; before: number;
         <span className="text-xs font-headline font-bold text-on-surface-variant">from {before.toLocaleString()}</span>
       </div>
       {diff !== 0 && (
-        <span className={`text-xs font-headline font-bold ${diff < 0 ? 'text-success' : 'text-secondary'}`}>
+        <span className={`text-xs font-headline font-bold ${diff < 0 ? 'text-success' : 'text-error'}`}>
           {diff < 0 ? '↓' : '↑'} {Math.abs(pct)}%
         </span>
       )}
