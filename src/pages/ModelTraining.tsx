@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
-import { useTrainModel, useJobs, useDeleteJob, useRecommendations } from '../modules/training/hooks/useTraining'
+import { useTrainModel, useJobs, useJob, useDeleteJob, useRecommendations } from '../modules/training/hooks/useTraining'
 import type { AlgorithmInfo, RecommendationItem } from '../core/api/training.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
@@ -194,7 +194,8 @@ export default function ModelTraining() {
     return <Badge variant={variants[status] ?? 'default'}>{status}</Badge>
   }
 
-  const activeJob = jobs.find((j) => j.id === activeJobId)
+  const { data: polledActiveJob } = useJob(activeJobId)
+  const activeJob = polledActiveJob ?? jobs.find((j) => j.id === activeJobId)
 
   return (
     <div className="p-8 lg:p-12">
