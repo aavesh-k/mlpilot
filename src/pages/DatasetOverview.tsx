@@ -54,12 +54,14 @@ export default function DatasetOverview() {
             <Badge variant={dataset.is_cleaned ? 'success' : 'warning'}>
               {dataset.is_cleaned ? 'Cleaned' : 'Uncleaned'}
             </Badge>
-            <NavLink
-              to={`/cleaning?datasetId=${dataset.id}`}
-              className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow"
-            >
-              {dataset.is_cleaned ? 'Re-Clean Dataset' : 'Clean Dataset First'}
-            </NavLink>
+            {dataset.is_cleaned && (
+              <NavLink
+                to={`/cleaning?datasetId=${dataset.id}`}
+                className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow"
+              >
+                Re-Clean Dataset
+              </NavLink>
+            )}
             {dataset.is_cleaned ? (
               <NavLink
                 to={`/preprocessing?datasetId=${dataset.id}`}
