@@ -171,8 +171,8 @@ export default function Results() {
     try {
       const res = await trainingApi.compare(selectedCompareIds)
       setCompareData(res)
-    } catch (err) {
-      console.error(err)
+    } catch {
+      // handled via compareData null + loading state; no console noise in prod
     } finally {
       setCompareLoading(false)
     }
@@ -712,7 +712,7 @@ export default function Results() {
                       </div>
 
                       {scoreFile && (
-                        <Button variant="primary" className="w-full brutal-shadow" onClick={handlePredict} disabled={scoreLoading}>
+                        <Button variant="primary" className="w-full brutal-shadow" onClick={handlePredict} disabled={scoreLoading} title={scoreLoading ? 'Generating predictions — please wait' : undefined} aria-busy={scoreLoading}>
                           {scoreLoading ? 'Generating Predictions…' : 'Generate Predictions'}
                         </Button>
                       )}

@@ -297,7 +297,7 @@ export default function Preprocessing() {
         subtitle="Select target column, configure encoding/scaling/split, and execute."
         action={
           cleanedDatasets.length > 0 ? (
-            <Button variant="primary" size="sm" onClick={handleCreateNew} disabled={editing}>
+            <Button variant="primary" size="sm" onClick={handleCreateNew} disabled={editing} title={editing ? 'Finish or cancel current edit first' : undefined}>
               + New Pipeline
             </Button>
           ) : undefined
@@ -307,17 +307,26 @@ export default function Preprocessing() {
       {editing && (
         <div className="mb-10 max-w-4xl">
           <div className="flex gap-2 mb-6 border-b-2 border-primary pb-2">
-            {(['select-columns', 'config', 'review'] as const).map((s, i) => (
-              <button
-                key={s}
-                onClick={() => setStep(s)}
-                className={`px-4 py-2 font-headline font-bold text-xs uppercase transition-colors ${
-                  step === s ? 'bg-primary text-on-primary' : 'text-on-surface-variant hover:text-primary'
-                }`}
-              >
-                {i + 1}. {s === 'select-columns' ? 'Target & Columns' : s === 'config' ? 'Config' : 'Review & Execute'}
-              </button>
-            ))}
+            {(['select-columns', 'config', 'review'] as const).map((s, i) => {
+              const isConfigLocked = !selectedDatasetId || !targetColumn
+              const isReviewLocked = !targetColumn
+              const locked = (s === 'config' && isConfigLocked) || (s === 'review' && isReviewLocked)
+              const reason = s === 'config' ? (!selectedDatasetId ? 'Select a dataset and target column first' : !targetColumn ? 'Select a target column first' : undefined) : s === 'review' ? (!targetColumn ? 'Select a target column first' : undefined) : undefined
+              return (
+                <button
+                  key={s}
+                  onClick={() => !locked && setStep(s)}
+                  disabled={locked}
+                  title={locked ? reason : undefined}
+                  aria-disabled={locked}
+                  className={`px-4 py-2 font-headline font-bold text-xs uppercase transition-colors ${
+                    step === s ? 'bg-primary text-on-primary' : locked ? 'text-on-surface-variant/30 cursor-not-allowed' : 'text-on-surface-variant hover:text-primary'
+                  }`}
+                >
+                  {i + 1}. {s === 'select-columns' ? 'Target & Columns' : s === 'config' ? 'Config' : 'Review & Execute'}
+                </button>
+              )
+            })}
           </div>
 
           {step === 'select-columns' && (
@@ -465,8 +474,8 @@ export default function Preprocessing() {
                 {selectedPipelineIds.length} selected
               </span>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedPipelineIds([])} disabled={bulkDeleting}>Clear</Button>
-                <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting}>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedPipelineIds([])} disabled={bulkDeleting} title={bulkDeleting ? 'Deleting — please wait' : 'Clear selection'}>Clear Selection</Button>
+                <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting} title={bulkDeleting ? 'Deleting — please wait' : `Delete ${selectedPipelineIds.length} selected`}>
                   {bulkDeleting ? 'Deleting…' : `Delete Selected (${selectedPipelineIds.length})`}
                 </Button>
               </div>
@@ -522,8 +531,9 @@ export default function Preprocessing() {
                           size="sm"
                           onClick={() => executePipeline.mutate(p.id)}
                           disabled={executePipeline.isPending}
+                          title={executePipeline.isPending ? 'Executing pipeline — please wait' : undefined}
                         >
-                          Execute
+                          {executePipeline.isPending ? 'Executing…' : 'Execute'}
                         </Button>
                       </>
                     ) : p.status === 'completed' ? (
@@ -736,7 +746,7 @@ function SelectColumnsStep({
         </div>
       )}
 
-      <Button variant="primary" onClick={onNext} disabled={!targetColumn}>
+      <Button variant="primary" onClick={onNext} disabled={!targetColumn} title={!targetColumn ? 'Select a target column to continue' : undefined}>
         Next: Configure Pipeline
       </Button>
     </div>
@@ -1116,8 +1126,8 @@ function ReviewStep({
 
       <div className="flex gap-4">
         <Button variant="ghost" onClick={onPrev}>Back</Button>
-        <Button variant="primary" onClick={onExecute} disabled={isPending}>
-          {isPending ? 'Saving & Executing...' : 'Execute Pipeline'}
+        <Button variant="primary" onClick={onExecute} disabled={isPending} title={isPending ? 'Saving & executing — please wait' : undefined}>
+          {isPending ? 'Saving & Executing…' : 'Execute Pipeline'}
         </Button>
       </div>
     </div>

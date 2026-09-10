@@ -153,6 +153,7 @@ export default function Cleaning() {
                 variant="primary"
                 size="sm"
                 disabled={!latestCleanedDatasetId}
+                title={!latestCleanedDatasetId ? 'No cleaned dataset found — it may have been deleted' : undefined}
                 onClick={() => latestCleanedDatasetId && navigate(`/datasets/${latestCleanedDatasetId}`)}
               >
                 Open Cleaned Dataset
@@ -371,8 +372,8 @@ function CleaningConfigPanel({
         </div>
 
         <div className="mt-8 flex gap-4">
-          <Button variant="primary" size="lg" onClick={onRun} disabled={isRunning} className="w-full sm:w-auto">
-            {isRunning ? 'Running...' : 'Run Cleaning'}
+          <Button variant="primary" size="lg" onClick={onRun} disabled={isRunning} title={isRunning ? 'Cleaning in progress — please wait' : undefined} className="w-full sm:w-auto">
+            {isRunning ? 'Running…' : 'Run Cleaning'}
           </Button>
         </div>
       </div>
