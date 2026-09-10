@@ -1,8 +1,9 @@
 import { useMemo } from "react"
 import { useLocation, useSearchParams } from "react-router-dom"
-import { useDatasets } from "../../modules/datasets/hooks/useDatasets"
-import { usePipelines } from "../../modules/pipelines/hooks/usePipelines"
-import { useJobs, useModels } from "../../modules/training/hooks/useTraining"
+import { useQuery } from "@tanstack/react-query"
+import { datasetsApi } from "../../core/api/datasets.api"
+import { pipelinesApi } from "../../core/api/pipelines.api"
+import { trainingApi } from "../../core/api/training.api"
 
 export type WorkflowStepId = "upload" | "clean" | "preprocess" | "train" | "compare" | "predict"
 
@@ -23,50 +24,143 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
   { id: "preprocess", label: "Preprocess", shortLabel: "Preproc", icon: "account_tree", to: "/preprocessing", description: "Encode, scale, split" },
   { id: "train", label: "Train", shortLabel: "Train", icon: "model_training", to: "/training", description: "Train 10 algorithms with CV" },
   { id: "compare", label: "Compare", shortLabel: "Compare", icon: "leaderboard", to: "/compare", description: "Leaderboard and metrics" },
-  { id: "predict", label: "Predict", shortLabel: "Predict", icon: "lab_profile", to: "/results", description: "Score new data & export" },
+  { id: "predict", label: "Predict", shortLabel: "Predict", icon: "science", to: "/results", description: "Score new data & export" },
 ]
 
 function isRouteActive(pathname: string, to: string): boolean {
   if (to === "/datasets" && pathname.startsWith("/datasets")) return true
+  if (to === "/compare" && pathname.startsWith("/visualizations")) return true
   return pathname === to || pathname.startsWith(to + "/")
+}
+
+function extractDatasetIdFromPath(pathname: string): string | null {
+  const m = pathname.match(/^\/datasets\/([^/?#]+)/)
+  if (m && m[1] !== "demo") return m[1]
+  return null
 }
 
 export function useWorkflowProgress() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
 
-  const { data: datasetsData } = useDatasets(1)
-  const { data: pipelinesData } = usePipelines(1)
-  const { data: modelsData } = useModels(1)
-  const { data: jobsData } = useJobs(1)
+  // Fetch with larger per_page so per-dataset filtering is accurate (avoids 20-item pagination limit)
+  const { data: datasetsData } = useQuery({
+    queryKey: ["datasets", 1, 100],
+    queryFn: () => datasetsApi.list(1, 100),
+  })
+  const { data: pipelinesData } = useQuery({
+    queryKey: ["pipelines", 1, 100],
+    queryFn: () => pipelinesApi.list(1, 100),
+    refetchInterval: (query) => {
+      const items: any[] = (query.state.data as any)?.items ?? []
+      return items.some((p: any) => p.status === "running") ? 1500 : false
+    },
+  })
+  const { data: modelsData } = useQuery({
+    queryKey: ["models", 1, 100],
+    queryFn: () => trainingApi.listModels(1, 100),
+  })
+  const { data: jobsData } = useQuery({
+    queryKey: ["jobs", 1, 100],
+    queryFn: () => trainingApi.listJobs(1, 100),
+    refetchInterval: (query) => {
+      const items: any[] = (query.state.data as any)?.items ?? []
+      return items.some((j: any) => j.status === "running" || j.status === "queued") ? 2000 : false
+    },
+  })
 
-  const datasets = datasetsData?.items ?? []
-  const pipelines = pipelinesData?.items ?? []
-  const models = modelsData?.items ?? []
-  const jobs = jobsData?.items ?? []
+  const datasets: any[] = datasetsData?.items ?? []
+  const pipelines: any[] = pipelinesData?.items ?? []
+  const models: any[] = modelsData?.items ?? []
+  const jobs: any[] = jobsData?.items ?? []
 
-  const hasDataset = (datasetsData?.total ?? datasets.length) > 0
-  const hasCleanedDataset = datasets.some((d: any) => d.is_cleaned === true)
-  const hasCompletedPipeline = pipelines.some((p: any) => p.status === "completed")
-  const hasCompletedModel = models.some((m: any) => m.status === "completed")
-  const hasAnyModel = (modelsData?.total ?? models.length) > 0
-  const hasRunningJob = jobs.some((j: any) => j.status === "running" || j.status === "queued")
-  const hasRunningPipeline = pipelines.some((p: any) => p.status === "running")
-
+  // ---- Global flags (for upload step and badges) ----
+  const hasDatasetGlobal = (datasetsData?.total ?? datasets.length) > 0
   const latestDataset = datasets[0] as any | undefined
-  const latestCleanedDataset = datasets.find((d: any) => d.is_cleaned) as any | undefined
+
+  // ---- Per-dataset context ----
+  // Priority: ?datasetId > /datasets/:id path > ?pipelineId's dataset > latest dataset
+  const pathDatasetId = extractDatasetIdFromPath(location.pathname)
+  const pipelineIdFromParams = searchParams.get("pipelineId") ?? searchParams.get("pipeline")
+  const pipelineForId = pipelineIdFromParams ? pipelines.find((p: any) => p.id === pipelineIdFromParams) as any : null
+  const datasetIdFromPipeline = pipelineForId?.dataset_id ?? null
+
+  const contextDatasetId = useMemo(() => {
+    return (
+      searchParams.get("datasetId") ??
+      pathDatasetId ??
+      datasetIdFromPipeline ??
+      latestDataset?.id ??
+      null
+    )
+  }, [searchParams, pathDatasetId, datasetIdFromPipeline, latestDataset?.id])
+
+  const contextDataset = useMemo(
+    () => datasets.find((d: any) => d.id === contextDatasetId) as any | undefined,
+    [datasets, contextDatasetId],
+  )
+
+  // Lineage: original + all cleaned descendants (source_dataset_id chain)
+  const lineageIds = useMemo(() => {
+    if (!contextDatasetId) return new Set<string>()
+    const ids = new Set<string>([contextDatasetId])
+    let added = true
+    while (added) {
+      added = false
+      for (const d of datasets as any[]) {
+        const src = (d as any).source_dataset_id
+        if (src && ids.has(src) && !ids.has(d.id)) {
+          ids.add(d.id)
+          added = true
+        }
+      }
+    }
+    return ids
+  }, [datasets, contextDatasetId])
+
+  const hasCleanedForContext = useMemo(() => {
+    for (const id of lineageIds) {
+      const ds = datasets.find((d: any) => d.id === id) as any
+      if (ds?.is_cleaned) return true
+    }
+    return !!contextDataset?.is_cleaned
+  }, [lineageIds, datasets, contextDataset])
+
+  // Per-dataset derived collections (via lineage)
+  const pipelinesForContext = useMemo(
+    () => (lineageIds.size ? pipelines.filter((p: any) => lineageIds.has(p.dataset_id)) : []),
+    [pipelines, lineageIds],
+  )
+  const modelsForContext = useMemo(() => {
+    if (!lineageIds.size) return []
+    const pipeIds = new Set(pipelinesForContext.map((p: any) => p.id))
+    return models.filter(
+      (m: any) => lineageIds.has(m.dataset_id) || (m.pipeline_id && pipeIds.has(m.pipeline_id)),
+    )
+  }, [models, lineageIds, pipelinesForContext])
+  const jobsForContext = useMemo(() => {
+    if (!lineageIds.size) return []
+    const pipeIds = new Set(pipelinesForContext.map((p: any) => p.id))
+    const modelIds = new Set(modelsForContext.map((m: any) => m.id))
+    return jobs.filter((j: any) => {
+      if (j.pipeline_id && pipeIds.has(j.pipeline_id)) return true
+      if (j.model_id && modelIds.has(j.model_id)) return true
+      if (j.model_ids && Array.isArray(j.model_ids) && j.model_ids.some((id: string) => modelIds.has(id))) return true
+      return false
+    })
+  }, [jobs, lineageIds, pipelinesForContext, modelsForContext])
+
+  const hasCompletedPipelineForContext = pipelinesForContext.some((p: any) => p.status === "completed")
+  const hasCompletedModelForContext = modelsForContext.some((m: any) => m.status === "completed")
+  const hasRunningPipelineForContext = pipelinesForContext.some((p: any) => p.status === "running")
+  const hasRunningJobForContext =
+    modelsForContext.some((m: any) => m.status === "running" || m.status === "queued") ||
+    jobsForContext.some((j: any) => j.status === "running" || j.status === "queued")
+
+  // Global counts for badges
   const latestCompletedPipeline = pipelines.find((p: any) => p.status === "completed") as any | undefined
   const latestModel = models.find((m: any) => m.status === "completed") as any | undefined
 
-  // Context preservation: prefer URL params, else latest entities
-  const context = useMemo(() => {
-    const datasetId = searchParams.get("datasetId") ?? latestDataset?.id ?? latestCleanedDataset?.id ?? null
-    const pipelineId = searchParams.get("pipelineId") ?? searchParams.get("pipeline") ?? latestCompletedPipeline?.id ?? null
-    const modelId = searchParams.get("modelId") ?? latestModel?.id ?? null
-    return { datasetId, pipelineId, modelId }
-  }, [searchParams, latestDataset, latestCleanedDataset, latestCompletedPipeline, latestModel])
-
-  // Counts for badges — better than UX.md (shows live inventory)
   const counts = useMemo(
     () => {
       const dsItems = datasetsData?.items ?? []
@@ -86,25 +180,52 @@ export function useWorkflowProgress() {
     [datasetsData, pipelinesData, modelsData, jobsData],
   )
 
+  // Per-dataset counts for step badges / context
+  const contextCounts = useMemo(
+    () => ({
+      pipelines: pipelinesForContext.length,
+      pipelinesCompleted: pipelinesForContext.filter((p: any) => p.status === "completed").length,
+      models: modelsForContext.length,
+      modelsCompleted: modelsForContext.filter((m: any) => m.status === "completed").length,
+    }),
+    [pipelinesForContext, modelsForContext],
+  )
+
+  // Full context object (dataset + pipeline + model) for navigation
+  const context = useMemo(() => {
+    // Prefer pipeline that belongs to context dataset
+    const pipelineForContext = pipelinesForContext.find((p: any) => p.status === "completed") ?? pipelinesForContext[0] ?? latestCompletedPipeline
+    const modelForContext = modelsForContext.find((m: any) => m.status === "completed") ?? modelsForContext[0] ?? latestModel
+    return {
+      datasetId: contextDatasetId,
+      datasetName: contextDataset?.name ?? null,
+      pipelineId: pipelineForContext?.id ?? pipelineIdFromParams ?? null,
+      modelId: modelForContext?.id ?? null,
+      hasDataset: !!contextDataset,
+      hasCleaned: !!contextDataset?.is_cleaned,
+    }
+  }, [contextDatasetId, contextDataset, pipelinesForContext, modelsForContext, latestCompletedPipeline, latestModel, pipelineIdFromParams])
+
   const getStepLockedReason = (stepId: WorkflowStepId): string | null => {
     switch (stepId) {
       case "upload":
         return null
       case "clean":
-        if (!hasDataset) return "Upload a dataset first"
+        if (!hasDatasetGlobal) return "Upload a dataset first"
+        if (!contextDatasetId) return "Select a dataset"
         return null
       case "preprocess":
-        if (!hasDataset) return "Upload a dataset first"
-        if (!hasCleanedDataset) return "Clean your dataset first"
+        if (!hasDatasetGlobal) return "Upload a dataset first"
+        if (!hasCleanedForContext) return `Clean "${contextDataset?.name ?? "this dataset"}" first`
         return null
       case "train":
-        if (!hasCompletedPipeline) return "Complete a preprocessing pipeline first"
+        if (!hasCompletedPipelineForContext) return `Complete a preprocessing pipeline for "${contextDataset?.name ?? "this dataset"}" first`
         return null
       case "compare":
-        if (!hasCompletedModel) return "Train a model first"
+        if (!hasCompletedModelForContext) return `Train a model for "${contextDataset?.name ?? "this dataset"}" first`
         return null
       case "predict":
-        if (!hasCompletedModel) return "Train a model first"
+        if (!hasCompletedModelForContext) return `Train a model for "${contextDataset?.name ?? "this dataset"}" first`
         return null
       default:
         return null
@@ -116,26 +237,25 @@ export function useWorkflowProgress() {
   const isDone = (stepId: WorkflowStepId): boolean => {
     switch (stepId) {
       case "upload":
-        return hasDataset
+        return hasDatasetGlobal
       case "clean":
-        return hasCleanedDataset
+        return hasCleanedForContext
       case "preprocess":
-        return hasCompletedPipeline
+        return hasCompletedPipelineForContext
       case "train":
-        return hasCompletedModel
+        return hasCompletedModelForContext
       case "compare":
-        return hasAnyModel && hasCompletedModel
+        return hasCompletedModelForContext
       case "predict":
-        return hasAnyModel && hasCompletedModel
+        return hasCompletedModelForContext
       default:
         return false
     }
   }
 
   const isProcessing = (stepId: WorkflowStepId): boolean => {
-    if (stepId === "clean" && hasDataset && !hasCleanedDataset) return false // cleaning is manual opt-in, not polling
-    if (stepId === "preprocess" && hasRunningPipeline) return true
-    if (stepId === "train" && hasRunningJob) return true
+    if (stepId === "preprocess" && hasRunningPipelineForContext) return true
+    if (stepId === "train" && hasRunningJobForContext) return true
     return false
   }
 
@@ -178,7 +298,23 @@ export function useWorkflowProgress() {
         }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [location.pathname, hasDataset, hasCleanedDataset, hasCompletedPipeline, hasCompletedModel, hasAnyModel, hasRunningJob, hasRunningPipeline, context.datasetId, context.pipelineId, context.modelId, datasetsData, pipelinesData, modelsData, jobsData],
+    [
+      location.pathname,
+      hasDatasetGlobal,
+      hasCleanedForContext,
+      hasCompletedPipelineForContext,
+      hasCompletedModelForContext,
+      hasRunningJobForContext,
+      hasRunningPipelineForContext,
+      context.datasetId,
+      context.pipelineId,
+      context.modelId,
+      contextDataset?.name,
+      datasetsData,
+      pipelinesData,
+      modelsData,
+      jobsData,
+    ],
   )
 
   const activeStep = steps.find((s) => s.state === "active")
@@ -203,11 +339,18 @@ export function useWorkflowProgress() {
     nextStep,
     context,
     counts,
-    hasDataset,
-    hasCleanedDataset,
-    hasCompletedPipeline,
-    hasCompletedModel,
-    hasRunningJob,
-    hasRunningPipeline,
+    contextCounts,
+    contextDataset,
+    // Back-compat global aliases + per-context flags
+    hasDataset: hasDatasetGlobal,
+    hasCleanedDataset: hasCleanedForContext,
+    hasCompletedPipeline: hasCompletedPipelineForContext,
+    hasCompletedModel: hasCompletedModelForContext,
+    hasRunningJob: hasRunningJobForContext,
+    hasRunningPipeline: hasRunningPipelineForContext,
+    hasDatasetGlobal,
+    hasCleanedForContext,
+    hasCompletedPipelineForContext,
+    hasCompletedModelForContext,
   }
 }

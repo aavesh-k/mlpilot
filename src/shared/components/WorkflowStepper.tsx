@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom"
 import { useWorkflowProgress } from "../hooks/useWorkflowProgress"
 
 export default function WorkflowStepper() {
-  const { steps } = useWorkflowProgress()
+  const { steps, context, contextCounts, counts } = useWorkflowProgress()
 
   return (
     <nav
@@ -10,7 +10,31 @@ export default function WorkflowStepper() {
       className="w-full border-b-[3px] border-black bg-white hidden lg:block"
     >
       <div className="mx-auto max-w-7xl px-4">
-        <ol className="flex items-center gap-0 py-2 overflow-x-auto scrollbar-thin">
+        {/* Better than UX.md: show which dataset's progress is displayed + live per-dataset counts */}
+        <div className="flex items-center gap-2 py-1.5 text-[10px] font-mono uppercase tracking-widest">
+          <span className="font-black flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-[12px]">database</span>
+            {context.datasetName ? (
+              <span className="bg-[#ffd400] border border-black px-1.5 py-0.5">{context.datasetName}</span>
+            ) : (
+              <span className="text-black/60">No dataset — upload first</span>
+            )}
+          </span>
+          {context.datasetId && (
+            <span className="hidden md:flex items-center gap-1.5 text-black/60">
+              <span>•</span>
+              <span className="hidden lg:inline">
+                {contextCounts.pipelinesCompleted}/{contextCounts.pipelines} pipelines
+              </span>
+              <span>•</span>
+              <span className="hidden lg:inline">
+                {contextCounts.modelsCompleted}/{contextCounts.models} models
+              </span>
+              <span className="hidden xl:inline text-black/40">• {counts.datasets} total datasets</span>
+            </span>
+          )}
+        </div>
+        <ol className="flex items-center gap-0 pb-2 overflow-x-auto scrollbar-thin">
           {steps.map((step, idx) => {
             const isLast = idx === steps.length - 1
             return (
@@ -134,11 +158,22 @@ function StepChip({
   )
 }
 
-// Mobile variant — horizontal scroll snap, compact
+// Mobile variant — horizontal scroll snap, compact + dataset context
 export function WorkflowStepperMobile() {
-  const { steps } = useWorkflowProgress()
+  const { steps, context, contextCounts } = useWorkflowProgress()
   return (
     <nav aria-label="ML workflow progress" className="w-full border-b-2 border-black bg-white lg:hidden">
+      <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-widest flex items-center gap-1.5 border-b border-black/10">
+        <span className="material-symbols-outlined text-[12px]">database</span>
+        <span className="truncate font-black">
+          {context.datasetName ? context.datasetName : "No dataset"}
+        </span>
+        {context.datasetId && (
+          <span className="text-black/50 truncate">
+            • {contextCounts.pipelinesCompleted}/{contextCounts.pipelines} pipes • {contextCounts.modelsCompleted}/{contextCounts.models} models
+          </span>
+        )}
+      </div>
       <ol className="flex gap-2 px-3 py-2 overflow-x-auto snap-x snap-mandatory scrollbar-thin">
         {steps.map((step, idx) => (
           <li key={step.id} className="snap-start shrink-0">
