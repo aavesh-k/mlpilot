@@ -93,7 +93,23 @@ export default function ModelComparison() {
     )
   }
 
+  const hasRunningModels = allModels.some((m) => m.status === "running" || m.status === "queued")
+
   if (completedModels.length === 0) {
+    if (hasRunningModels) {
+      return (
+        <div className="p-8 lg:p-12">
+          <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
+          <div className="bg-surface border-2 border-primary p-8 brutal-shadow flex items-center gap-4">
+            <div className="w-6 h-6 border-[3px] border-black border-t-transparent animate-spin" />
+            <div>
+              <p className="font-headline font-black text-sm uppercase">Training in progress</p>
+              <p className="text-xs text-on-surface-variant">Models are being trained. Leaderboard will populate as they complete — this page auto-refreshes.</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="p-8 lg:p-12">
         <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />

@@ -59,6 +59,10 @@ export function useWorkflowProgress() {
   const { data: modelsData } = useQuery({
     queryKey: ["models", 1, 100],
     queryFn: () => trainingApi.listModels(1, 100),
+    refetchInterval: (query) => {
+      const items: any[] = (query.state.data as any)?.items ?? []
+      return items.some((m: any) => m.status === "running" || m.status === "queued") ? 2000 : false
+    },
   })
   const { data: jobsData } = useQuery({
     queryKey: ["jobs", 1, 100],
@@ -245,9 +249,10 @@ export function useWorkflowProgress() {
       case "train":
         return hasCompletedModelForContext
       case "compare":
-        return hasCompletedModelForContext
+        // Available as soon as a model exists; never auto-done (needs user to visit)
+        return false
       case "predict":
-        return hasCompletedModelForContext
+        return false
       default:
         return false
     }

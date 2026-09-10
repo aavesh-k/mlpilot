@@ -5,6 +5,11 @@ export function useModels(page = 1) {
   return useQuery({
     queryKey: ['models', page],
     queryFn: () => trainingApi.listModels(page),
+    refetchInterval: (query) => {
+      const items = (query.state.data as any)?.items ?? []
+      const hasRunning = items.some((m: any) => m.status === 'running' || m.status === 'queued')
+      return hasRunning ? 2000 : false
+    },
   })
 }
 
