@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
-import { useTrainModel, useJobs, useDeleteJob } from '../modules/training/hooks/useTraining'
-import type { AlgorithmInfo } from '../core/api/training.api'
+import { useTrainModel, useJobs, useDeleteJob, useRecommendations } from '../modules/training/hooks/useTraining'
+import type { AlgorithmInfo, RecommendationItem } from '../core/api/training.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
 import { ErrorState } from '../shared/components/ErrorState'
@@ -63,6 +63,38 @@ export default function ModelTraining() {
   const deleteJob = useDeleteJob()
   const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<string | null>(null)
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([])
+  const [confirmBulkDeleteJobs, setConfirmBulkDeleteJobs] = useState(false)
+  const [bulkDeletingJobs, setBulkDeletingJobs] = useState(false)
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
+  const [monitorExpanded, setMonitorExpanded] = useState(false)
+
+  const toggleJobSelect = (id: string) => {
+    setSelectedJobIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+  const toggleSelectAllJobs = () => {
+    const pageIds = jobs.map((j) => j.id)
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedJobIds.includes(id))
+    if (allSelected) {
+      setSelectedJobIds((prev) => prev.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelectedJobIds((prev) => Array.from(new Set([...prev, ...pageIds])))
+    }
+  }
+  const handleBulkDeleteJobs = async () => {
+    if (selectedJobIds.length === 0) return
+    setBulkDeletingJobs(true)
+    try {
+      await Promise.all(selectedJobIds.map((id) => trainingApi.deleteJob(id)))
+      setSelectedJobIds([])
+      refetch()
+    } catch (e) {
+      setCancelError(toApiError(e).message)
+    } finally {
+      setBulkDeletingJobs(false)
+      setConfirmBulkDeleteJobs(false)
+    }
+  }
   const { data: algorithmsData } = useQuery({
     queryKey: ['algorithms'],
     queryFn: () => trainingApi.getAlgorithms(),
@@ -73,6 +105,13 @@ export default function ModelTraining() {
   const completedPipelines = pipelines.filter((p) => p.status === 'completed')
   const jobs = jobsData?.items ?? []
 
+  const { data: recommendationData, isLoading: recLoading } = useRecommendations(
+    selectedPipelineId ? { pipeline_id: selectedPipelineId } : undefined
+  )
+  const recMap = new Map<string, RecommendationItem>(
+    (recommendationData?.recommendations ?? []).map((r) => [r.algorithm, r])
+  )
+
   useEffect(() => {
     if (!selectedPipelineId && completedPipelines.length > 0) {
       const match = paramPipelineId && completedPipelines.some((p) => p.id === paramPipelineId)
@@ -82,25 +121,32 @@ export default function ModelTraining() {
 
   // Resolve selected pipeline details
   const selectedPipeline = completedPipelines.find((p) => p.id === selectedPipelineId)
-  const problemType = selectedPipeline?.problem_type ?? 'classification'
-  const rowCount = selectedPipeline?.train_rows ?? 0
-  const isLargeDataset = rowCount > 10000
+  const problemType = (recommendationData?.problem_type as string) ?? selectedPipeline?.problem_type ?? 'classification'
 
   const availableAlgos = problemType === 'classification' ? CLASSIFICATION_ALGOS : REGRESSION_ALGOS
 
-  // Automatically check all by default when pipeline changes
+  // Auto-select recommended algorithms when recommendations arrive (first load or pipeline switch)
+  const [hasAutoApplied, setHasAutoApplied] = useState(false)
+  useEffect(() => {
+    if (recommendationData?.recommended_algorithms && selectedPipelineId) {
+      // Only auto-apply on fresh pipeline switch or initial load, not after manual toggles
+      const isAllSelected =
+        selectedAlgos.length > 0 &&
+        selectedAlgos.length === availableAlgos.length &&
+        selectedAlgos.every((id) => availableAlgos.some((a) => a.id === id))
+      const shouldApply = selectedAlgos.length === 0 || (isAllSelected && !hasAutoApplied)
+      if (shouldApply) {
+        setSelectedAlgos(recommendationData.recommended_algorithms)
+        setHasAutoApplied(true)
+      }
+    }
+  }, [recommendationData, selectedPipelineId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset auto-apply flag when pipeline changes
   const handleSelectPipeline = (id: string) => {
     setSelectedPipelineId(id)
-    const pipeline = completedPipelines.find((p) => p.id === id)
-    if (pipeline) {
-      const pType = pipeline.problem_type ?? 'classification'
-      const algos = pType === 'classification'
-        ? CLASSIFICATION_ALGOS.map((a) => a.id)
-        : REGRESSION_ALGOS.map((a) => a.id)
-      setSelectedAlgos(algos)
-    } else {
-      setSelectedAlgos([])
-    }
+    setHasAutoApplied(false)
+    setSelectedAlgos([])
     setValidationError('')
   }
 
@@ -185,48 +231,172 @@ export default function ModelTraining() {
 
             {selectedPipelineId && (
               <>
+                {/* Dataset-driven recommendations */}
+                {recLoading && (
+                  <div className="mb-6 border-2 border-dashed border-primary/30 p-4 flex items-center gap-2 text-xs font-headline font-bold uppercase text-on-surface-variant">
+                    <span className="material-symbols-outlined animate-spin text-sm">progress_activity</span>
+                    Analysing dataset to recommend models…
+                  </div>
+                )}
+                {recommendationData && (
+                  <div className="mb-6 border-2 border-primary bg-primary-container/15 p-4 brutal-shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h4 className="font-headline font-black text-xs uppercase tracking-tight flex items-center gap-2">
+                          <span className="material-symbols-outlined text-sm text-tertiary">lightbulb</span>
+                          Recommended for your dataset
+                        </h4>
+                        <p className="text-[11px] font-body text-on-surface-variant mt-1 leading-snug">
+                          {recommendationData.profile.rows.toLocaleString()} rows · {recommendationData.profile.columns} cols · {recommendationData.problem_type} · ranking by{' '}
+                          <span className="font-bold text-primary">{recommendationData.recommended_metric}</span>
+                          {recommendationData.profile.imbalanced && recommendationData.profile.imbalance_ratio ? ` · imbalanced ${recommendationData.profile.imbalance_ratio}:1` : ''}
+                        </p>
+                        {recommendationData.profile.notes.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {recommendationData.profile.notes.slice(0, 3).map((note) => (
+                              <span key={note} className="inline-flex items-center border border-primary/40 bg-surface px-2 py-0.5 text-[9px] font-headline font-bold uppercase">
+                                {note}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[10px] font-body text-on-surface-variant mt-2">
+                          Suggested: <span className="font-headline font-bold">{recommendationData.recommended_algorithms.join(', ').replaceAll('_', ' ')}</span>
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => setSelectedAlgos(recommendationData.recommended_algorithms)}
+                        className="shrink-0 uppercase text-[11px] font-black px-3"
+                      >
+                        Use Recommended ({recommendationData.recommended_algorithms.length})
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Select Algorithms */}
                 <div className="mb-6">
-                  <label className="font-headline font-bold text-xs uppercase block mb-3">Target Algorithms</label>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="font-headline font-bold text-xs uppercase">Target Algorithms</label>
+                    {recommendationData && (
+                      <span className="text-[10px] font-body text-on-surface-variant">
+                        {selectedAlgos.length}/{availableAlgos.length} selected · est. total {(() => {
+                          const estMap: Record<string, number> = {'5-15s':10,'10-30s':20,'15-40s':28,'15-45s':30,'20-60s':40,'30-90s':60,'1-3m':120,'1-4m':150,'2-8m+':300,'3-10m+':400}
+                          const total = selectedAlgos.reduce((acc, id) => acc + (estMap[recMap.get(id)?.estimated_time ?? '15-40s'] ?? 30), 0)
+                          if (total < 60) return `${total}s`
+                          return `${Math.round(total/60)}m`
+                        })()}
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {availableAlgos.map((algo) => {
                       const isSelected = selectedAlgos.includes(algo.id)
-                      const showSlowWarning = algo.isSlow && isLargeDataset
+                      const rec = recMap.get(algo.id)
+                      const suitability = rec?.suitability
+                      const isNotRecommended = suitability === 'not_recommended'
                       return (
                         <div
                           key={algo.id}
                           onClick={() => handleToggleAlgo(algo.id)}
-                          className={`border-2 p-4 cursor-pointer relative select-none transition-all duration-200 ${
+                          className={`border-2 p-4 cursor-pointer relative select-none transition-all duration-200 flex flex-col gap-1.5 ${
                             isSelected
-                              ? 'border-primary bg-primary-container/10 brutal-shadow-sm'
-                              : 'border-primary/30 bg-surface/50 opacity-60 hover:opacity-100 hover:border-primary/80'
+                              ? suitability === 'recommended'
+                                ? 'border-tertiary bg-tertiary/10 brutal-shadow-sm'
+                                : suitability === 'not_recommended'
+                                  ? 'border-primary bg-primary-container/5 brutal-shadow-sm opacity-80'
+                                  : 'border-primary bg-primary-container/10 brutal-shadow-sm'
+                              : isNotRecommended
+                                ? 'border-primary/20 bg-surface/30 opacity-70 hover:opacity-90 hover:border-primary/40'
+                                : 'border-primary/30 bg-surface/50 opacity-75 hover:opacity-100 hover:border-primary/80'
                           }`}
                         >
-                          <div className="flex items-start gap-2">
-                            <span className="material-symbols-outlined text-md font-bold mt-0.5">
-                              {isSelected ? 'check_box' : 'check_box_outline_blank'}
-                            </span>
-                            <div>
-                              <span className="font-headline font-bold text-sm block">{algo.label}</span>
-                              <span className="text-[10px] text-on-surface-variant font-medium block mt-0.5">{algo.description}</span>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2 flex-1">
+                              <span className="material-symbols-outlined text-md font-bold mt-0.5">
+                                {isSelected ? 'check_box' : 'check_box_outline_blank'}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-headline font-bold text-sm block leading-tight">{algo.label}</span>
+                                <span className="text-[10px] text-on-surface-variant font-medium block mt-0.5 leading-snug">{algo.description}</span>
+                              </div>
                             </div>
+                            {rec && (
+                              <span
+                                className={`shrink-0 text-[8px] font-headline font-black uppercase px-1.5 py-0.5 border leading-none tracking-wide ${
+                                  suitability === 'recommended'
+                                    ? 'bg-[#22c55e] text-white border-[#16a34a]'
+                                    : suitability === 'consider'
+                                      ? 'bg-[#facc15] text-black border-black'
+                                      : 'bg-surface-variant text-on-surface-variant border-primary/30'
+                                }`}
+                              >
+                                {suitability === 'recommended' ? 'Recommended' : suitability === 'consider' ? 'Consider' : 'Not ideal'}
+                              </span>
+                            )}
                           </div>
-                          {showSlowWarning && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1 bg-[#ffd400] text-black border-2 border-black text-[9px] font-headline font-black px-1.5 py-0.5 uppercase">
-                              <span className="material-symbols-outlined text-[10px]">warning</span>
-                              Slow Model
+                          {rec && (
+                            <div className="flex items-center gap-2 flex-wrap mt-1">
+                              <span className="text-[10px] font-headline font-bold bg-surface border border-primary/30 px-1.5 py-0.5">
+                                {rec.score}/100
+                              </span>
+                              <span className="text-[10px] font-body text-on-surface-variant flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[11px]">schedule</span>
+                                {rec.estimated_time}
+                              </span>
+                              {algo.isSlow && rec.suitability === 'not_recommended' && (
+                                <span className="text-[9px] font-headline font-bold uppercase text-secondary flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[10px]">warning</span>
+                                  Slow on large data
+                                </span>
+                              )}
                             </div>
+                          )}
+                          {rec?.reasons && rec.reasons.length > 0 && (
+                            <ul className="mt-1 space-y-0.5">
+                              {rec.reasons.slice(0, 2).map((r) => (
+                                <li key={r} className="text-[10px] font-body text-on-surface-variant leading-snug flex gap-1">
+                                  <span className="text-tertiary mt-0.5">•</span>
+                                  <span className="flex-1">{r}</span>
+                                </li>
+                              ))}
+                            </ul>
                           )}
                         </div>
                       )
                     })}
                   </div>
-                  {isLargeDataset && (
-                    <p className="text-[11px] text-secondary font-headline font-bold mt-2 flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-xs">info</span>
-                      Large dataset detected ({rowCount.toLocaleString()} rows). SVM and KNN are flagged due to potential long runtimes.
-                    </p>
-                  )}
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAlgos(availableAlgos.map((a) => a.id))}
+                      className="text-[10px] font-headline font-bold uppercase underline decoration-dotted underline-offset-4 hover:text-tertiary"
+                    >
+                      Select all
+                    </button>
+                    <span className="text-[10px] text-on-surface-variant">·</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAlgos([])}
+                      className="text-[10px] font-headline font-bold uppercase underline decoration-dotted underline-offset-4 hover:text-tertiary"
+                    >
+                      Clear
+                    </button>
+                    {recommendationData && (
+                      <>
+                        <span className="text-[10px] text-on-surface-variant">·</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAlgos(recommendationData.recommended_algorithms)}
+                          className="text-[10px] font-headline font-bold uppercase text-tertiary underline decoration-solid underline-offset-4"
+                        >
+                          Reset to recommended
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* Additional Settings */}
@@ -347,10 +517,23 @@ export default function ModelTraining() {
           </div>
 
           {/* Job Live Monitor / Terminal */}
-          <div className="lg:col-span-5 flex flex-col h-full bg-surface border-2 border-primary p-6 brutal-shadow">
-            <h3 className="font-headline font-black text-xl uppercase mb-4 tracking-tight">Job Monitor</h3>
+          <div className={`lg:col-span-5 flex flex-col bg-surface border-2 border-primary p-6 brutal-shadow ${monitorExpanded ? 'lg:row-span-2' : ''}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-headline font-black text-xl uppercase tracking-tight">Job Monitor</h3>
+              {activeJob && (
+                <button
+                  onClick={() => setMonitorExpanded((v) => !v)}
+                  className="border-2 border-black bg-white px-3 py-1 font-mono text-[10px] font-black uppercase tracking-widest hover:bg-[#ffd400] btn-press flex items-center gap-1.5 shrink-0"
+                  aria-label={monitorExpanded ? 'Shrink logs' : 'Expand logs'}
+                  title={monitorExpanded ? 'Shrink' : 'Expand to fit history'}
+                >
+                  <span className="material-symbols-outlined text-sm leading-none">{monitorExpanded ? 'collapse_content' : 'expand_content'}</span>
+                  {monitorExpanded ? 'Shrink' : 'Expand'}
+                </button>
+              )}
+            </div>
             {activeJob ? (
-              <div className="flex-1 flex flex-col min-h-[300px]">
+              <div className="flex-1 flex flex-col min-h-0">
                 <div className="flex items-center justify-between mb-3 border-b-2 border-primary pb-3">
                   <div>
                     <h4 className="font-headline font-bold text-sm uppercase">{activeJob.pipeline_id ? 'Pipeline Training Run' : 'Raw Model Run'}</h4>
@@ -376,15 +559,20 @@ export default function ModelTraining() {
                   )}
                 </div>
 
-                {/* Live logs terminal box */}
-                <div className="flex-1 bg-primary text-on-primary p-4 font-mono text-xs rounded-none border border-primary overflow-y-auto h-64   max-h-72">
-                  <div className="text-tertiary-container font-bold mb-2">=== ENGINE LIVE LOGS ===</div>
-                  {activeJob.log ? (
-                    <pre className="whitespace-pre-wrap leading-relaxed">{activeJob.log}</pre>
-                  ) : (
-                    <p className="opacity-50 italic">Waiting for logs...</p>
-                  )}
+                {/* Live logs terminal box - fitted, scrollable, expandable */}
+                <div className={`bg-primary text-on-primary p-4 font-mono text-xs rounded-none border border-primary overflow-y-auto flex-1 min-h-[180px] ${monitorExpanded ? 'max-h-[65vh]' : 'max-h-[320px]'} flex flex-col`}>
+                  <div className="text-tertiary-container font-bold mb-2 shrink-0">=== ENGINE LIVE LOGS ===</div>
+                  <div className="flex-1 overflow-y-auto min-h-0">
+                    {activeJob.log ? (
+                      <pre className="whitespace-pre-wrap leading-relaxed break-words">{activeJob.log}</pre>
+                    ) : (
+                      <p className="opacity-50 italic">Waiting for logs...</p>
+                    )}
+                  </div>
                 </div>
+                <p className="text-[10px] font-mono text-black/40 mt-2 text-center">
+                  {monitorExpanded ? 'Expanded — fitted to histories height' : 'Fitted — click Expand to enlarge with history'}
+                </p>
               </div>
             ) : (
               <div className="flex-1 flex flex-col justify-center items-center text-center p-8 border-2 border-dashed border-primary/20 min-h-[300px]">
@@ -400,6 +588,21 @@ export default function ModelTraining() {
       {/* Historical Training Jobs list */}
       <div className="bg-surface border-2 border-primary p-6 brutal-shadow md:p-8 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Training Jobs History</h3>
+
+        {selectedJobIds.length > 0 && (
+          <div className="mb-4 bg-[#ffd400] border-2 border-black p-3 brutal-shadow-sm flex items-center justify-between gap-3">
+            <span className="font-headline font-black text-xs uppercase flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">checklist</span>
+              {selectedJobIds.length} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds([])} disabled={bulkDeletingJobs}>Clear</Button>
+              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDeleteJobs(true)} disabled={bulkDeletingJobs}>
+                {bulkDeletingJobs ? 'Deleting…' : `Delete Selected (${selectedJobIds.length})`}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {cancelError && (
           <div className="bg-error-container border-l-4 border-error p-3 text-xs font-body text-on-error-container mb-4">
@@ -418,6 +621,14 @@ export default function ModelTraining() {
               <table className="w-full text-left text-xs mb-4">
                 <thead>
                   <tr className="border-b-2 border-primary">
+                    <th className="p-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={jobs.length > 0 && jobs.every((j) => selectedJobIds.includes(j.id))}
+                        onChange={toggleSelectAllJobs}
+                        className="w-4 h-4 border-2 border-black accent-black"
+                      />
+                    </th>
                     <th className="p-3 font-headline font-bold uppercase">Job ID</th>
                     <th className="p-3 font-headline font-bold uppercase">Pipeline</th>
                     <th className="p-3 font-headline font-bold uppercase">Started</th>
@@ -427,8 +638,20 @@ export default function ModelTraining() {
                   </tr>
                 </thead>
                 <tbody>
-                  {jobs.map((job) => (
-                    <tr key={job.id} className="border-b border-primary last:border-b-0 hover:bg-surface-variant/30 transition-colors">
+                  {jobs.map((job) => {
+                    const isSelected = selectedJobIds.includes(job.id)
+                    const isLogExpanded = expandedLogId === job.id
+                    return (
+                    <>
+                    <tr key={job.id} className={`border-b border-primary last:border-b-0 transition-colors ${isSelected ? 'bg-[#ffd400]/20' : 'hover:bg-surface-variant/30'}`}>
+                      <td className="p-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleJobSelect(job.id)}
+                          className="w-4 h-4 border-2 border-black accent-black"
+                        />
+                      </td>
                       <td className="p-3 font-mono font-bold">{job.id.slice(0, 8)}...</td>
                       <td className="p-3 font-headline font-bold">
                         {job.pipeline_id ? (
@@ -443,7 +666,8 @@ export default function ModelTraining() {
                       <td className="p-3">{jobBadge(job.status)}</td>
                       <td className="p-3 font-headline font-bold">{job.progress}%</td>
                       <td className="p-3">
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
+                          <Button variant="ghost" size="sm" onClick={() => { setActiveJobId(job.id); setExpandedLogId(expandedLogId === job.id ? null : job.id) }}>{isLogExpanded ? "Hide Logs" : "Logs"}</Button>
                           <Button variant="ghost" size="sm" onClick={() => setActiveJobId(job.id)}>Monitor</Button>
                           {(job.status === 'queued' || job.status === 'running') && (
                             <Button
@@ -478,7 +702,33 @@ export default function ModelTraining() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    {isLogExpanded && (
+                        <tr key={`${job.id}-logs`}>
+                          <td colSpan={7} className="p-0 border-b-2 border-black">
+                            <div className={`bg-primary text-on-primary p-4 font-mono text-xs border-t-2 border-black overflow-y-auto ${monitorExpanded ? 'max-h-[50vh]' : 'max-h-[280px]'} flex flex-col`}>
+                              <div className="flex items-center justify-between mb-2 shrink-0">
+                                <span className="text-tertiary-container font-bold">=== ENGINE LIVE LOGS — {job.id.slice(0, 8)} ===</span>
+                                <button
+                                  onClick={() => setMonitorExpanded((v) => !v)}
+                                  className="border border-white/20 bg-white/10 px-2 py-1 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-colors"
+                                >
+                                  {monitorExpanded ? 'Shrink' : 'Expand'}
+                                </button>
+                              </div>
+                              <div className="flex-1 overflow-y-auto min-h-0">
+                                {job.log ? (
+                                  <pre className="whitespace-pre-wrap leading-relaxed break-words">{job.log}</pre>
+                                ) : (
+                                  <p className="opacity-50 italic">No logs yet — waiting for engine…</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -503,6 +753,14 @@ export default function ModelTraining() {
           setConfirmDeleteJobId(null)
         }}
         onCancel={() => setConfirmDeleteJobId(null)}
+      />
+      <ConfirmDialog
+        open={confirmBulkDeleteJobs}
+        title="Delete Selected Jobs"
+        message={`Delete ${selectedJobIds.length} selected job(s) and all models they produced? This cannot be undone.`}
+        confirmLabel={bulkDeletingJobs ? 'Deleting…' : `Delete ${selectedJobIds.length}`}
+        onConfirm={handleBulkDeleteJobs}
+        onCancel={() => setConfirmBulkDeleteJobs(false)}
       />
       <WorkflowNextStep />
     </div>
