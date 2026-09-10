@@ -9,6 +9,7 @@ import { ErrorState } from '../shared/components/ErrorState'
 import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { ProgressBar } from '../shared/components/ui/progress-bar'
+import { corrCellFill, corrTextColor, paletteForIndex, boxplotPalette } from '../shared/utils/chartPalette'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot, Finding, DataTypeIssue, ConstantColumn, HighCorrelation, MissingnessMatrix } from '../core/api/eda.api'
 
 export default function EDA() {
@@ -266,14 +267,15 @@ function MissingnessSection({ missingness, matrix }: { missingness: MissingRow[]
               <tbody>
                 {missingness.map((m) => {
                   const pct = m.percent * 100
+                  const barColor = pct > 20 ? 'rgb(220, 38, 38)' : pct > 5 ? 'rgb(234, 179, 8)' : 'rgb(16, 185, 129)'
                   return (
                     <tr key={m.column} className="border-b border-primary last:border-b-0 hover:bg-surface-variant/30">
                       <td className="p-3 font-headline font-bold text-sm">{m.column}</td>
                       <td className="p-3 font-body text-sm">{m.count.toLocaleString()}</td>
                       <td className="p-3 font-body text-sm">{pct.toFixed(1)}%</td>
                       <td className="p-3">
-                        <div className="h-3 w-full border border-primary bg-surface-variant relative">
-                          <div className="h-full bg-black" style={{ width: `${Math.min(pct, 100)}%` }} />
+                        <div className="h-3.5 w-full border border-primary bg-surface-variant relative overflow-hidden">
+                          <div className="h-full" style={{ width: `${Math.min(pct, 100)}%`, background: barColor }} />
                         </div>
                       </td>
                     </tr>
@@ -296,31 +298,45 @@ function MissingnessHeatmap({ matrix }: { matrix: MissingnessMatrix }) {
   const cols = matrix.columns
   const rows = Math.min(matrix.rows, 50)
   if (rows === 0 || cols.length === 0) return <p className="text-on-surface-variant text-sm">No data</p>
-  const cellSize = Math.max(4, Math.min(12, 600 / cols.length))
+  const cellSize = Math.max(5, Math.min(14, 600 / cols.length))
   return (
-    <svg width={cols.length * cellSize + 120} height={rows * cellSize + 40} className="border border-primary">
-      {cols.map((col, ci) => (
-        <text key={`label-${ci}`} x={ci * cellSize + 4} y={rows * cellSize + 16} fontSize="8" fill="currentColor" transform={`rotate(-45, ${ci * cellSize + 4}, ${rows * cellSize + 16})`}>
-          {col.length > 10 ? col.slice(0, 10) + '…' : col}
-        </text>
-      ))}
-      {Array.from({ length: rows }).map((_, ri) =>
-        cols.map((col, ci) => {
-          const val = matrix.data[col]?.[ri] ?? 0
-          return (
-            <rect
-              key={`${ci}-${ri}`}
-              x={ci * cellSize + 2}
-              y={ri * cellSize + 2}
-              width={cellSize - 2}
-              height={cellSize - 2}
-              style={{ fill: val === 1 ? 'rgb(var(--chart-red))' : 'rgb(var(--chart-gray))', stroke: 'rgb(var(--chart-gray))' }}
-              strokeWidth={0.5}
-            />
-          )
-        })
-      )}
-    </svg>
+    <div className="space-y-2">
+      <svg width={cols.length * cellSize + 120} height={rows * cellSize + 40} className="border-2 border-primary bg-white">
+        {cols.map((col, ci) => (
+          <text key={`label-${ci}`} x={ci * cellSize + 4} y={rows * cellSize + 18} fontSize="9" fill="currentColor" transform={`rotate(-40, ${ci * cellSize + 4}, ${rows * cellSize + 18})`} className="font-mono font-bold">
+            {col.length > 12 ? col.slice(0, 12) + '…' : col}
+          </text>
+        ))}
+        {Array.from({ length: rows }).map((_, ri) =>
+          cols.map((col, ci) => {
+            const val = matrix.data[col]?.[ri] ?? 0
+            const isMissing = val === 1
+            return (
+              <rect
+                key={`${ci}-${ri}`}
+                x={ci * cellSize + 2}
+                y={ri * cellSize + 2}
+                width={cellSize - 2}
+                height={cellSize - 2}
+                rx={0}
+                style={{
+                  fill: isMissing ? 'rgb(15, 23, 42)' : 'rgb(241, 245, 249)',
+                  stroke: isMissing ? 'rgb(15, 23, 42)' : 'rgb(226, 232, 240)',
+                }}
+                strokeWidth={0.7}
+              >
+                <title>{`${col} — row ${ri + 1}: ${isMissing ? 'missing' : 'present'}`}</title>
+              </rect>
+            )
+          })
+        )}
+      </svg>
+      <div className="flex items-center gap-4 text-[10px] font-mono font-bold uppercase text-on-surface-variant">
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 border border-primary bg-slate-900 inline-block" /> missing</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 border border-primary bg-slate-100 inline-block" /> present</span>
+        <span>· {rows} rows sampled</span>
+      </div>
+    </div>
   )
 }
 
@@ -366,10 +382,10 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-xl uppercase mb-4">Outlier Detection (IQR 1.5x Rule)</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {outliers.map((o) => {
+        {outliers.map((o, idx) => {
           const pct = o.percent * 100
           return (
-            <div key={o.column} className="border-2 border-primary p-4">
+            <div key={o.column} className="border-2 border-primary p-4 bg-white">
               <div className="flex justify-between items-start mb-2">
                 <h4 className="font-headline font-bold text-sm uppercase">{o.column}</h4>
                 <Badge variant={pct > 5 ? 'warning' : 'info'}>{o.count} outliers ({pct.toFixed(1)}%)</Badge>
@@ -377,7 +393,7 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
               <div className="text-xs text-on-surface-variant mb-3">
                 Fences: [{o.lower_bound?.toFixed(2) ?? '—'}, {o.upper_bound?.toFixed(2) ?? '—'}]
               </div>
-              <BoxPlotSVG stats={o.stats} width={240} height={40} />
+              <BoxPlotSVG stats={o.stats} width={240} height={40} colorIndex={idx} />
               <div className="flex justify-between text-[10px] font-headline font-bold text-on-surface-variant mt-1">
                 <span>{o.stats.min?.toFixed(1) ?? '—'}</span>
                 <span>Median: {o.stats.median?.toFixed(1) ?? '—'}</span>
@@ -391,19 +407,21 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
   )
 }
 
-function BoxPlotSVG({ stats, width, height }: { stats: { min: number | null; q1: number | null; median: number | null; q3: number | null; max: number | null }; width: number; height: number }) {
+function BoxPlotSVG({ stats, width, height, colorIndex = 0 }: { stats: { min: number | null; q1: number | null; median: number | null; q3: number | null; max: number | null }; width: number; height: number; colorIndex?: number }) {
   const { min, q1, median, q3, max } = stats
   if (min == null || q1 == null || median == null || q3 == null || max == null) return null
   const range = max - min || 1
   const scale = (v: number) => ((v - min) / range) * (width - 20) + 10
   const cy = height / 2
+  const pal = boxplotPalette(colorIndex)
   return (
     <svg width={width} height={height} className="w-full">
-      <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} style={{ fill: 'rgba(var(--chart-blue), 0.3)' }} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
+      {/* whisker line */}
+      <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke={pal.whisker} strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke={pal.whisker} strokeWidth={1.8} strokeLinecap="round" />
+      <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke={pal.whisker} strokeWidth={1.8} strokeLinecap="round" />
+      <rect x={scale(q1)} y={cy - 10} width={Math.max(scale(q3) - scale(q1), 2)} height={20} style={{ fill: pal.boxFill, stroke: pal.boxStroke }} strokeWidth={1.8} />
+      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} stroke={pal.medianStroke} strokeWidth={2.4} strokeLinecap="round" />
     </svg>
   )
 }
@@ -426,15 +444,16 @@ function CategoricalSection({ categories }: { categories: CategoricalSummaryRow[
               <p className="text-xs text-on-surface-variant mb-2">High cardinality — may be an ID or free-text column.</p>
             )}
             {cat.top_values.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {cat.top_values.map(([val, count], i) => {
                   const maxCount = cat.top_values[0][1]
                   const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+                  const barPal = paletteForIndex(i)
                   return (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="w-1/2 truncate font-body">{val}</span>
-                      <div className="flex-1 h-3 border border-primary bg-surface-variant relative">
-                        <div className="h-full bg-tertiary" style={{ width: `${pct}%` }} />
+                      <span className="w-1/2 truncate font-body font-medium" title={String(val)}>{val}</span>
+                      <div className="flex-1 h-3.5 border border-primary bg-surface-variant relative overflow-hidden">
+                        <div className="h-full transition-all" style={{ width: `${pct}%`, background: barPal.solid }} />
                       </div>
                       <span className="w-16 text-right font-headline font-bold">{count.toLocaleString()}</span>
                     </div>
@@ -459,48 +478,84 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
       </div>
     )
   }
-  const size = Math.min(40, Math.max(20, Math.floor(600 / cols.length)))
+  const size = Math.min(42, Math.max(22, Math.floor(640 / cols.length)))
+  const labelW = 110
+  const headerH = 36
+  const gridW = cols.length * size
+  const gridH = cols.length * size
   return (
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
-      <h3 className="font-headline font-black text-xl uppercase mb-4">Correlation Matrix (Pearson)</h3>
-      <div className="overflow-x-auto mb-6">
-        <svg width={cols.length * size + 120} height={cols.length * size + 40}>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <h3 className="font-headline font-black text-xl uppercase">Correlation Matrix (Pearson)</h3>
+        <div className="flex items-center gap-2 text-[9px] font-mono font-bold uppercase tracking-widest">
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-primary inline-block" style={{ background: 'rgb(220, 38, 38)' }} /> −1</span>
+          <span className="w-10 h-3 border border-primary inline-block" style={{ background: 'linear-gradient(to right, rgb(220,38,38), rgb(255,255,255), rgb(0,85,255))' }} />
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-primary inline-block" style={{ background: 'rgb(0, 85, 255)' }} /> +1</span>
+          <span className="hidden sm:inline-flex items-center gap-1 ml-2"><span className="w-3 h-3 border-2 border-amber-400 bg-white inline-block" /> |r|&gt;0.85</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto mb-4">
+        <svg width={gridW + labelW + 8} height={gridH + headerH + 8} className="select-none">
+          {/* row labels */}
           {cols.map((col, i) => (
-            <text key={`row-${i}`} x={0} y={i * size + size / 2 + 4} fontSize="10" fill="currentColor" textAnchor="end" className="font-headline font-bold">
-              {col.length > 8 ? col.slice(0, 8) + '…' : col}
+            <text key={`row-${i}`} x={labelW - 6} y={headerH + i * size + size / 2} fontSize="10" fill="currentColor" textAnchor="end" dominantBaseline="middle" className="font-headline font-bold">
+              <title>{col}</title>
+              {col.length > 14 ? col.slice(0, 14) + '…' : col}
             </text>
           ))}
+          {/* col labels */}
           {cols.map((col, j) => (
-            <text key={`col-${j}`} x={j * size + size / 2 + 100} y={12} fontSize="10" fill="currentColor" textAnchor="middle" transform={`rotate(-45, ${j * size + size / 2 + 100}, 12)`}>
-              {col.length > 8 ? col.slice(0, 8) + '…' : col}
+            <text key={`col-${j}`} x={labelW + j * size + size / 2} y={headerH - 8} fontSize="10" fill="currentColor" textAnchor="middle" transform={`rotate(-38, ${labelW + j * size + size / 2}, ${headerH - 8})`} className="font-headline font-bold">
+              {col.length > 14 ? col.slice(0, 14) + '…' : col}
             </text>
           ))}
+          {/* cells */}
           {cols.map((col_a, i) =>
             cols.map((col_b, j) => {
               const val = matrix[col_a]?.[col_b] ?? 0
-              const intensity = Math.abs(val)
-              const r = intensity * 0.8 + 0.1
               const isHigh = Math.abs(val) > 0.85 && col_a !== col_b
+              const fill = corrCellFill(val)
+              const textColor = corrTextColor(val)
+              const showVal = size >= 28 || Math.abs(val) > 0.3 || i === j
               return (
-                <rect
-                  key={`${i}-${j}`}
-                  x={j * size + 100}
-                  y={i * size + 20}
-                  width={size - 1}
-                  height={size - 1}
-                  style={{ fill: val >= 0 ? `rgba(var(--chart-blue), ${r})` : `rgba(var(--chart-red), ${r})`, stroke: isHigh ? 'rgb(var(--chart-amber))' : 'rgb(var(--chart-gray))' }}
-                  strokeWidth={isHigh ? 2 : 0.5}
-                />
+                <g key={`${i}-${j}`}>
+                  <rect
+                    x={labelW + j * size}
+                    y={headerH + i * size}
+                    width={size - 1}
+                    height={size - 1}
+                    fill={fill}
+                    stroke={isHigh ? 'rgb(251, 191, 36)' : 'rgb(226, 232, 240)'}
+                    strokeWidth={isHigh ? 2 : 0.8}
+                  >
+                    <title>{`${col_a} ↔ ${col_b}: ${val.toFixed(3)}`}</title>
+                  </rect>
+                  {showVal && (
+                    <text
+                      x={labelW + j * size + size / 2}
+                      y={headerH + i * size + size / 2}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize={size >= 36 ? 10 : size >= 28 ? 9 : 7}
+                      fontWeight={isHigh || i === j ? 800 : 600}
+                      fill={textColor}
+                      className="font-mono pointer-events-none"
+                      style={{ paintOrder: 'stroke', stroke: textColor === 'rgb(255,255,255)' ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.75)', strokeWidth: 2.5, strokeLinejoin: 'round' }}
+                    >
+                      {val.toFixed(2)}
+                    </text>
+                  )}
+                </g>
               )
             })
           )}
         </svg>
       </div>
-      <div className="flex gap-4 text-[10px] font-headline font-bold text-on-surface-variant mb-4">
-        <span>Red = negative</span>
-        <span>Blue = positive</span>
-        <span>Darker = stronger</span>
-        <span>Yellow border = |r| &gt; 0.85</span>
+      <div className="flex flex-wrap gap-3 text-[10px] font-mono font-bold uppercase tracking-widest text-on-surface-variant mb-4">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-none inline-block" style={{ background: 'rgb(220,38,38)' }} /> negative</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-none inline-block" style={{ background: 'rgb(0,85,255)' }} /> positive</span>
+        <span>darker = stronger</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 border-2 border-amber-400 bg-white inline-block" /> high |r|</span>
       </div>
       {highPairs.length > 0 && (
         <>
@@ -509,7 +564,9 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
             {highPairs.map((p, i) => (
               <div key={i} className="flex items-center gap-2 text-sm font-body">
                 <Badge variant="warning">{p.value.toFixed(4)}</Badge>
-                <span>{p.col_a} ↔ {p.col_b}</span>
+                <span className="font-headline font-bold">{p.col_a}</span>
+                <span className="text-on-surface-variant">↔</span>
+                <span className="font-headline font-bold">{p.col_b}</span>
               </div>
             ))}
           </div>
@@ -523,23 +580,33 @@ function DistributionSection({ plots }: { plots: DistributionPlot[] }) {
   if (plots.length === 0) return null
   return (
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
-      <h3 className="font-headline font-black text-xl uppercase mb-4">Distribution Plots (Histogram + KDE)</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h3 className="font-headline font-black text-xl uppercase">Distribution Plots (Histogram + KDE)</h3>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-on-surface-variant hidden sm:inline">Each column gets its own palette · bars = histogram · line = KDE</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {plots.map((plot) => (
-          <div key={plot.column} className="border-2 border-primary p-4">
-            <h4 className="font-headline font-bold text-sm uppercase mb-2">{plot.column}</h4>
-            <HistogramKDEChart plot={plot} width={300} height={120} />
-          </div>
-        ))}
+        {plots.map((plot, idx) => {
+          const pal = paletteForIndex(idx)
+          return (
+            <div key={plot.column} className="border-2 border-primary p-4 bg-white">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 border border-primary inline-block" style={{ background: pal.solid }} />
+                <h4 className="font-headline font-bold text-sm uppercase truncate" title={plot.column}>{plot.column}</h4>
+              </div>
+              <HistogramKDEChart plot={plot} width={300} height={120} colorIndex={idx} />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function HistogramKDEChart({ plot, width, height }: { plot: DistributionPlot; width: number; height: number }) {
+function HistogramKDEChart({ plot, width, height, colorIndex = 0 }: { plot: DistributionPlot; width: number; height: number; colorIndex?: number }) {
   const { bins, counts } = plot.histogram
   const kde = plot.kde
   if (counts.length === 0) return <p className="text-xs text-on-surface-variant">Insufficient data</p>
+  const pal = paletteForIndex(colorIndex)
   const maxCount = Math.max(...counts, 1)
   const binWidth = width / bins.length
   const histHeight = height * 0.7
@@ -549,8 +616,11 @@ function HistogramKDEChart({ plot, width, height }: { plot: DistributionPlot; wi
   const dataMax = bins[bins.length - 1]
   const dataRange = dataMax - dataMin || 1
   const scaleX = (v: number) => ((v - dataMin) / dataRange) * (width - pad * 2) + pad
+  const kdeMax = Math.max(...kde.y, 0.001)
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height}>
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="overflow-visible">
+      {/* grid line */}
+      <line x1={pad} y1={histHeight} x2={width - pad} y2={histHeight} stroke="rgb(226, 232, 240)" strokeWidth={1} />
       {counts.map((c, i) => (
         <rect
           key={i}
@@ -558,16 +628,21 @@ function HistogramKDEChart({ plot, width, height }: { plot: DistributionPlot; wi
           y={histHeight - scaleH(c)}
           width={Math.max(binWidth - 1, 1)}
           height={scaleH(c)}
-          style={{ fill: 'rgba(var(--chart-blue), 0.3)', stroke: 'rgba(var(--chart-blue), 0.6)' }}
-          strokeWidth={0.5}
+          fill={pal.fill}
+          stroke={pal.stroke}
+          strokeWidth={0.7}
+          style={{ shapeRendering: 'crispEdges' }}
         />
       ))}
       {kde.y.length > 1 && (
         <polyline
-          points={kde.x.map((x, i) => `${scaleX(x)},${histHeight - (kde.y[i] / Math.max(...kde.y, 0.001)) * histHeight}`).join(' ')}
+          points={kde.x.map((x, i) => `${scaleX(x)},${histHeight - (kde.y[i] / kdeMax) * histHeight}`).join(' ')}
           fill="none"
-          style={{ stroke: 'rgb(var(--chart-red))' }}
+          stroke={pal.kde}
           strokeWidth={2}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={0.95}
         />
       )}
     </svg>
