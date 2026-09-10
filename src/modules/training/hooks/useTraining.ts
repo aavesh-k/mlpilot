@@ -53,6 +53,19 @@ export function useJobs(page = 1) {
   })
 }
 
+export function useJob(jobId: string | null) {
+  return useQuery({
+    queryKey: ['job', jobId],
+    queryFn: () => trainingApi.getJob(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (query) => {
+      const data = query.state.data as any
+      if (!data) return 1500
+      return data.status === 'queued' || data.status === 'running' ? 1500 : false
+    },
+  })
+}
+
 export function useCancelJob() {
   const queryClient = useQueryClient()
   return useMutation({

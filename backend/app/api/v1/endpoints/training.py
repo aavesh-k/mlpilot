@@ -622,9 +622,23 @@ def _run_multi_training_background(
             reverse=not lower_better
         )
 
-        # Tune top 2 models (or up to 3 if available)
+        # Tune top 2 models (or up to 3 if available) — skip slow algos on large data to avoid 65% stall
         top_to_tune = sorted_algos[:min(len(sorted_algos), 3)]
-        _append_log(job, f"Selected top models for tuning: {', '.join(top_to_tune)}")
+        try:
+            n_rows = int(X_train.shape[0]) if hasattr(X_train, "shape") else 0
+        except Exception:
+            n_rows = 0
+        if n_rows > 10000:
+            filtered = [a for a in top_to_tune if a not in ("svm", "knn")]
+            if len(filtered) != len(top_to_tune):
+                _append_log(job, f"Large dataset ({n_rows} rows) — skipping slow tuning for {set(top_to_tune) - set(filtered)}")
+            top_to_tune = filtered
+        if not top_to_tune:
+            _append_log(job, "No candidates for tuning after large-data filter — skipping tuning phase")
+            job["progress"] = 90.0
+            storage.save_job(job)
+        else:
+            _append_log(job, f"Selected top models for tuning: {', '.join(top_to_tune)}")
 
         for t_idx, algo in enumerate(top_to_tune):
             if _is_cancelled(job_id):
@@ -705,6 +719,11 @@ def _run_multi_training_background(
             except Exception as e:
                 logger.exception(f"Tuning failed for {algo}")
                 _append_log(job, f"Hyperparameter tuning failed for {algo}: {e}")
+
+    # Ensure progress advances past tuning even if all skipped/failed
+    if job.get("progress", 0) < 90:
+        job["progress"] = 90.0
+        storage.save_job(job)
 
     # Build final Leaderboard and serialize win bundles
     if _is_cancelled(job_id):
