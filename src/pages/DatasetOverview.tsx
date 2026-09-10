@@ -8,6 +8,7 @@ import { Badge } from '../shared/components/ui/badge'
 import { ProgressBar } from '../shared/components/ui/progress-bar'
 import { formatFileSize } from '../shared/utils/format'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
+import { corrCellFill, corrTextColor, paletteForIndex, boxplotPalette } from '../shared/utils/chartPalette'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot } from '../core/api/eda.api'
 
 export default function DatasetOverview() {
@@ -298,14 +299,15 @@ function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
             <tbody>
               {missingness.map((m) => {
                 const pct = m.percent * 100
+                const barColor = pct > 20 ? 'rgb(220, 38, 38)' : pct > 5 ? 'rgb(234, 179, 8)' : 'rgb(16, 185, 129)'
                 return (
                   <tr key={m.column} className="border-b border-primary last:border-b-0 hover:bg-surface-variant/30">
                     <td className="p-3 font-headline font-bold text-sm">{m.column}</td>
                     <td className="p-3 font-body text-sm">{m.count.toLocaleString()}</td>
                     <td className="p-3 font-body text-sm">{pct.toFixed(1)}%</td>
                     <td className="p-3">
-                      <div className="h-3 w-full max-w-[200px] border border-primary bg-surface-variant relative">
-                        <div className="h-full bg-black" style={{ width: `${Math.min(pct, 100)}%` }} />
+                      <div className="h-3.5 w-full max-w-[200px] border border-primary bg-surface-variant relative overflow-hidden">
+                        <div className="h-full" style={{ width: `${Math.min(pct, 100)}%`, background: barColor }} />
                       </div>
                     </td>
                   </tr>
@@ -361,10 +363,10 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Outlier Detection (IQR 1.5× Rule)</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {outliers.map((o) => {
+        {outliers.map((o, idx) => {
           const pct = o.percent * 100
           return (
-            <div key={o.column} className="border-2 border-primary p-4">
+            <div key={o.column} className="border-2 border-primary p-4 bg-white">
               <div className="flex justify-between items-start mb-2">
                 <h4 className="font-headline font-bold text-sm uppercase">{o.column}</h4>
                 <Badge variant={pct > 5 ? 'warning' : 'info'}>{o.count} outliers ({pct.toFixed(1)}%)</Badge>
@@ -372,7 +374,7 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
               <div className="text-xs text-on-surface-variant mb-3">
                 Fences: [{o.lower_bound?.toFixed(2) ?? '—'}, {o.upper_bound?.toFixed(2) ?? '—'}]
               </div>
-              <BoxPlotSVG stats={o.stats} width={240} height={40} />
+              <BoxPlotSVG stats={o.stats} width={240} height={40} colorIndex={idx} />
               <div className="flex justify-between text-[10px] font-headline font-bold text-on-surface-variant mt-1">
                 <span>{o.stats.min?.toFixed(1) ?? '—'}</span>
                 <span>Median: {o.stats.median?.toFixed(1) ?? '—'}</span>
@@ -386,19 +388,20 @@ function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
   )
 }
 
-function BoxPlotSVG({ stats, width, height }: { stats: { min: number | null; q1: number | null; median: number | null; q3: number | null; max: number | null }; width: number; height: number }) {
+function BoxPlotSVG({ stats, width, height, colorIndex = 0 }: { stats: { min: number | null; q1: number | null; median: number | null; q3: number | null; max: number | null }; width: number; height: number; colorIndex?: number }) {
   const { min, q1, median, q3, max } = stats
   if (min == null || q1 == null || median == null || q3 == null || max == null) return null
   const range = max - min || 1
   const scale = (v: number) => ((v - min) / range) * (width - 20) + 10
   const cy = height / 2
+  const pal = boxplotPalette(colorIndex)
   return (
     <svg width={width} height={height} className="w-full">
-      <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke="currentColor" strokeWidth={2} />
-      <rect x={scale(q1)} y={cy - 10} width={scale(q3) - scale(q1)} height={20} style={{ fill: 'rgba(var(--chart-blue), 0.3)' }} stroke="currentColor" strokeWidth={2} />
-      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
+      <line x1={scale(min)} y1={cy} x2={scale(max)} y2={cy} stroke={pal.whisker} strokeWidth={1.5} strokeLinecap="round" />
+      <line x1={scale(min)} y1={cy - 8} x2={scale(min)} y2={cy + 8} stroke={pal.whisker} strokeWidth={1.8} strokeLinecap="round" />
+      <line x1={scale(max)} y1={cy - 8} x2={scale(max)} y2={cy + 8} stroke={pal.whisker} strokeWidth={1.8} strokeLinecap="round" />
+      <rect x={scale(q1)} y={cy - 10} width={Math.max(scale(q3) - scale(q1), 2)} height={20} style={{ fill: pal.boxFill, stroke: pal.boxStroke }} strokeWidth={1.8} />
+      <line x1={scale(median)} y1={cy - 12} x2={scale(median)} y2={cy + 12} stroke={pal.medianStroke} strokeWidth={2.4} strokeLinecap="round" />
     </svg>
   )
 }
@@ -417,15 +420,16 @@ function CategoricalSection({ categories }: { categories: CategoricalSummaryRow[
             </div>
             {cat.high_cardinality && <p className="text-xs text-on-surface-variant mb-2">High cardinality — may be an ID or free-text column.</p>}
             {cat.top_values.length > 0 && (
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {cat.top_values.map(([val, count], i) => {
                   const maxCount = cat.top_values[0][1]
                   const pct = maxCount > 0 ? (count / maxCount) * 100 : 0
+                  const barPal = paletteForIndex(i)
                   return (
                     <div key={i} className="flex items-center gap-2 text-xs">
-                      <span className="w-1/2 truncate font-body">{val}</span>
-                      <div className="flex-1 h-3 border border-primary bg-surface-variant relative">
-                        <div className="h-full bg-tertiary" style={{ width: `${pct}%` }} />
+                      <span className="w-1/2 truncate font-body font-medium" title={String(val)}>{val}</span>
+                      <div className="flex-1 h-3.5 border border-primary bg-surface-variant relative overflow-hidden">
+                        <div className="h-full" style={{ width: `${pct}%`, background: barPal.solid }} />
                       </div>
                       <span className="w-16 text-right font-headline font-bold">{count.toLocaleString()}</span>
                     </div>
@@ -454,7 +458,15 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
 
   return (
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
-      <h3 className="font-headline font-black text-lg uppercase mb-4">Correlation Matrix (Pearson)</h3>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <h3 className="font-headline font-black text-lg uppercase">Correlation Matrix (Pearson)</h3>
+        <div className="flex items-center gap-2 text-[9px] font-mono font-bold uppercase tracking-widest">
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-primary inline-block" style={{ background: 'rgb(220, 38, 38)' }} /> −1</span>
+          <span className="w-10 h-3 border border-primary inline-block" style={{ background: 'linear-gradient(to right, rgb(220,38,38), rgb(255,255,255), rgb(0,85,255))' }} />
+          <span className="inline-flex items-center gap-1"><span className="w-3 h-3 border border-primary inline-block" style={{ background: 'rgb(0, 85, 255)' }} /> +1</span>
+          <span className="hidden sm:inline-flex items-center gap-1 ml-2"><span className="w-3 h-3 border-2 border-amber-400 bg-white inline-block" /> |r|&gt;0.85</span>
+        </div>
+      </div>
       <div className="overflow-x-auto mb-4">
         <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ minWidth: w }}>
           <g>
@@ -472,8 +484,9 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
               cols.map((col_b, j) => {
                 const val = matrix[col_a]?.[col_b] ?? 0
                 const abs = Math.abs(val)
-                const intensity = abs * 0.75 + 0.15
                 const isHigh = abs > 0.85 && col_a !== col_b
+                const fill = corrCellFill(val)
+                const tColor = corrTextColor(val)
                 return (
                   <g key={`${i}-${j}`}>
                     <rect
@@ -481,17 +494,21 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
                       y={i * cell + labelPad}
                       width={cell}
                       height={cell}
-                      style={{ fill: val >= 0 ? `rgba(var(--chart-blue), ${intensity})` : `rgba(var(--chart-red), ${intensity})`, stroke: isHigh ? 'rgb(var(--chart-amber))' : 'rgb(var(--chart-gray))' }}
-                      strokeWidth={isHigh ? 2.5 : 0.5}
-                    />
+                      fill={fill}
+                      stroke={isHigh ? 'rgb(251, 191, 36)' : 'rgb(226, 232, 240)'}
+                      strokeWidth={isHigh ? 2.5 : 0.7}
+                    >
+                      <title>{`${col_a} ↔ ${col_b}: ${val.toFixed(3)}`}</title>
+                    </rect>
                     <text
                       x={j * cell + cell / 2 + labelW}
                       y={i * cell + cell / 2 + labelPad}
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fontSize={cell > 40 ? 11 : 9}
-                      style={{ fill: abs > 0.5 ? 'var(--chart-strong)' : 'currentColor' }}
-                      className="font-headline font-bold"
+                      fill={tColor}
+                      className="font-mono font-bold pointer-events-none"
+                      style={{ paintOrder: 'stroke', stroke: tColor === 'rgb(255,255,255)' ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.8)', strokeWidth: 2.5, strokeLinejoin: 'round' }}
                     >
                       {val.toFixed(2)}
                     </text>
@@ -502,8 +519,11 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
           </g>
         </svg>
       </div>
-      <div className="flex gap-4 text-[10px] font-headline font-bold text-on-surface-variant mb-4">
-        <span>Red = negative</span><span>Blue = positive</span><span>Darker = stronger</span><span>Yellow border = |r| &gt; 0.85</span>
+      <div className="flex flex-wrap gap-3 text-[10px] font-mono font-bold uppercase tracking-widest text-on-surface-variant mb-4">
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 inline-block" style={{ background: 'rgb(220,38,38)' }} /> negative</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 inline-block" style={{ background: 'rgb(0,85,255)' }} /> positive</span>
+        <span>darker = stronger</span>
+        <span className="inline-flex items-center gap-1.5"><span className="w-3 h-3 border-2 border-amber-400 bg-white inline-block" /> high |r|</span>
       </div>
       {highPairs.length > 0 && (
         <div className="space-y-1.5">
@@ -526,35 +546,47 @@ function DistributionSection({ plots }: { plots: DistributionPlot[] }) {
   if (plots.length === 0) return null
   return (
     <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
-      <h3 className="font-headline font-black text-lg uppercase mb-4">Distributions</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <h3 className="font-headline font-black text-lg uppercase">Distributions</h3>
+        <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-on-surface-variant hidden sm:inline">Each column gets its own palette · bars = histogram · line = KDE</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {plots.slice(0, 6).map((plot) => (
-          <div key={plot.column} className="border-2 border-primary p-4">
-            <h4 className="font-headline font-bold text-sm uppercase mb-2">{plot.column}</h4>
-            <MiniHistogram plot={plot} width={260} height={100} />
-          </div>
-        ))}
+        {plots.slice(0, 6).map((plot, idx) => {
+          const pal = paletteForIndex(idx)
+          return (
+            <div key={plot.column} className="border-2 border-primary p-4 bg-white">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 border border-primary inline-block" style={{ background: pal.solid }} />
+                <h4 className="font-headline font-bold text-sm uppercase truncate" title={plot.column}>{plot.column}</h4>
+              </div>
+              <MiniHistogram plot={plot} width={260} height={100} colorIndex={idx} />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-function MiniHistogram({ plot, width, height }: { plot: DistributionPlot; width: number; height: number }) {
+function MiniHistogram({ plot, width, height, colorIndex = 0 }: { plot: DistributionPlot; width: number; height: number; colorIndex?: number }) {
   const { bins, counts } = plot.histogram
   if (counts.length === 0) return <p className="text-xs text-on-surface-variant">Insufficient data</p>
+  const pal = paletteForIndex(colorIndex)
   const maxCount = Math.max(...counts, 1)
   const histHeight = height * 0.75
   const pad = 4
   const dataMin = bins[0]; const dataMax = bins[bins.length - 1]; const dataRange = dataMax - dataMin || 1
   const scaleX = (v: number) => ((v - dataMin) / dataRange) * (width - pad * 2) + pad
   const binW = width / bins.length
+  const kdeMax = Math.max(...plot.kde.y, 0.001)
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height}>
+    <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} className="overflow-visible">
+      <line x1={pad} y1={histHeight} x2={width - pad} y2={histHeight} stroke="rgb(226, 232, 240)" strokeWidth={1} />
       {counts.map((c, i) => (
-        <rect key={i} x={scaleX(bins[i])} y={histHeight - (c / maxCount) * histHeight} width={Math.max(binW - 1, 1)} height={(c / maxCount) * histHeight} style={{ fill: 'rgba(var(--chart-blue), 0.3)', stroke: 'rgba(var(--chart-blue), 0.6)' }} strokeWidth={0.5} />
+        <rect key={i} x={scaleX(bins[i])} y={histHeight - (c / maxCount) * histHeight} width={Math.max(binW - 1, 1)} height={(c / maxCount) * histHeight} fill={pal.fill} stroke={pal.stroke} strokeWidth={0.7} style={{ shapeRendering: 'crispEdges' }} />
       ))}
       {plot.kde.y.length > 1 && (
-        <polyline points={plot.kde.x.map((x, i) => `${scaleX(x)},${histHeight - (plot.kde.y[i] / Math.max(...plot.kde.y, 0.001)) * histHeight}`).join(' ')} fill="none" style={{ stroke: 'rgb(var(--chart-red))' }} strokeWidth={2} />
+        <polyline points={plot.kde.x.map((x, i) => `${scaleX(x)},${histHeight - (plot.kde.y[i] / kdeMax) * histHeight}`).join(' ')} fill="none" stroke={pal.kde} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={0.95} />
       )}
     </svg>
   )
