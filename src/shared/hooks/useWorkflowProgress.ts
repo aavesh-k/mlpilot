@@ -249,10 +249,9 @@ export function useWorkflowProgress() {
       case "train":
         return hasCompletedModelForContext
       case "compare":
-        // Available as soon as a model exists; never auto-done (needs user to visit)
-        return false
+        return hasCompletedModelForContext
       case "predict":
-        return false
+        return hasCompletedModelForContext
       default:
         return false
     }
@@ -324,14 +323,12 @@ export function useWorkflowProgress() {
 
   const activeStep = steps.find((s) => s.state === "active")
   const nextStep = useMemo(() => {
-    // Next is the immediate step after the active one (not the first incomplete globally)
-    // — this prevents "Next: Compare" showing while on the final Predict/Reports tab.
+    // Next is the immediate successor after active, even if locked (so UI can show why locked)
     const activeIdx = steps.findIndex((s) => s.state === "active")
     if (activeIdx !== -1) {
-      for (let i = activeIdx + 1; i < steps.length; i++) {
-        if (steps[i].state !== "locked") return steps[i]
-      }
-      return null // active is last step or all following locked → no next
+      const next = steps[activeIdx + 1]
+      if (next) return next
+      return null // active is last step → workflow end
     }
     // No active workflow step (e.g., Dashboard) → first available
     return steps.find((s) => s.state === "available" || s.state === "processing") ?? null
