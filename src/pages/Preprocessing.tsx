@@ -20,6 +20,7 @@ import { Badge } from '../shared/components/ui/badge'
 import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatDate } from '../shared/utils/format'
 import { toApiError } from '../core/api/errors'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 import type { ColumnSuggestion, EncodingConfig, ScalingConfig, SplitConfig, FeatureSelectionConfig, TargetDetectionResult } from '../core/api/pipelines.api'
 
 type Step = 'select-columns' | 'config' | 'review'
@@ -515,6 +516,7 @@ export default function Preprocessing() {
           <Pagination page={pipesData!.page} perPage={pipesData!.per_page} total={pipesData!.total} onPageChange={setPage} />
         </div>
       )}
+      <WorkflowNextStep />
     </div>
   )
 }

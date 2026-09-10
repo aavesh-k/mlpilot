@@ -7,6 +7,7 @@ import { LoadingSpinner, SkeletonCard } from '../shared/components/LoadingSpinne
 import { Badge } from '../shared/components/ui/badge'
 import { ProgressBar } from '../shared/components/ui/progress-bar'
 import { formatFileSize } from '../shared/utils/format'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 import type { EDAReport, MissingRow, NumericSummaryRow, OutlierRow, CategoricalSummaryRow, DistributionPlot } from '../core/api/eda.api'
 
 export default function DatasetOverview() {
@@ -115,6 +116,7 @@ export default function DatasetOverview() {
           <SkeletonCard /><SkeletonCard />
         </div>
       )}
+      <WorkflowNextStep />
     </div>
   )
 }

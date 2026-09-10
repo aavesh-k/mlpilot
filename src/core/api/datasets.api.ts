@@ -19,12 +19,22 @@ export interface Dataset {
 }
 
 export const datasetsApi = {
-  async upload(file: File, name?: string): Promise<Dataset> {
+  async upload(
+    file: File,
+    name?: string,
+    onUploadProgress?: (percent: number) => void,
+  ): Promise<Dataset> {
     const formData = new FormData()
     formData.append('file', file)
     if (name) formData.append('name', name)
     const { data } = await apiClient.post('/datasets/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300_000,
+      onUploadProgress: (evt) => {
+        if (onUploadProgress && evt.total) {
+          onUploadProgress(Math.round((evt.loaded * 100) / evt.total))
+        }
+      },
     })
     return data
   },

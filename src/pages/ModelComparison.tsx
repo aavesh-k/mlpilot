@@ -8,6 +8,7 @@ import { ErrorState } from '../shared/components/ErrorState'
 import { SkeletonTable } from '../shared/components/LoadingSpinner'
 import { Badge } from '../shared/components/ui/badge'
 import { CONFIG } from '../core/config'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 
 const CLASSIFICATION_METRICS = [
   { id: 'accuracy', label: 'Accuracy' },
@@ -277,8 +278,9 @@ export default function ModelComparison() {
               </tbody>
             </table>
           </div>
-        </>
+          </>
       )}
+      <WorkflowNextStep />
     </div>
   )
 }

@@ -1,5 +1,6 @@
-import { NavLink } from "react-router-dom"
+import { NavLink, useLocation } from "react-router-dom"
 import { useEffect } from "react"
+import { useWorkflowProgress, type WorkflowStepId } from "../shared/hooks/useWorkflowProgress"
 
 interface SidebarProps {
   isOpen: boolean
@@ -7,17 +8,20 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: "/dashboard", icon: "dashboard", label: "Dashboard" },
-  { to: "/datasets", icon: "database", label: "Dataset" },
-  { to: "/cleaning", icon: "cleaning_services", label: "Cleaning" },
-  { to: "/preprocessing", icon: "process_chart", label: "Preprocessing" },
-  { to: "/training", icon: "model_training", label: "Training" },
-  { to: "/compare", icon: "leaderboard", label: "Leaderboard" },
-  { to: "/visualizations", icon: "monitoring", label: "Visualization" },
-  { to: "/results", icon: "description", label: "Reports" },
+  { to: "/dashboard", icon: "dashboard", label: "Dashboard", stepId: null as WorkflowStepId | null },
+  { to: "/datasets", icon: "database", label: "Dataset", stepId: "upload" as WorkflowStepId },
+  { to: "/cleaning", icon: "cleaning_services", label: "Cleaning", stepId: "clean" as WorkflowStepId },
+  { to: "/preprocessing", icon: "account_tree", label: "Preprocessing", stepId: "preprocess" as WorkflowStepId },
+  { to: "/training", icon: "model_training", label: "Training", stepId: "train" as WorkflowStepId },
+  { to: "/compare", icon: "leaderboard", label: "Leaderboard", stepId: "compare" as WorkflowStepId },
+  { to: "/visualizations", icon: "monitoring", label: "Visualization", stepId: "compare" as WorkflowStepId },
+  { to: "/results", icon: "description", label: "Reports", stepId: "predict" as WorkflowStepId },
 ]
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const location = useLocation()
+  const { steps, counts } = useWorkflowProgress()
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden"
@@ -27,9 +31,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return () => { document.body.style.overflow = "" }
   }, [isOpen])
 
+  const getStepForItem = (stepId: WorkflowStepId | null) => {
+    if (!stepId) return null
+    return steps.find((s) => s.id === stepId) ?? null
+  }
+
   const sidebarContent = (
-    <div className="flex flex-col h-full py-6 px-4 gap-2 bg-white w-64">
-      <div className="mb-8 px-2">
+    <div className="flex flex-col h-full py-6 px-4 gap-2 bg-white w-64 overflow-y-auto">
+      <div className="mb-6 px-2">
         <div className="inline-flex items-center gap-2 bg-white border-2 border-black brutal-shadow-sm px-3 py-1 -rotate-1">
           <span className="font-mono text-[10px] uppercase tracking-widest font-black text-black">// WORKFLOW</span>
         </div>
@@ -37,26 +46,65 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           ML Workflow
         </p>
         <p className="font-mono text-[10px] uppercase tracking-widest text-black/60 mt-1">6 STEPS • GUIDED</p>
+        {/* Better than UX.md: live inventory counts */}
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className="font-mono text-[9px] font-bold uppercase bg-white border border-black px-1.5 py-0.5">Ds {counts.datasets}</span>
+          <span className="font-mono text-[9px] font-bold uppercase bg-white border border-black px-1.5 py-0.5">Cl {counts.cleaned}</span>
+          <span className="font-mono text-[9px] font-bold uppercase bg-white border border-black px-1.5 py-0.5">Pp {counts.pipelinesCompleted}/{counts.pipelines}</span>
+          <span className="font-mono text-[9px] font-bold uppercase bg-white border border-black px-1.5 py-0.5">Md {counts.modelsCompleted}/{counts.models}</span>
+        </div>
       </div>
-      <nav className="flex-1 space-y-2">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.label}
-            to={item.to}
-            end
-            onClick={() => onClose()}
-            className={({ isActive }) =>
-              `flex items-center gap-3 py-3 px-4 border-2 font-mono text-xs font-black uppercase tracking-widest transition-all btn-press ${
+      <nav className="flex-1 space-y-1.5" aria-label="Primary">
+        {navItems.map((item) => {
+          const step = getStepForItem(item.stepId)
+          const isLocked = step?.state === "locked"
+          const isActive = item.to === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(item.to)
+          const isDone = step?.state === "done"
+          const isProcessing = step?.state === "processing"
+
+          const base = "flex items-center gap-3 py-2.5 px-3 border-2 font-mono text-xs font-black uppercase tracking-widest transition-all btn-press"
+
+          if (isLocked) {
+            return (
+              <div
+                key={item.label}
+                title={step?.lockedReason ?? "Locked"}
+                aria-disabled="true"
+                className={`${base} bg-white text-black/30 border-black/20 cursor-not-allowed`}
+              >
+                <span className="material-symbols-outlined text-[16px]">lock</span>
+                <span className="flex-1 truncate">{item.label}</span>
+                <span className="material-symbols-outlined text-[14px] opacity-60">lock</span>
+              </div>
+            )
+          }
+
+          return (
+            <NavLink
+              key={item.label}
+              to={step ? step.toWithContext : item.to}
+              end={item.to === "/dashboard"}
+              onClick={() => onClose()}
+              aria-current={isActive ? "page" : undefined}
+              title={step?.lockedReason ?? (isDone ? "Completed" : step?.description)}
+              className={`${base} ${
                 isActive
-                  ? "bg-[#ffd400] text-black border-black brutal-shadow-sm translate-x-0"
-                  : "bg-white text-black border-black hover:bg-[#c8ff00] brutal-shadow-sm hover:translate-x-1"
-              }`
-            }
-          >
-            <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-            {item.label}
-          </NavLink>
-        ))}
+                  ? "bg-[#ffd400] text-black border-black brutal-shadow-sm"
+                  : isDone
+                    ? "bg-white text-black border-black hover:bg-[#c8ff00] brutal-shadow-sm"
+                    : "bg-white text-black border-black hover:bg-[#c8ff00] brutal-shadow-sm hover:translate-x-1"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+              <span className="flex-1 truncate">{item.label}</span>
+              {isDone && <span className="material-symbols-outlined text-[14px] text-black">check_circle</span>}
+              {isProcessing && <span className="w-3 h-3 border-2 border-black border-t-transparent animate-spin block" aria-hidden="true" />}
+              {!isDone && !isProcessing && !isLocked && isActive && (
+                <span className="w-2 h-2 bg-black rounded-none animate-pulse" aria-hidden="true" />
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
       <div className="mt-6 border-2 border-black bg-white p-3 -rotate-1">
         <p className="font-mono text-[10px] uppercase tracking-widest font-black text-black">DATA → MODEL</p>

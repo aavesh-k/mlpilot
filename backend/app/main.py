@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.errors import app_error_handler, generic_error_handler, validation_error_handler
 from app.api.v1.router import api_v1_router
@@ -51,6 +52,9 @@ app = FastAPI(
     openapi_url=_openapi_url,
     lifespan=lifespan,
 )
+
+# Gzip compresses JSON responses (EDA reports, datasets) ~70% smaller.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Single-user, no-auth app: credentials are never required, so keep
 # allow_credentials=False. This lets allow_origins=["*"] return

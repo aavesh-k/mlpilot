@@ -17,6 +17,7 @@ import { toApiError } from '../core/api/errors'
 import { formatDate } from '../shared/utils/format'
 import { trainModelSchema } from '../shared/schemas/training'
 import { trainingApi } from '../core/api/training.api'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 
 interface AlgoOption {
   id: string
@@ -503,6 +504,7 @@ export default function ModelTraining() {
         }}
         onCancel={() => setConfirmDeleteJobId(null)}
       />
+      <WorkflowNextStep />
     </div>
   )
 }

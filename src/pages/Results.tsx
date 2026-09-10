@@ -10,6 +10,7 @@ import { Badge } from '../shared/components/ui/badge'
 import { Button } from '../shared/components/ui/button'
 import { CONFIG } from '../core/config'
 import { trainingApi } from '../core/api/training.api'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 import { toApiError } from '../core/api/errors'
 import { usePipeline } from '../modules/pipelines/hooks/usePipelines'
 import {
@@ -684,6 +685,7 @@ export default function Results() {
         </div>
       )}
 
+      <WorkflowNextStep />
       {/* Comparison Modal */}
       {isCompareModalOpen && (
         <div className="fixed inset-0 bg-primary/25  flex items-center justify-center p-4 z-50">

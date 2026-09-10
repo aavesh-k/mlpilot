@@ -19,7 +19,15 @@ export function useDataset(id: string | undefined) {
 export function useUploadDataset() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, name }: { file: File; name?: string }) => datasetsApi.upload(file, name),
+    mutationFn: ({
+      file,
+      name,
+      onProgress,
+    }: {
+      file: File
+      name?: string
+      onProgress?: (pct: number) => void
+    }) => datasetsApi.upload(file, name, onProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
     },

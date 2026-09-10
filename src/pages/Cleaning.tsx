@@ -10,6 +10,7 @@ import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { formatPercentage, formatDate } from '../shared/utils/format'
 import { cleaningApi, type ColumnSuggestion, type CleaningLogEntry, type ColumnChange, type SnapshotStats } from '../core/api/cleaning.api'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 
 type MissingStrategy = 'drop_row' | 'drop_column' | 'mean' | 'median' | 'mode' | 'knn' | 'ffill' | 'bfill'
 type OutlierStrategy = 'winsorize' | 'remove' | 'leave'
@@ -238,6 +239,7 @@ export default function Cleaning() {
           </div>
         </div>
       )}
+      <WorkflowNextStep />
     </div>
   )
 }

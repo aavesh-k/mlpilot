@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatFileSize, formatDate } from '../shared/utils/format'
 import { apiClient } from '../core/api/client'
 import { toApiError } from '../core/api/errors'
+import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 
 export default function DatasetUpload() {
   const navigate = useNavigate()
@@ -55,12 +56,42 @@ export default function DatasetUpload() {
     }
   }
 
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [clientValidationError, setClientValidationError] = useState<string | null>(null)
+
+  const MAX_BYTES = 5 * 1024 * 1024 * 1024 // 5GB mirrors backend MAX_DATASET_SIZE_MB
+  const ALLOWED_EXTS = ['.csv', '.parquet', '.json', '.xlsx']
+
+  const validateClientSide = (file: File): string | null => {
+    const ext = '.' + (file.name.split('.').pop() ?? '').toLowerCase()
+    if (!ALLOWED_EXTS.includes(ext)) {
+      return `Unsupported format ${ext}. Allowed: ${ALLOWED_EXTS.join(', ')}`
+    }
+    if (file.size > MAX_BYTES) {
+      return `File exceeds 5GB limit (${(file.size / 1024 / 1024 / 1024).toFixed(2)} GB)`
+    }
+    if (file.size === 0) return 'File is empty'
+    return null
+  }
+
   const handleUpload = async (file: File) => {
+    setClientValidationError(null)
+    const err = validateClientSide(file)
+    if (err) {
+      setClientValidationError(err)
+      return
+    }
+    setUploadProgress(0)
     try {
-      const ds = await uploadMutation.mutateAsync({ file })
+      const ds = await uploadMutation.mutateAsync({
+        file,
+        onProgress: (pct) => setUploadProgress(pct),
+      })
       navigate(`/datasets/${ds.id}`)
     } catch {
       // error handled by mutation
+    } finally {
+      setUploadProgress(null)
     }
   }
 
@@ -104,15 +135,30 @@ return (
           className="hidden"
           onChange={handleFileSelect}
         />
+        {clientValidationError && (
+          <p className="mt-4 text-error font-mono font-bold text-sm">
+            {clientValidationError}
+          </p>
+        )}
         {uploadMutation.isError && (
           <p className="mt-4 text-error font-mono font-bold text-sm">
             Upload failed: {toApiError(uploadMutation.error).message}
           </p>
         )}
         {uploadMutation.isPending && (
-          <div className="mt-4 flex items-center gap-3">
-            <LoadingSpinner className="py-0" />
-            <span className="font-headline font-bold text-sm">Uploading...</span>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center gap-3">
+              <LoadingSpinner className="py-0" />
+              <span className="font-headline font-bold text-sm">
+                {uploadProgress !== null ? `Uploading… ${uploadProgress}%` : 'Uploading...'}
+              </span>
+            </div>
+            {uploadProgress !== null && (
+              <div className="h-2 w-full border border-primary bg-surface-variant">
+                <div className="h-full bg-primary transition-all" style={{ width: `${uploadProgress}%` }} />
+              </div>
+            )}
+            <p className="text-[10px] font-mono uppercase tracking-widest text-black/50">Large files are streamed — please keep this tab open</p>
           </div>
         )}
       </div>
@@ -221,6 +267,7 @@ return (
         }}
         onCancel={() => setConfirmDelete(null)}
       />
+      <WorkflowNextStep />
     </div>
   )
 }
