@@ -62,6 +62,7 @@ export default function ModelTraining() {
   const trainMutation = useTrainModel()
   const deleteJob = useDeleteJob()
   const [confirmDeleteJobId, setConfirmDeleteJobId] = useState<string | null>(null)
+  const [confirmCancelJobId, setConfirmCancelJobId] = useState<string | null>(null)
   const [cancelError, setCancelError] = useState<string | null>(null)
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([])
   const [confirmBulkDeleteJobs, setConfirmBulkDeleteJobs] = useState(false)
@@ -379,20 +380,25 @@ export default function ModelTraining() {
                       onClick={() => setSelectedAlgos([])}
                       className="text-[10px] font-headline font-bold uppercase underline decoration-dotted underline-offset-4 hover:text-tertiary"
                     >
-                      Clear
+                      Clear Selection
                     </button>
-                    {recommendationData && (
-                      <>
-                        <span className="text-[10px] text-on-surface-variant">·</span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedAlgos(recommendationData.recommended_algorithms)}
-                          className="text-[10px] font-headline font-bold uppercase text-tertiary underline decoration-solid underline-offset-4"
-                        >
-                          Reset to recommended
-                        </button>
-                      </>
-                    )}
+                    {recommendationData && (() => {
+                      const isAlreadyRecommended = selectedAlgos.length === recommendationData.recommended_algorithms.length && selectedAlgos.every((id) => recommendationData.recommended_algorithms.includes(id))
+                      if (isAlreadyRecommended) return null
+                      return (
+                        <>
+                          <span className="text-[10px] text-on-surface-variant">·</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedAlgos(recommendationData.recommended_algorithms)}
+                            className="text-[10px] font-headline font-bold uppercase text-tertiary underline decoration-solid underline-offset-4"
+                            title="Restore the AI-recommended algorithm set"
+                          >
+                            Restore Recommended
+                          </button>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
 
@@ -505,9 +511,10 @@ export default function ModelTraining() {
                   size="lg"
                   onClick={handleTrain}
                   disabled={trainMutation.isPending || selectedAlgos.length === 0}
+                  title={selectedAlgos.length === 0 ? 'Select at least one algorithm to train' : trainMutation.isPending ? 'Queuing — please wait' : undefined}
                   className="w-full uppercase font-headline font-black text-lg py-4"
                 >
-                  {trainMutation.isPending ? 'Queuing Job...' : 'Start Pipeline Training'}
+                  {trainMutation.isPending ? 'Queuing Job…' : 'Start Pipeline Training'}
                 </Button>
               </>
             )}
@@ -580,8 +587,8 @@ export default function ModelTraining() {
               {selectedJobIds.length} selected
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds([])} disabled={bulkDeletingJobs}>Clear</Button>
-              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDeleteJobs(true)} disabled={bulkDeletingJobs}>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds([])} disabled={bulkDeletingJobs} title={bulkDeletingJobs ? 'Deleting — please wait' : 'Clear selection'}>Clear Selection</Button>
+              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDeleteJobs(true)} disabled={bulkDeletingJobs} title={bulkDeletingJobs ? 'Deleting — please wait' : `Delete ${selectedJobIds.length} selected`}>
                 {bulkDeletingJobs ? 'Deleting…' : `Delete Selected (${selectedJobIds.length})`}
               </Button>
             </div>
@@ -655,15 +662,7 @@ export default function ModelTraining() {
                               variant="secondary"
                               size="sm"
                               className="text-error border-error"
-                              onClick={async () => {
-                                setCancelError(null)
-                                try {
-                                  await trainingApi.cancelJob(job.id)
-                                  refetch()
-                                } catch (e) {
-                                  setCancelError(toApiError(e).message)
-                                }
-                              }}
+                              onClick={() => setConfirmCancelJobId(job.id)}
                             >
                               Cancel
                             </Button>
@@ -709,6 +708,25 @@ export default function ModelTraining() {
           setConfirmDeleteJobId(null)
         }}
         onCancel={() => setConfirmDeleteJobId(null)}
+      />
+      <ConfirmDialog
+        open={confirmCancelJobId !== null}
+        title="Cancel Training Job"
+        message="Cancel this queued/running job? Training will stop and the job will be marked cancelled."
+        confirmLabel="Cancel Job"
+        onConfirm={async () => {
+          if (confirmCancelJobId) {
+            setCancelError(null)
+            try {
+              await trainingApi.cancelJob(confirmCancelJobId)
+              refetch()
+            } catch (e) {
+              setCancelError(toApiError(e).message)
+            }
+          }
+          setConfirmCancelJobId(null)
+        }}
+        onCancel={() => setConfirmCancelJobId(null)}
       />
       <ConfirmDialog
         open={confirmBulkDeleteJobs}

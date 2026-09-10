@@ -29,7 +29,6 @@ export const WORKFLOW_STEPS: WorkflowStepDef[] = [
 
 function isRouteActive(pathname: string, to: string): boolean {
   if (to === "/datasets" && pathname.startsWith("/datasets")) return true
-  if (to === "/compare" && pathname.startsWith("/visualizations")) return true
   return pathname === to || pathname.startsWith(to + "/")
 }
 

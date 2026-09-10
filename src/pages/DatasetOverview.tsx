@@ -70,10 +70,11 @@ export default function DatasetOverview() {
             ) : (
               <NavLink
                 to={`/cleaning?datasetId=${dataset.id}`}
-                title="Cleaning required before building a pipeline"
-                className="bg-surface-variant text-on-surface-variant font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary transition-all brutal-shadow cursor-pointer"
+                title="Cleaning required before building a pipeline — dataset must be cleaned first"
+                className="bg-warning text-on-warning-container font-headline font-black uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-warning-container transition-all active:scale-95 brutal-shadow flex items-center gap-1.5"
               >
-                Build Pipeline (Clean First)
+                <span className="material-symbols-outlined text-sm">cleaning_services</span>
+                Clean Required →
               </NavLink>
             )}
           </div>

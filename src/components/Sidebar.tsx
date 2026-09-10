@@ -14,7 +14,6 @@ const navItems = [
   { to: "/preprocessing", icon: "account_tree", label: "Preprocessing", stepId: "preprocess" as WorkflowStepId },
   { to: "/training", icon: "model_training", label: "Training", stepId: "train" as WorkflowStepId },
   { to: "/compare", icon: "leaderboard", label: "Leaderboard", stepId: "compare" as WorkflowStepId },
-  { to: "/visualizations", icon: "monitoring", label: "Visualization", stepId: "compare" as WorkflowStepId },
   { to: "/results", icon: "description", label: "Reports", stepId: "predict" as WorkflowStepId },
 ]
 

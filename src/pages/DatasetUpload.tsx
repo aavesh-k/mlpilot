@@ -214,7 +214,9 @@ return (
           <button
             onClick={() => loadDemoDataset('iris')}
             disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+            title={demoLoading ? 'Loading demo — please wait' : undefined}
+            aria-disabled={demoLoading}
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-2xl mb-1">grade</span>
             <span>Iris Classification</span>
@@ -223,7 +225,9 @@ return (
           <button
             onClick={() => loadDemoDataset('breast_cancer')}
             disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+            title={demoLoading ? 'Loading demo — please wait' : undefined}
+            aria-disabled={demoLoading}
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-2xl mb-1">favorite</span>
             <span>Breast Cancer</span>
@@ -232,7 +236,9 @@ return (
           <button
             onClick={() => loadDemoDataset('housing')}
             disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
+            title={demoLoading ? 'Loading demo — please wait' : undefined}
+            aria-disabled={demoLoading}
+            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-2xl mb-1">house</span>
             <span>Housing Regression</span>
@@ -256,8 +262,8 @@ return (
               {selectedIds.length} selected
             </span>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting}>Clear</Button>
-              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting}>
+              <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting} title={bulkDeleting ? 'Deleting — please wait' : 'Clear selection'}>Clear Selection</Button>
+              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting} title={bulkDeleting ? 'Deleting — please wait' : `Delete ${selectedIds.length} selected`}>
                 {bulkDeleting ? 'Deleting…' : `Delete Selected (${selectedIds.length})`}
               </Button>
             </div>

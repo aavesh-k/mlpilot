@@ -68,8 +68,9 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
           <NavLink
             to="/datasets"
             className="bg-black text-white font-mono text-xs uppercase font-black tracking-widest px-6 py-2.5 border-2 border-black shadow-[4px_4px_0_0_#000] hover:bg-black/90 btn-press active:shadow-none active:translate-x-[3px] active:translate-y-[3px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2"
+            title="Upload a new dataset to start a pipeline"
           >
-            New run →
+            New Dataset →
           </NavLink>
         </div>
       </div>
