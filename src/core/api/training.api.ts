@@ -54,6 +54,40 @@ export interface AlgorithmInfo {
   defaults: Record<string, unknown>
 }
 
+export interface RecommendationProfile {
+  rows: number
+  columns: number
+  n_numeric: number
+  n_categorical: number
+  n_classes: number | null
+  has_missing: boolean
+  missing_pct: number
+  has_high_cardinality: boolean
+  imbalanced: boolean
+  imbalance_ratio: number | null
+  has_text: boolean
+  has_datetime: boolean
+  profile_type: string
+  notes: string[]
+}
+
+export interface RecommendationItem {
+  algorithm: string
+  label: string
+  suitability: 'recommended' | 'consider' | 'not_recommended'
+  score: number
+  reasons: string[]
+  estimated_time: string
+}
+
+export interface RecommendationResponse {
+  problem_type: 'classification' | 'regression'
+  recommended_metric: string
+  profile: RecommendationProfile
+  recommendations: RecommendationItem[]
+  recommended_algorithms: string[]
+}
+
 export const trainingApi = {
   async train(body: {
     pipeline_id: string
@@ -148,6 +182,11 @@ export const trainingApi = {
 
   async getPlots(modelId: string): Promise<ModelPlotsResponse> {
     const { data } = await apiClient.get(`/training/models/${modelId}/plots`)
+    return data
+  },
+
+  async getRecommendations(params: { dataset_id?: string; pipeline_id?: string }): Promise<RecommendationResponse> {
+    const { data } = await apiClient.get('/training/recommendations', { params })
     return data
   },
 }

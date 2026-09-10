@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { usePipelines } from '../modules/pipelines/hooks/usePipelines'
-import { useTrainModel, useJobs, useDeleteJob } from '../modules/training/hooks/useTraining'
+import { useTrainModel, useJobs, useDeleteJob, useRecommendations } from '../modules/training/hooks/useTraining'
 import type { AlgorithmInfo } from '../core/api/training.api'
 import { PageHeader } from '../shared/components/PageHeader'
 import { EmptyState } from '../shared/components/EmptyState'
@@ -68,6 +68,9 @@ export default function ModelTraining() {
     queryFn: () => trainingApi.getAlgorithms(),
   })
   const algorithmInfo: Record<string, AlgorithmInfo> = algorithmsData?.algorithms ?? {}
+  const { data: recData, isLoading: recLoading, error: recError } = useRecommendations(
+    selectedPipelineId ? { pipeline_id: selectedPipelineId } : undefined
+  )
 
   const pipelines = pipelinesData?.items ?? []
   const completedPipelines = pipelines.filter((p) => p.status === 'completed')
@@ -185,6 +188,81 @@ export default function ModelTraining() {
 
             {selectedPipelineId && (
               <>
+                {/* Recommendations */}
+                <div className="mb-6 border-2 border-black bg-white brutal-shadow-sm overflow-hidden">
+                  <div className="bg-black text-white px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-6 bg-[#ffd400] block" aria-hidden />
+                      <h4 className="font-headline font-black text-sm uppercase tracking-tight">AI Recommendations</h4>
+                      {recData && <Badge variant="info" className="ml-2 bg-white text-black border-white">{recData.problem_type}</Badge>}
+                    </div>
+                    {recData && recData.recommended_algorithms.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedAlgos(recData.recommended_algorithms)}
+                        className="bg-[#ffd400] text-black border-2 border-black px-3 py-1 font-headline font-black text-[10px] uppercase tracking-widest hover:bg-white transition-colors"
+                      >
+                        Use Recommended ({recData.recommended_algorithms.length})
+                      </button>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    {recLoading && <p className="font-mono text-xs animate-pulse">Analyzing dataset profile…</p>}
+                    {recError && <p className="font-mono text-xs text-error">Failed to load recommendations</p>}
+                    {recData && (
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2 text-[10px] font-mono font-bold uppercase tracking-widest">
+                          <span className="bg-black text-white px-2 py-1">{recData.profile.rows.toLocaleString()} rows × {recData.profile.columns} cols</span>
+                          <span className="bg-white border border-black px-2 py-1">{recData.profile.n_numeric} numeric · {recData.profile.n_categorical} cat</span>
+                          <span className={`px-2 py-1 border ${recData.profile.imbalanced ? 'bg-[#ffd400] border-black' : 'bg-white border-black'}`}>
+                            {recData.profile.imbalanced ? `Imbalanced ×${recData.profile.imbalance_ratio}` : 'Balanced'}
+                          </span>
+                          <span className="bg-white border border-black px-2 py-1">Metric: {recData.recommended_metric}</span>
+                        </div>
+                        {recData.profile.notes.length > 0 && (
+                          <div className="bg-[#ffd400]/20 border-l-[4px] border-black p-3">
+                            {recData.profile.notes.map((n, i) => (
+                              <p key={i} className="font-mono text-[11px] leading-relaxed">• {n}</p>
+                            ))}
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          {recData.recommendations.map((rec) => {
+                            const variant = rec.suitability === 'recommended' ? 'success' : rec.suitability === 'consider' ? 'warning' : 'default'
+                            const borderColor = rec.suitability === 'recommended' ? 'border-[#16a34a]' : rec.suitability === 'consider' ? 'border-[#ffd400]' : 'border-black/20'
+                            const isSelected = selectedAlgos.includes(rec.algorithm)
+                            return (
+                              <div key={rec.algorithm} className={`border-2 p-3 bg-white flex items-start justify-between gap-3 ${borderColor} ${isSelected ? 'bg-black/[0.02]' : ''}`}>
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-headline font-black text-sm uppercase">{rec.label}</span>
+                                    <Badge variant={variant}>{rec.suitability}</Badge>
+                                    <span className="font-mono text-[10px] bg-black text-white px-1.5 py-0.5">{rec.score}</span>
+                                    <span className="font-mono text-[10px] border border-black px-1.5 py-0.5">{rec.estimated_time}</span>
+                                    {isSelected && <span className="font-mono text-[10px] bg-black text-[#ffd400] border border-black px-1.5 py-0.5">selected</span>}
+                                  </div>
+                                  <ul className="list-none space-y-0.5">
+                                    {rec.reasons.slice(0,2).map((r, idx) => (
+                                      <li key={idx} className="font-mono text-[11px] text-black/70 leading-snug">— {r}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleAlgo(rec.algorithm)}
+                                  className={`shrink-0 border-2 border-black px-2 py-1 font-headline font-black text-[10px] uppercase ${isSelected ? 'bg-black text-white' : 'bg-white hover:bg-[#ffd400]'}`}
+                                >
+                                  {isSelected ? 'Remove' : 'Add'}
+                                </button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Select Algorithms */}
                 <div className="mb-6">
                   <label className="font-headline font-bold text-xs uppercase block mb-3">Target Algorithms</label>

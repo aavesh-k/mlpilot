@@ -92,3 +92,12 @@ export function useModelPlots(modelId: string | undefined) {
     enabled: !!modelId,
   })
 }
+
+export function useRecommendations(params: { dataset_id?: string; pipeline_id?: string } | undefined) {
+  return useQuery({
+    queryKey: ['training', 'recommendations', params],
+    queryFn: () => trainingApi.getRecommendations(params!),
+    enabled: !!(params?.pipeline_id || params?.dataset_id),
+    staleTime: 60_000,
+  })
+}

@@ -818,6 +818,26 @@ async def list_algorithms() -> dict:
     return {"algorithms": algorithms}
 
 
+@router.get("/recommendations")
+async def get_recommendations(
+    dataset_id: str | None = Query(default=None),
+    pipeline_id: str | None = Query(default=None),
+    session_id: str = Depends(get_session_id),
+) -> dict:
+    """Dataset-driven model recommendations + suggested metric (no external services)."""
+    if (dataset_id is None) == (pipeline_id is None):
+        raise ValidationError("Exactly one of dataset_id / pipeline_id is required")
+    try:
+        from app.services.recommendation_service import get_recommendations as svc_get_recs
+
+        result = svc_get_recs(dataset_id=dataset_id, pipeline_id=pipeline_id, session_id=session_id)
+        return result
+    except ValueError as e:
+        raise ValidationError(str(e)) from None
+    except LookupError as e:
+        raise NotFoundError("Recommendation source", str(e)) from None
+
+
 @router.post("/", status_code=201, dependencies=[Depends(train_limiter)])
 async def train_model(
     body: TrainModelSchema,

@@ -26,6 +26,39 @@ export default function DatasetUpload() {
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+  const toggleSelectAllPage = () => {
+    if (!data?.items) return
+    const pageIds = data.items.map((d) => d.id)
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id))
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])))
+    }
+  }
+  const clearSelection = () => setSelectedIds([])
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    setBulkDeleting(true)
+    setDeleteError(null)
+    try {
+      await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
+      setSelectedIds([])
+    } catch (err) {
+      setDeleteError(toApiError(err).message)
+    } finally {
+      setBulkDeleting(false)
+      setConfirmBulkDelete(false)
+    }
+  }
 
   const handleDelete = async (id: string) => {
     setDeleteError(null)
@@ -209,7 +242,27 @@ return (
       </div>
 
       <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow">
-        <h3 className="font-headline font-black text-xl uppercase mb-6">Datasets</h3>
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <h3 className="font-headline font-black text-xl uppercase">Datasets</h3>
+          {selectedIds.length > 0 && (
+            <span className="font-mono text-[10px] font-bold bg-black text-white px-2 py-1 border border-black">{selectedIds.length} selected</span>
+          )}
+        </div>
+
+        {selectedIds.length > 0 && (
+          <div className="mb-4 bg-[#ffd400] border-2 border-black p-3 brutal-shadow-sm flex items-center justify-between gap-3">
+            <span className="font-headline font-black text-xs uppercase flex items-center gap-2">
+              <span className="material-symbols-outlined text-sm">checklist</span>
+              {selectedIds.length} selected
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={clearSelection} disabled={bulkDeleting}>Clear</Button>
+              <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting}>
+                {bulkDeleting ? 'Deleting…' : `Delete Selected (${selectedIds.length})`}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {deleteError && (
           <p className="mb-4 text-error font-mono font-bold text-sm">Delete failed: {deleteError}</p>
@@ -221,16 +274,45 @@ return (
         )}
         {!isLoading && !error && data && data.items.length > 0 && (
           <>
-            {data.items.map((ds) => (
+            <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-black">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={data.items.length > 0 && data.items.every((d) => selectedIds.includes(d.id))}
+                  onChange={toggleSelectAllPage}
+                  className="w-4 h-4 border-2 border-black accent-black"
+                />
+                <span className="font-headline font-black text-xs uppercase">Select all on page</span>
+              </label>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-black/60">
+                {data.items.filter((d) => selectedIds.includes(d.id)).length}/{data.items.length} on this page
+              </span>
+              {selectedIds.length > 0 && (
+                <button onClick={clearSelection} className="ml-auto font-mono text-[10px] font-bold uppercase underline decoration-dotted">Clear selection</button>
+              )}
+            </div>
+            {data.items.map((ds) => {
+              const isSelected = selectedIds.includes(ds.id)
+              return (
               <div
                 key={ds.id}
                 onClick={() => navigate(`/datasets/${ds.id}`)}
-                className="flex items-center justify-between py-4 border-b-2 border-primary last:border-b-0 hover:bg-surface-variant/30 transition-colors cursor-pointer"
+                className={`flex items-center justify-between py-4 border-b-2 border-primary last:border-b-0 transition-colors cursor-pointer ${isSelected ? 'bg-[#ffd400]/20' : 'hover:bg-surface-variant/30'}`}
               >
                 <div className="flex items-center gap-4">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => { e.stopPropagation(); toggleSelect(ds.id) }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 border-2 border-black accent-black"
+                  />
                   <span className="material-symbols-outlined text-2xl">description</span>
                   <div>
-                    <p className="font-headline font-bold">{ds.name}</p>
+                    <p className="font-headline font-bold flex items-center gap-2">
+                      {ds.name}
+                      {isSelected && <span className="w-2 h-2 bg-black border border-black" aria-hidden />}
+                    </p>
                     <p className="text-xs text-on-surface-variant">
                       {formatFileSize(ds.file_size_bytes ?? 0)} · {ds.row_count?.toLocaleString() ?? '—'} rows · {ds.created_at ? formatDate(ds.created_at) : '—'}
                     </p>
@@ -250,7 +332,7 @@ return (
                   </Button>
                 </div>
               </div>
-            ))}
+            )})}
             <Pagination page={data.page} perPage={data.per_page} total={data.total} onPageChange={setPage} />
           </>
         )}
@@ -266,6 +348,14 @@ return (
           setConfirmDelete(null)
         }}
         onCancel={() => setConfirmDelete(null)}
+      />
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title="Delete Selected Datasets"
+        message={`Delete ${selectedIds.length} selected dataset(s)? This permanently removes files and cannot be undone.`}
+        confirmLabel={bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.length}`}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setConfirmBulkDelete(false)}
       />
       <WorkflowNextStep />
     </div>

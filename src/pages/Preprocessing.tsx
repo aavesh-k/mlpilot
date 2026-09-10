@@ -75,6 +75,36 @@ export default function Preprocessing() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [confirmDeletePipeline, setConfirmDeletePipeline] = useState<{ id: string; name: string } | null>(null)
+  const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([])
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+
+  const togglePipelineSelect = (id: string) => {
+    setSelectedPipelineIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+  const toggleSelectAllPipelines = () => {
+    const pageIds = pipelines.map((p) => p.id)
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedPipelineIds.includes(id))
+    if (allSelected) {
+      setSelectedPipelineIds((prev) => prev.filter((id) => !pageIds.includes(id)))
+    } else {
+      setSelectedPipelineIds((prev) => Array.from(new Set([...prev, ...pageIds])))
+    }
+  }
+  const handleBulkDeletePipelines = async () => {
+    if (selectedPipelineIds.length === 0) return
+    setBulkDeleting(true)
+    setDeleteError(null)
+    try {
+      await Promise.all(selectedPipelineIds.map((id) => deletePipeline.mutateAsync(id)))
+      setSelectedPipelineIds([])
+    } catch (err) {
+      setDeleteError(toApiError(err).message)
+    } finally {
+      setBulkDeleting(false)
+      setConfirmBulkDelete(false)
+    }
+  }
 
   const handleDeletePipeline = async (id: string) => {
     setDeleteError(null)
@@ -404,6 +434,14 @@ export default function Preprocessing() {
         }}
         onCancel={() => setConfirmDeletePipeline(null)}
       />
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title="Delete Selected Pipelines"
+        message={`Delete ${selectedPipelineIds.length} selected pipeline(s)? This cannot be undone.`}
+        confirmLabel={bulkDeleting ? 'Deleting…' : `Delete ${selectedPipelineIds.length}`}
+        onConfirm={handleBulkDeletePipelines}
+        onCancel={() => setConfirmBulkDelete(false)}
+      />
 
       {!isLoading && !error && pipelines.length === 0 && !editing && (
         <EmptyState
@@ -420,11 +458,51 @@ export default function Preprocessing() {
 
           {!isLoading && !error && pipelines.length > 0 && (
         <div className="space-y-4">
+          {selectedPipelineIds.length > 0 && (
+            <div className="bg-[#ffd400] border-2 border-black p-3 brutal-shadow-sm flex items-center justify-between gap-3">
+              <span className="font-headline font-black text-xs uppercase flex items-center gap-2">
+                <span className="material-symbols-outlined text-sm">checklist</span>
+                {selectedPipelineIds.length} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedPipelineIds([])} disabled={bulkDeleting}>Clear</Button>
+                <Button variant="danger" size="sm" onClick={() => setConfirmBulkDelete(true)} disabled={bulkDeleting}>
+                  {bulkDeleting ? 'Deleting…' : `Delete Selected (${selectedPipelineIds.length})`}
+                </Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-3 pb-3 border-b-2 border-black">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={pipelines.length > 0 && pipelines.every((p) => selectedPipelineIds.includes(p.id))}
+                onChange={toggleSelectAllPipelines}
+                className="w-4 h-4 border-2 border-black accent-black"
+              />
+              <span className="font-headline font-black text-xs uppercase">Select all on page</span>
+            </label>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-black/60">
+              {pipelines.filter((p) => selectedPipelineIds.includes(p.id)).length}/{pipelines.length} selected
+            </span>
+            {selectedPipelineIds.length > 0 && (
+              <button onClick={() => setSelectedPipelineIds([])} className="ml-auto font-mono text-[10px] font-bold uppercase underline decoration-dotted">Clear selection</button>
+            )}
+          </div>
           {pipelines.map((p) => {
+            const isSelected = selectedPipelineIds.includes(p.id)
             return (
-              <div key={p.id} className="bg-surface border-2 border-primary p-6 brutal-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
+              <div key={p.id} className={`bg-surface border-2 border-primary p-6 brutal-shadow ${isSelected ? 'bg-[#ffd400]/15' : ''}`}>
+                <div className="flex items-start gap-3 mb-4">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => togglePipelineSelect(p.id)}
+                    className="w-4 h-4 border-2 border-black accent-black mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
                     <h3 className="font-headline font-bold text-lg">{p.name}</h3>
                     <p className="text-xs text-on-surface-variant">Created {formatDate(p.created_at)}</p>
                     <p className="text-xs text-on-surface-variant">
@@ -479,6 +557,8 @@ export default function Preprocessing() {
                     >
                       {pendingDeleteId === p.id ? 'Deleting…' : 'Delete'}
                     </Button>
+                  </div>
+                </div>
                   </div>
                 </div>
                 {p.error_message && (
