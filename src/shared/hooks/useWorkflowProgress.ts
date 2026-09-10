@@ -324,17 +324,17 @@ export function useWorkflowProgress() {
 
   const activeStep = steps.find((s) => s.state === "active")
   const nextStep = useMemo(() => {
-    // Next = first non-done & not locked, else first available, else active's next
-    const firstIncomplete = steps.find((s) => s.state === "available" || s.state === "processing")
-    if (firstIncomplete) return firstIncomplete
-    const firstAvailable = steps.find((s) => s.state === "active")
-    if (firstAvailable) {
-      const idx = steps.findIndex((s) => s.id === firstAvailable.id)
-      const next = steps[idx + 1]
-      if (next && next.state !== "locked") return next
+    // Next is the immediate step after the active one (not the first incomplete globally)
+    // — this prevents "Next: Compare" showing while on the final Predict/Reports tab.
+    const activeIdx = steps.findIndex((s) => s.state === "active")
+    if (activeIdx !== -1) {
+      for (let i = activeIdx + 1; i < steps.length; i++) {
+        if (steps[i].state !== "locked") return steps[i]
+      }
+      return null // active is last step or all following locked → no next
     }
-    // If all done, predict is next
-    return steps.find((s) => s.state !== "locked" && s.state !== "done") ?? null
+    // No active workflow step (e.g., Dashboard) → first available
+    return steps.find((s) => s.state === "available" || s.state === "processing") ?? null
   }, [steps])
 
   // For sidebar sync: map step ids to sidebar entries

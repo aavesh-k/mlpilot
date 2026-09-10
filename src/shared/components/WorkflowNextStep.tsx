@@ -2,13 +2,25 @@ import { NavLink } from "react-router-dom"
 import { useWorkflowProgress } from "../hooks/useWorkflowProgress"
 
 export default function WorkflowNextStep() {
-  const { nextStep, steps, hasDataset } = useWorkflowProgress()
+  const { nextStep, steps, hasDataset, activeStep } = useWorkflowProgress()
 
   // Better than UX.md: hide when workflow complete or no entry point.
   // Show contextual guidance + locked reason when applicable.
   if (!hasDataset && !nextStep) return null
   if (!nextStep) {
-    // All steps done — show celebrate CTA to predict/reports
+    // No next after active → workflow complete or on final step
+    // Don't show redundant "Go to Predict" when already on Predict
+    if (activeStep?.id === "predict") {
+      return (
+        <div className="mt-10 border-2 border-black bg-[#c8ff00] brutal-shadow p-4 flex items-center gap-3">
+          <span className="material-symbols-outlined text-xl">celebration</span>
+          <div>
+            <p className="font-headline font-black text-sm uppercase">Workflow complete</p>
+            <p className="text-xs text-black/70">All 6 steps done for this dataset. Export, score new data, or start a new run.</p>
+          </div>
+        </div>
+      )
+    }
     const predict = steps.find((s) => s.id === "predict")
     if (!predict || predict.state === "locked") return null
     return (
