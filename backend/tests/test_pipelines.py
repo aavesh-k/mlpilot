@@ -108,3 +108,51 @@ def test_execute_pipeline_returns_completed(client: TestClient) -> None:
     response = client.post(f"/api/v1/pipelines/{pipe_id}/execute")
     assert response.status_code == 200
     assert response.json()["status"] in ("completed", "failed")
+
+
+def test_download_preprocessed_pipeline_data(client: TestClient) -> None:
+    content = "col_a,col_b,target\n1,2,0\n3,4,1\n5,6,0\n7,8,1\n9,10,0\n11,12,1\n"
+    up_resp = client.post(
+        "/api/v1/datasets/upload",
+        files={"file": ("data.csv", io.BytesIO(content.encode()), "text/csv")},
+    )
+    ds_id = up_resp.json()["id"]
+    create = client.post("/api/v1/pipelines/", json={
+        "dataset_id": ds_id,
+        "target_column": "target",
+        "name": "House Price Pipeline",
+    })
+    pipe_id = create.json()["id"]
+
+    # Before execution, download should fail
+    resp_before = client.get(f"/api/v1/pipelines/{pipe_id}/download")
+    assert resp_before.status_code in (400, 422)
+
+    # Execute pipeline
+    exec_resp = client.post(f"/api/v1/pipelines/{pipe_id}/execute")
+    assert exec_resp.status_code == 200
+    assert exec_resp.json()["status"] == "completed"
+
+    # Download combined
+    resp_combined = client.get(f"/api/v1/pipelines/{pipe_id}/download?split=combined")
+    assert resp_combined.status_code == 200
+    assert "text/csv" in resp_combined.headers.get("content-type", "")
+    assert "attachment; filename=" in resp_combined.headers.get("content-disposition", "")
+    assert "preprocessed_House_Price_Pipeline.csv" in resp_combined.headers.get("content-disposition", "")
+    assert "target" in resp_combined.text
+
+    # Download train split
+    resp_train = client.get(f"/api/v1/pipelines/{pipe_id}/download?split=train")
+    assert resp_train.status_code == 200
+    assert "preprocessed_House_Price_Pipeline_train.csv" in resp_train.headers.get("content-disposition", "")
+
+    # Download test split
+    resp_test = client.get(f"/api/v1/pipelines/{pipe_id}/download?split=test")
+    assert resp_test.status_code == 200
+    assert "preprocessed_House_Price_Pipeline_test.csv" in resp_test.headers.get("content-disposition", "")
+
+
+def test_download_nonexistent_pipeline_returns_404(client: TestClient) -> None:
+    response = client.get(f"/api/v1/pipelines/{uuid.uuid4()}/download")
+    assert response.status_code == 404
+

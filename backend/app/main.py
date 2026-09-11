@@ -35,6 +35,27 @@ async def lifespan(_app: FastAPI):
             "Auto-cleanup is disabled (set ENABLE_AUTO_CLEANUP=true to purge "
             "datasets/models older than AUTO_CLEANUP_MAX_AGE_DAYS)."
         )
+
+    # Recover any orphaned zombie jobs left running/queued if previous container crashed (e.g. OOM)
+    try:
+        from app.storage import storage
+        orphaned_jobs = [j for j in storage.list_jobs() if j.get("status") in ("running", "queued")]
+        if orphaned_jobs:
+            logger.warning("Found %d orphaned jobs in running/queued state on startup. Marking as failed.", len(orphaned_jobs))
+            for oj in orphaned_jobs:
+                oj["status"] = "failed"
+                oj["error_message"] = "Training process interrupted unexpectedly (e.g. server restart or memory limit). Please restart training."
+                oj["completed_at"] = datetime.now(UTC).isoformat()
+                storage.save_job(oj)
+
+            orphaned_models = [m for m in storage.list_models() if m.get("status") in ("running", "queued")]
+            for om in orphaned_models:
+                om["status"] = "failed"
+                om["error_message"] = "Training process interrupted unexpectedly by server restart or memory limit."
+                storage.save_model(om)
+    except Exception as e:
+        logger.error("Failed to recover orphaned jobs on startup: %s", e)
+
     yield
 
 

@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { CONFIG } from '../config'
 import type { PaginatedResponse } from '../types/api'
 
 export interface EncodingConfig {
@@ -140,5 +141,9 @@ export const pipelinesApi = {
   async execute(id: string): Promise<Pipeline> {
     const { data } = await apiClient.post(`/pipelines/${id}/execute`)
     return data
+  },
+
+  getDownloadUrl(id: string, split: 'combined' | 'train' | 'test' = 'combined'): string {
+    return `${CONFIG.API_BASE_URL}/pipelines/${id}/download?split=${split}`
   },
 }

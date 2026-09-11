@@ -21,6 +21,7 @@ import { ConfirmDialog } from '../shared/components/ui/confirm-dialog'
 import { formatDate } from '../shared/utils/format'
 import { toApiError } from '../core/api/errors'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
+import { pipelinesApi } from '../core/api/pipelines.api'
 import type { ColumnSuggestion, EncodingConfig, ScalingConfig, SplitConfig, FeatureSelectionConfig, TargetDetectionResult } from '../core/api/pipelines.api'
 
 type Step = 'select-columns' | 'config' | 'review'
@@ -78,6 +79,14 @@ export default function Preprocessing() {
   const [selectedPipelineIds, setSelectedPipelineIds] = useState<string[]>([])
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [openDownloadMenuId, setOpenDownloadMenuId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!openDownloadMenuId) return
+    const handleClickOutside = () => setOpenDownloadMenuId(null)
+    window.addEventListener('click', handleClickOutside)
+    return () => window.removeEventListener('click', handleClickOutside)
+  }, [openDownloadMenuId])
 
   const togglePipelineSelect = (id: string) => {
     setSelectedPipelineIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -542,6 +551,64 @@ export default function Preprocessing() {
                         <Button variant="primary" size="sm" onClick={() => navigate(`/training?pipeline=${p.id}&dataset=${p.dataset_id}`)}>
                           Train Models
                         </Button>
+                        <div className="relative inline-flex">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => window.open(pipelinesApi.getDownloadUrl(p.id, 'combined'), '_blank')}
+                            title="Download full preprocessed dataset (combined train + test)"
+                          >
+                            Download CSV
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenDownloadMenuId(openDownloadMenuId === p.id ? null : p.id)
+                            }}
+                            className="border-2 border-l-0 border-primary bg-surface px-2 hover:bg-surface-variant font-bold text-xs"
+                            title="Choose dataset split to download"
+                          >
+                            ▼
+                          </button>
+                          {openDownloadMenuId === p.id && (
+                            <div
+                              className="absolute right-0 top-full mt-1 z-20 bg-surface border-2 border-primary brutal-shadow py-1 min-w-[170px] text-xs"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                className="w-full text-left px-3 py-1.5 hover:bg-surface-variant font-bold font-headline block"
+                                onClick={() => {
+                                  window.open(pipelinesApi.getDownloadUrl(p.id, 'combined'), '_blank')
+                                  setOpenDownloadMenuId(null)
+                                }}
+                              >
+                                Combined (All rows)
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full text-left px-3 py-1.5 hover:bg-surface-variant font-headline block"
+                                onClick={() => {
+                                  window.open(pipelinesApi.getDownloadUrl(p.id, 'train'), '_blank')
+                                  setOpenDownloadMenuId(null)
+                                }}
+                              >
+                                Train Split ({p.train_rows ?? '?'} rows)
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full text-left px-3 py-1.5 hover:bg-surface-variant font-headline block"
+                                onClick={() => {
+                                  window.open(pipelinesApi.getDownloadUrl(p.id, 'test'), '_blank')
+                                  setOpenDownloadMenuId(null)
+                                }}
+                              >
+                                Test Split ({p.test_rows ?? '?'} rows)
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <Button variant="ghost" size="sm" onClick={() => handleEditPipeline(p as any)}>Edit</Button>
                         {renamingId === p.id ? (
                           <>

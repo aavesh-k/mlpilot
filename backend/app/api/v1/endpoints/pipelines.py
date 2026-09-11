@@ -3,7 +3,8 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
+from fastapi.responses import FileResponse
 
 from app.api.rate_limit import predict_limiter
 from app.api.v1.endpoints.datasets import get_session_id
@@ -364,3 +365,60 @@ async def score_pipeline(
         "data": result_df.head(100).to_dict(orient="records"),
         "download_url": None,
     }
+
+
+@router.get("/{pipeline_id}/download")
+async def download_preprocessed_pipeline_data(
+    pipeline_id: str,
+    split: str = Query("combined", pattern="^(combined|train|test)$"),
+    session_id: str = Depends(get_session_id),
+):
+    import pandas as pd
+
+    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    if not pipeline:
+        raise NotFoundError("Pipeline", pipeline_id)
+    if pipeline.get("status") != "completed":
+        raise ValidationError("Pipeline has not completed preprocessing yet")
+
+    processed_dir = settings.DATA_DIR / "processed" / pipeline_id
+    if not processed_dir.exists():
+        raise NotFoundError("Processed data directory", pipeline_id)
+
+    csv_path = processed_dir / f"preprocessed_{split}.csv"
+    if not csv_path.exists():
+        train_parquet = processed_dir / "train.parquet"
+        test_parquet = processed_dir / "test.parquet"
+
+        if not train_parquet.exists():
+            raise NotFoundError("Preprocessed training data", pipeline_id)
+
+        df_train = pd.read_parquet(train_parquet)
+
+        has_test = test_parquet.exists() and test_parquet.stat().st_size > 0
+        if split == "train":
+            df_out = df_train
+        elif split == "test":
+            df_out = pd.read_parquet(test_parquet) if has_test else pd.DataFrame(columns=df_train.columns)
+        else:  # combined
+            df_out = (
+                pd.concat([df_train, pd.read_parquet(test_parquet)], ignore_index=True)
+                if has_test
+                else df_train
+            )
+
+        df_out.to_csv(csv_path, index=False)
+
+    raw_name = pipeline.get("name") or f"pipeline_{pipeline_id[:8]}"
+    safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in raw_name)
+    safe_name = safe_name.strip().replace(" ", "_") or "pipeline"
+
+    suffix = f"_{split}" if split != "combined" else ""
+    filename = f"preprocessed_{safe_name}{suffix}.csv"
+
+    return FileResponse(
+        str(csv_path),
+        media_type="text/csv",
+        filename=filename,
+    )
+

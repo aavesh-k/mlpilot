@@ -59,6 +59,33 @@ def _unregister_cancel_event(job_id: str) -> None:
         _cancel_events.pop(job_id, None)
 
 
+def save_artifact(obj: Any, path: Path | str) -> None:
+    """Save model or pipeline artifact with joblib compression (level 3).
+
+    Dramatically reduces artifact size (by up to 95%) and reduces streaming
+    memory allocations on memory-constrained servers (e.g. Render 512MB limit).
+    """
+    import joblib
+
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(obj, p, compress=3)
+
+
+def load_artifact(path: Path | str) -> Any:
+    """Load model artifact, trying joblib first then cloudpickle for full backwards compatibility."""
+    import joblib
+
+    p = Path(path)
+    try:
+        return joblib.load(p)
+    except Exception:
+        import cloudpickle
+
+        with open(p, "rb") as f:
+            return cloudpickle.load(f)
+
+
 def _resolve_hyperparameters(algo: str, hyperparameters: dict | None) -> dict:
     """Merge user-provided hyperparameters with algorithm defaults.
 
@@ -81,14 +108,35 @@ def _attach_eta(job: dict) -> dict:
 
     run_started = job.get("run_started_at") or job.get("started_at")
     progress = float(job.get("progress", 0.0) or 0.0)
-    if run_started and progress > 0:
-        try:
-            start = datetime.fromisoformat(run_started)
-            elapsed = (datetime.now(UTC) - start).total_seconds()
-            job["eta_seconds"] = round(elapsed * (100.0 - progress) / progress, 1)
-        except Exception:
-            job["eta_seconds"] = None
-    else:
+    if not run_started or progress <= 0:
+        job["eta_seconds"] = None
+        return job
+
+    try:
+        now = datetime.now(UTC)
+        start = datetime.fromisoformat(run_started.replace("Z", "+00:00"))
+        elapsed = max(0.1, (now - start).total_seconds())
+
+        if progress >= 95.0:
+            job["eta_seconds"] = 5.0
+            return job
+
+        # Detect dead/stalled jobs: if no progress update for > 10 min, do not inflate ETA
+        updated_str = job.get("progress_updated_at")
+        if updated_str:
+            last_update = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+            stall_duration = (now - last_update).total_seconds()
+            if stall_duration > 600:
+                job["eta_seconds"] = None
+                return job
+
+        # Estimated total time from pace so far, counting down smoothly
+        estimated_total = elapsed * (100.0 / progress)
+        countdown_eta = max(5.0, estimated_total - elapsed)
+
+        # Cap ETA at 1800s (30m) to prevent runaway projections
+        job["eta_seconds"] = round(min(1800.0, countdown_eta), 1)
+    except Exception:
         job["eta_seconds"] = None
     return job
 
@@ -125,7 +173,9 @@ def get_algorithms() -> dict:
             "random_forest": lambda hp: RandomForestClassifier(
                 n_estimators=hp.get("n_estimators", 100),
                 max_depth=hp.get("max_depth"),
+                min_samples_leaf=hp.get("min_samples_leaf", 1),
                 random_state=hp.get("random_state", 42),
+                n_jobs=-1,
             ),
             "xgboost": lambda hp: XGBClassifier(
                 n_estimators=hp.get("n_estimators", 100),
@@ -134,19 +184,22 @@ def get_algorithms() -> dict:
                 random_state=hp.get("random_state", 42),
                 use_label_encoder=False,
                 eval_metric="logloss",
+                n_jobs=-1,
             ),
             "svm": lambda hp: SVC(
                 C=hp.get("C", 1.0),
                 kernel=hp.get("kernel", "rbf"),
                 probability=True,
+                max_iter=hp.get("max_iter", -1),
                 random_state=hp.get("random_state", 42),
             ),
             "knn": lambda hp: KNeighborsClassifier(
                 n_neighbors=hp.get("n_neighbors", 5),
+                n_jobs=-1,
             ),
 
             # Regression
-            "linear_regression": lambda _hp: LinearRegression(),
+            "linear_regression": lambda _hp: LinearRegression(n_jobs=-1),
             "ridge": lambda hp: Ridge(
                 alpha=hp.get("alpha", 1.0),
                 random_state=hp.get("random_state", 42),
@@ -158,13 +211,16 @@ def get_algorithms() -> dict:
             "random_forest_regressor": lambda hp: RandomForestRegressor(
                 n_estimators=hp.get("n_estimators", 100),
                 max_depth=hp.get("max_depth"),
+                min_samples_leaf=hp.get("min_samples_leaf", 1),
                 random_state=hp.get("random_state", 42),
+                n_jobs=-1,
             ),
             "xgboost_regressor": lambda hp: XGBRegressor(
                 n_estimators=hp.get("n_estimators", 100),
                 max_depth=hp.get("max_depth", 6),
                 learning_rate=hp.get("learning_rate", 0.3),
                 random_state=hp.get("random_state", 42),
+                n_jobs=-1,
             ),
         }
     return _ALGORITHMS_CACHE
@@ -299,10 +355,7 @@ def _load_preprocessor(pipeline_id: str | None):
     if not p.exists():
         return None
     try:
-        import cloudpickle
-
-        with open(p, "rb") as f:
-            return cloudpickle.load(f)
+        return load_artifact(p)
     except Exception:
         return None
 
@@ -315,10 +368,7 @@ def _load_label_encoder(pipeline_id: str | None):
     if not p.exists():
         return None
     try:
-        import cloudpickle
-
-        with open(p, "rb") as f:
-            return cloudpickle.load(f)
+        return load_artifact(p)
     except Exception:
         return None
 
@@ -465,7 +515,6 @@ def _run_multi_training_background(
     random_seed: int = 42,
     hyperparameters: dict | None = None,
 ) -> None:
-    import cloudpickle
     import numpy as np
     import pandas as pd
     from sklearn.model_selection import KFold, RandomizedSearchCV, StratifiedKFold
@@ -524,18 +573,43 @@ def _run_multi_training_background(
         job_progress_base = 5.0 + (idx / total_algos) * 60.0
         job_progress_next = 5.0 + ((idx + 1) / total_algos) * 60.0
         job["progress"] = round(job_progress_base, 1)
+        job["progress_updated_at"] = datetime.now(UTC).isoformat()
         _append_log(job, f"[{idx + 1}/{total_algos}] Training baseline {algo}...")
         storage.save_job(job)
 
         def _on_cv_progress(frac: float, base: float = job_progress_base, nxt: float = job_progress_next) -> None:
             job["progress"] = round(base + frac * (nxt - base), 1)
+            job["progress_updated_at"] = datetime.now(UTC).isoformat()
             storage.save_job(job)
 
         try:
             start_time = time.perf_counter()
             hp = _resolve_hyperparameters(algo, hyperparameters)
+
+            # Adaptive protection for large datasets (> 5,000 rows)
+            n_samples = X_train.shape[0] if hasattr(X_train, "shape") else len(X_train)
+            if n_samples > 5000:
+                if algo in ("random_forest", "random_forest_regressor"):
+                    if "max_depth" not in hp or hp["max_depth"] is None:
+                        hp["max_depth"] = 12
+                    if "min_samples_leaf" not in hp:
+                        hp["min_samples_leaf"] = 2
+                    _append_log(
+                        job,
+                        f"Large dataset ({n_samples:,} rows): setting max_depth={hp['max_depth']}, "
+                        f"min_samples_leaf=2 for {algo} to prevent OOM memory spike."
+                    )
+                elif algo == "svm":
+                    if "max_iter" not in hp or hp["max_iter"] == -1:
+                        hp["max_iter"] = 3000
+                        _append_log(
+                            job,
+                            f"Large dataset ({n_samples:,} rows): setting max_iter=3000 for {algo} "
+                            "to prevent excessive training time."
+                        )
+
             if hp:
-                _append_log(job, f"Using custom hyperparameters for {algo}: {hp}")
+                _append_log(job, f"Using hyperparameters for {algo}: {hp}")
             clf = get_algorithms()[algo](hp)
 
             # Apply class weights if configured
@@ -574,17 +648,18 @@ def _run_multi_training_background(
             model_entry["training_duration_ms"] = elapsed_ms
             model_entry["hyperparameters"] = clf.get_params()
 
-            # Save basic model artifact
+            # Save model artifact using compressed joblib (drastically reduces RAM & disk)
             model_artifact_dir = settings.DATA_DIR / "models" / model_id
-            model_artifact_dir.mkdir(parents=True, exist_ok=True)
-            with open(model_artifact_dir / "model.pkl", "wb") as mf:
-                cloudpickle.dump(clf, mf)
+            save_artifact(clf, model_artifact_dir / "model.pkl")
             model_entry["file_path"] = str(model_artifact_dir / "model.pkl")
             storage.save_model(model_entry)
 
             completed_models_metrics[algo] = metrics
             completed_estimators[algo] = clf
             completed_durations[algo] = elapsed_ms
+
+            import gc
+            gc.collect()
 
         except Exception as e:
             logger.exception(f"Failed baseline training for {algo}")
@@ -610,6 +685,7 @@ def _run_multi_training_background(
             return
 
         job["progress"] = 70.0
+        job["progress_updated_at"] = datetime.now(UTC).isoformat()
         _append_log(job, "Ranking models to select top candidates for hyperparameter tuning...")
         storage.save_job(job)
 
@@ -622,7 +698,7 @@ def _run_multi_training_background(
             reverse=not lower_better
         )
 
-        # Tune top 2 models (or up to 3 if available) — skip slow algos on large data to avoid 65% stall
+        # Tune top 2 models (or up to 3 if available) — skip slow algos on large data to avoid stall
         top_to_tune = sorted_algos[:min(len(sorted_algos), 3)]
         try:
             n_rows = int(X_train.shape[0]) if hasattr(X_train, "shape") else 0
@@ -631,11 +707,12 @@ def _run_multi_training_background(
         if n_rows > 10000:
             filtered = [a for a in top_to_tune if a not in ("svm", "knn")]
             if len(filtered) != len(top_to_tune):
-                _append_log(job, f"Large dataset ({n_rows} rows) — skipping slow tuning for {set(top_to_tune) - set(filtered)}")
+                _append_log(job, f"Large dataset ({n_rows:,} rows) — skipping slow tuning for {set(top_to_tune) - set(filtered)}")
             top_to_tune = filtered
         if not top_to_tune:
             _append_log(job, "No candidates for tuning after large-data filter — skipping tuning phase")
             job["progress"] = 90.0
+            job["progress_updated_at"] = datetime.now(UTC).isoformat()
             storage.save_job(job)
         else:
             _append_log(job, f"Selected top models for tuning: {', '.join(top_to_tune)}")
@@ -658,6 +735,7 @@ def _run_multi_training_background(
 
             tuning_progress = 70.0 + (t_idx / len(top_to_tune)) * 20.0
             job["progress"] = round(tuning_progress, 1)
+            job["progress_updated_at"] = datetime.now(UTC).isoformat()
             _append_log(job, f"Running RandomizedSearchCV hyperparameter tuning for {algo}...")
             storage.save_job(job)
 
@@ -670,6 +748,19 @@ def _run_multi_training_background(
                     else KFold(n_splits=3, shuffle=True, random_state=random_seed)
                 )
 
+                # Subsample large datasets during hyperparameter search for speed
+                n_samples = X_train.shape[0] if hasattr(X_train, "shape") else len(X_train)
+                if n_samples > 8000:
+                    rng = np.random.RandomState(random_seed)
+                    sample_size = 8000
+                    sample_indices = rng.choice(n_samples, size=sample_size, replace=False)
+                    X_tune = X_train[sample_indices]
+                    y_tune = y_train[sample_indices]
+                    _append_log(job, f"Subsampling {sample_size:,}/{n_samples:,} rows for fast hyperparameter search on {algo}...")
+                else:
+                    X_tune = X_train
+                    y_tune = y_train
+
                 search = RandomizedSearchCV(
                     estimator=base_clf,
                     param_distributions=param_grid,
@@ -679,9 +770,14 @@ def _run_multi_training_background(
                     random_state=random_seed,
                     n_jobs=1
                 )
-                search.fit(X_train, y_train)
+                search.fit(X_tune, y_tune)
 
                 tuned_clf = search.best_estimator_
+
+                # Refit best hyperparameters on the FULL training split
+                if n_samples > 8000:
+                    _append_log(job, f"Refitting best {algo} parameters on full training set ({n_samples:,} rows)...")
+                    tuned_clf.fit(X_train, y_train)
 
                 # Evaluate tuned model
                 tuned_metrics = _evaluate_model(tuned_clf, X_test, y_test, problem_type)
@@ -708,11 +804,12 @@ def _run_multi_training_background(
                     model_entry["hyperparameters"] = tuned_clf.get_params()
                     model_entry["name"] = f"{algo.replace('_', ' ').title()} (Tuned)"
 
-                    # Overwrite file
+                    # Save compressed model artifact
                     model_artifact_dir = settings.DATA_DIR / "models" / model_id
-                    with open(model_artifact_dir / "model.pkl", "wb") as mf:
-                        cloudpickle.dump(tuned_clf, mf)
+                    save_artifact(tuned_clf, model_artifact_dir / "model.pkl")
                     storage.save_model(model_entry)
+                    import gc
+                    gc.collect()
                 else:
                     _append_log(job, f"Tuned {algo} ({tuned_val:.4f}) did not improve baseline ({baseline_val:.4f}). Keeping baseline.")
 
@@ -723,6 +820,7 @@ def _run_multi_training_background(
     # Ensure progress advances past tuning even if all skipped/failed
     if job.get("progress", 0) < 90:
         job["progress"] = 90.0
+        job["progress_updated_at"] = datetime.now(UTC).isoformat()
         storage.save_job(job)
 
     # Build final Leaderboard and serialize win bundles
@@ -757,8 +855,7 @@ def _run_multi_training_background(
         pipeline = storage.get_pipeline(pipeline_id)
         if pipeline and pipeline.get("artifact_path") and Path(pipeline["artifact_path"]).exists():
             try:
-                with open(pipeline["artifact_path"], "rb") as pf:
-                    preprocessor = cloudpickle.load(pf)
+                preprocessor = load_artifact(pipeline["artifact_path"])
 
                 for m_entry in completed_final_models:
                     m_id = m_entry["id"]
@@ -773,10 +870,11 @@ def _run_multi_training_background(
 
                     # Overwrite model.pkl with inference_bundle
                     m_file_path = Path(settings.DATA_DIR) / "models" / m_id / "model.pkl"
-                    with open(m_file_path, "wb") as f:
-                        cloudpickle.dump(inference_bundle, f)
+                    save_artifact(inference_bundle, m_file_path)
 
                     _append_log(job, f"Bundled preprocessor pipeline successfully with {m_algo}")
+                import gc
+                gc.collect()
             except Exception as e:
                 logger.exception("Failed to bundle preprocessor pipeline")
                 _append_log(job, f"Warning: Failed to bundle preprocessor pipeline: {e}")
@@ -1166,7 +1264,6 @@ async def get_model_plots(
     model_id: str,
     session_id: str = Depends(get_session_id)
 ) -> dict:
-    import cloudpickle
     import numpy as np
     import pandas as pd
     from sklearn.inspection import permutation_importance
@@ -1190,8 +1287,7 @@ async def get_model_plots(
         raise NotFoundError("Model artifact file", model_id)
 
     # 1. Load model estimator
-    with open(model_file_path, "rb") as f:
-        clf = cloudpickle.load(f)
+    clf = load_artifact(model_file_path)
 
     # Resolve if pipeline is wrapped or raw estimator
     model_estimator = clf.named_steps["model"] if isinstance(clf, SklearnPipeline) and "model" in clf.named_steps else clf
@@ -1279,8 +1375,7 @@ async def get_model_plots(
         pipeline = storage.get_pipeline(pipeline_id)
         if pipeline and pipeline.get("artifact_path"):
             try:
-                with open(pipeline["artifact_path"], "rb") as pf:
-                    preprocessor = cloudpickle.load(pf)
+                preprocessor = load_artifact(pipeline["artifact_path"])
                 feature_names = preprocessor.get_feature_names_out().tolist()
             except Exception:
                 feature_names = [f"feature_{i}" for i in range(X_test_transformed.shape[1])]
@@ -1678,9 +1773,12 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         print("Error: model.pkl not found. Please place model.pkl in the same directory.")
         sys.exit(1)
 
-    print("Loading serialized Pipeline bundle...")
-    with open(bundle_path, "rb") as f:
-        pipeline = cloudpickle.load(f)
+    try:
+        import joblib
+        pipeline = joblib.load(bundle_path)
+    except Exception:
+        with open(bundle_path, "rb") as f:
+            pipeline = cloudpickle.load(f)
 
     print("Executing model scoring pipeline...")
     # Predict
@@ -2199,7 +2297,6 @@ async def explain_model(
     row_idx: int = 0,
     session_id: str = Depends(get_session_id)
 ) -> dict:
-    import cloudpickle
     import numpy as np
     import pandas as pd
     from sklearn.pipeline import Pipeline as SklearnPipeline
@@ -2232,8 +2329,7 @@ async def explain_model(
         raise ValidationError(f"row_idx {row_idx} is out of bounds (0 to {len(df)-1})")
 
     # Load fitted inference pipeline bundle
-    with open(model["file_path"], "rb") as f:
-        bundle = cloudpickle.load(f)
+    bundle = load_artifact(model["file_path"])
 
     # Align features to the estimator. When target_column is unknown, the target
     # is conventionally the last column in the split; the estimator was trained
@@ -2318,7 +2414,6 @@ async def predict_model(
     preprocessed: bool = Query(False, description="True if the data is already preprocessed; skips the model's preprocessor."),
     session_id: str = Depends(get_session_id)
 ) -> dict:
-    import cloudpickle
     import numpy as np
     import pandas as pd
 
@@ -2384,8 +2479,7 @@ async def predict_model(
 
     # Load the trained artifact. Some models persist a full Pipeline
     # (preprocessor + estimator) while others persist only the estimator.
-    with open(model["file_path"], "rb") as f:
-        bundle = cloudpickle.load(f)
+    bundle = load_artifact(model["file_path"])
 
     from sklearn.pipeline import Pipeline as SklearnPipeline
 

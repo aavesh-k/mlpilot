@@ -438,6 +438,13 @@ def run_preprocessing(
     else:
         (processed_dir / "test.parquet").touch()
 
+    # Pre-export combined CSV for instant download
+    try:
+        combined_df = pd.concat([train_out, test_out], ignore_index=True) if len(test_out) > 0 else train_out
+        combined_df.to_csv(processed_dir / "preprocessed_combined.csv", index=False)
+    except Exception:
+        pass
+
     artifact_path = processed_dir / "pipeline.pkl"
     with open(artifact_path, "wb") as f:
         cloudpickle.dump(pipeline, f)

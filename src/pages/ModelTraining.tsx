@@ -42,6 +42,20 @@ const REGRESSION_ALGOS: AlgoOption[] = [
   { id: 'xgboost_regressor', label: 'XGBoost Regressor', description: 'High-performance gradient booster' },
 ]
 
+function formatEta(seconds: number | null | undefined): string | null {
+  if (seconds == null || isNaN(seconds) || seconds <= 0) return null
+  const s = Math.round(seconds)
+  if (s < 60) return `~${s}s remaining`
+  const m = Math.floor(s / 60)
+  const remSec = s % 60
+  if (m < 60) {
+    return remSec > 0 ? `~${m}m ${remSec}s remaining` : `~${m}m remaining`
+  }
+  const h = Math.floor(m / 60)
+  const remMin = m % 60
+  return `~${h}h ${remMin}m remaining`
+}
+
 export default function ModelTraining() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -531,7 +545,20 @@ export default function ModelTraining() {
                     <h4 className="font-headline font-bold text-sm uppercase">{activeJob.pipeline_id ? 'Pipeline Training Run' : 'Raw Model Run'}</h4>
                     <span className="text-[10px] font-mono text-on-surface-variant">{activeJob.id}</span>
                   </div>
-                  {jobBadge(activeJob.status)}
+                  <div className="flex items-center gap-2">
+                    {(activeJob.status === 'running' || activeJob.status === 'queued') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setConfirmCancelJobId(activeJob.id)}
+                        className="text-[10px] uppercase font-headline font-bold text-error border border-error/50 hover:bg-error/10 px-2 py-0.5 h-auto leading-none"
+                        title="Cancel this running job"
+                      >
+                        Cancel Job
+                      </Button>
+                    )}
+                    {jobBadge(activeJob.status)}
+                  </div>
                 </div>
 
                 {/* Progress Bar */}
@@ -545,8 +572,9 @@ export default function ModelTraining() {
                     active={activeJob.status === 'running' || activeJob.status === 'queued'}
                   />
                   {activeJob.eta_seconds != null && activeJob.status === 'running' && (
-                    <p className="font-headline font-bold text-[10px] uppercase mt-1 text-on-surface-variant">
-                      Estimated time remaining: {Math.round(activeJob.eta_seconds)}s
+                    <p className="font-headline font-bold text-[10px] uppercase mt-1 text-on-surface-variant flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[12px]">schedule</span>
+                      {formatEta(activeJob.eta_seconds) ?? `Estimated: ${Math.round(activeJob.eta_seconds)}s`}
                     </p>
                   )}
                 </div>
