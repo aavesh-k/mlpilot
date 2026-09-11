@@ -135,6 +135,8 @@ export default function ModelTraining() {
   // Resolve selected pipeline details
   const selectedPipeline = completedPipelines.find((p) => p.id === selectedPipelineId)
   const problemType = (recommendationData?.problem_type as string) ?? selectedPipeline?.problem_type ?? 'classification'
+  const rowCount = (recommendationData?.profile.rows as number | undefined) ?? selectedPipeline?.train_rows ?? 0
+  const isLargeDataset = rowCount > 10000
 
   const availableAlgos = problemType === 'classification' ? CLASSIFICATION_ALGOS : REGRESSION_ALGOS
 
@@ -244,6 +246,17 @@ export default function ModelTraining() {
 
             {selectedPipelineId && (
               <>
+                {isLargeDataset && (
+                  <div className="mb-6 bg-[#ffd400] border-2 border-black p-3 brutal-shadow-sm flex items-start gap-2">
+                    <span className="material-symbols-outlined text-sm mt-0.5">warning</span>
+                    <div>
+                      <p className="font-headline font-black text-xs uppercase">Large dataset — free tier guard active</p>
+                      <p className="font-mono text-[11px] leading-snug">
+                        {rowCount.toLocaleString()} rows detected. On Render (512MB) we skip slow models (SVM/KNN) and cap ensembles to 50 trees to avoid OOM. For full scale, run locally: <code className="bg-white border border-black px-1">localhost:5173</code> + <code className="bg-white border border-black px-1">uvicorn app.main:app --app-dir backend</code>
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {/* Dataset-driven recommendations */}
                 {recLoading && (
                   <div className="mb-6 border-2 border-dashed border-primary/30 p-4 flex items-center gap-2 text-xs font-headline font-bold uppercase text-on-surface-variant">

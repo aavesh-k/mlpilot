@@ -555,6 +555,37 @@ def _run_multi_training_background(
     completed_estimators = {}
     completed_durations = {}
 
+    # Render free-tier guard: large data + slow algos would OOM (512MB). Filter upfront and warn.
+    try:
+        _n_rows = int(X_train.shape[0]) if hasattr(X_train, "shape") else 0
+    except Exception:
+        _n_rows = 0
+    if _n_rows > 10000:
+        slow = {"svm", "knn"}
+        filtered = [a for a in selected_algos if a not in slow]
+        skipped = [a for a in selected_algos if a in slow]
+        if skipped:
+            _append_log(job, f"Large dataset ({_n_rows:,} rows) on free tier — skipping slow models {skipped} to avoid OOM. Run locally for full scale.")
+            for s in skipped:
+                sid = model_ids_map.get(s)
+                if sid:
+                    m = storage.get_model(sid)
+                    if m:
+                        m["status"] = "failed"
+                        m["error_message"] = "Skipped on free tier: large dataset would OOM (512MB). Run locally for full scale."
+                        storage.save_model(m)
+            selected_algos = filtered
+            if not selected_algos:
+                job["status"] = "failed"
+                job["error_message"] = "All selected models were skipped due to large dataset on free tier. Use smaller data or run locally."
+                storage.save_job(job)
+                _unregister_cancel_event(job_id)
+                return
+    # Cap n_estimators for ensembles on large data to bound RAM
+    if _n_rows > 10000:
+        # will be applied per-algo via hp below, but log once
+        _append_log(job, f"Large dataset ({_n_rows:,} rows) — capping ensemble size to 50 trees for free tier")
+
     total_algos = len(selected_algos)
     for idx, algo in enumerate(selected_algos):
         if _is_cancelled(job_id):
@@ -607,6 +638,15 @@ def _run_multi_training_background(
                             f"Large dataset ({n_samples:,} rows): setting max_iter=3000 for {algo} "
                             "to prevent excessive training time."
                         )
+
+            # Free-tier cap for very large data
+            if (
+                _n_rows > 10000
+                and algo in ("random_forest", "random_forest_regressor", "xgboost", "xgboost_regressor")
+                and ("n_estimators" not in hp or (isinstance(hp.get("n_estimators"), int) and hp["n_estimators"] > 50))
+            ):
+                hp["n_estimators"] = 50
+                _append_log(job, f"Capped n_estimators to 50 for {algo} on large data ({_n_rows:,} rows) — run locally for full scale")
 
             if hp:
                 _append_log(job, f"Using hyperparameters for {algo}: {hp}")
