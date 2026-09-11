@@ -132,10 +132,27 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    overflow-x: clip;
+    max-width: 100vw;
   }
   body {
     @apply bg-background text-on-surface;
     font-family: "Inter", system-ui, sans-serif;
+    overflow-x: clip;
+    max-width: 100vw;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+  /* Prevent brutal shadows / rotated cards from causing horizontal scroll on mobile */
+  #root {
+    overflow-x: clip;
+    max-width: 100vw;
+  }
+  /* Better word wrapping for brutal uppercase headings on narrow screens */
+  h1, h2, h3, h4 {
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   ::selection {
@@ -164,6 +181,28 @@
   .brutal-shadow-xl {
     box-shadow: 8px 8px 0 0 #000;
   }
+
+  /* Mobile: slightly smaller shadows near viewport edges to avoid clipping */
+  @media (max-width: 640px) {
+    .brutal-shadow { box-shadow: 3px 3px 0 0 #000; }
+    .brutal-shadow-lg { box-shadow: 4px 4px 0 0 #000; }
+    .brutal-shadow-xl { box-shadow: 5px 5px 0 0 #000; }
+    /* rotated cards often overflow on mobile — neutralize on small screens */
+    .rotate-1, .-rotate-1 { transform: rotate(0deg) !important; }
+  }
+
+  /* Hide scrollbar but keep scroll functionality — used for steppers & bottom nav */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  /* Safe-area for iPhone notch / home indicator */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
 
   /* Legacy aliases — map neo to brutal */
   .neo-shadow {

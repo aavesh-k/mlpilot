@@ -11,25 +11,25 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, accent, action, className }: PageHeaderProps) {
   return (
-    <section className={cn('mb-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between', className)}>
-      <div>
+    <section className={cn('mb-6 sm:mb-10 flex flex-col gap-4 md:flex-row md:items-start md:justify-between', className)}>
+      <div className="min-w-0 flex-1">
         <div className="inline-flex items-center gap-2 bg-white border-2 border-black brutal-shadow-sm px-3 py-1 -rotate-1 mb-3">
           <span className="font-mono text-[10px] uppercase tracking-widest font-black text-black">// PIPELINE</span>
         </div>
-        <h1 className="font-headline text-4xl sm:text-5xl font-black uppercase leading-none tracking-tight text-black">
+        <h1 className="font-headline text-3xl sm:text-4xl lg:text-5xl font-black uppercase leading-none tracking-tight text-black break-words">
           {accent ? (
             <>
-              {title} <span className="bg-[#ffd400] border-2 border-black px-2 brutal-shadow-sm inline-block -rotate-1">{accent}</span>
+              {title} <span className="bg-[#ffd400] border-2 border-black px-1.5 sm:px-2 brutal-shadow-sm inline-block -rotate-1 break-words">{accent}</span>
             </>
           ) : (
             title
           )}
         </h1>
         {subtitle && (
-          <p className="font-mono text-xs uppercase tracking-widest text-black/70 mt-3 max-w-2xl leading-relaxed">{subtitle}</p>
+          <p className="font-mono text-[11px] sm:text-xs uppercase tracking-widest text-black/70 mt-3 max-w-2xl leading-relaxed break-words">{subtitle}</p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {action && <div className="shrink-0 w-full md:w-auto">{action}</div>}
     </section>
   )
 }

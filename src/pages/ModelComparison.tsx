@@ -78,7 +78,7 @@ export default function ModelComparison() {
 
   if (isLoading) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
         <SkeletonTable rows={4} cols={7} />
       </div>
@@ -87,7 +87,7 @@ export default function ModelComparison() {
 
   if (modelsError) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <ErrorState title="Failed to load models" onRetry={() => refetch()} />
       </div>
     )
@@ -98,7 +98,7 @@ export default function ModelComparison() {
   if (completedModels.length === 0) {
     if (hasRunningModels) {
       return (
-        <div className="p-8 lg:p-12">
+        <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
           <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
           <div className="bg-surface border-2 border-primary p-8 brutal-shadow flex items-center gap-4">
             <div className="w-6 h-6 border-[3px] border-black border-t-transparent animate-spin" />
@@ -111,7 +111,7 @@ export default function ModelComparison() {
       )
     }
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
         <EmptyState
           icon="leaderboard"
@@ -123,7 +123,7 @@ export default function ModelComparison() {
   }
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader title="Model" accent="Leaderboard" subtitle="Compare and select the best model." />
 
       {/* Filters bar */}
@@ -173,7 +173,7 @@ export default function ModelComparison() {
         <>
           {/* Best Model Showcase */}
           {dynamicBestModel && (
-            <div className="border-2 border-primary p-6 brutal-shadow mb-8 bg-primary-container/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="border-2 border-primary p-4 sm:p-6 brutal-shadow mb-8 bg-primary-container/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-2xl">🏆</span>
@@ -201,23 +201,26 @@ export default function ModelComparison() {
           )}
 
           {/* Leaderboard Table */}
-          <div className="bg-surface border-2 border-primary overflow-x-auto brutal-shadow">
+          <div className="bg-surface border-2 border-primary brutal-shadow overflow-hidden">
+            <div className="overflow-x-auto scrollbar-none -mx-4 sm:mx-0">
+              <div className="px-4 sm:px-0 min-w-[720px]">
             <table className="w-full text-left">
               <thead>
                 <tr className="border-b-2 border-primary bg-surface-variant/20">
-                  <th className="p-4 font-headline font-bold text-xs uppercase w-12 text-center">Rank</th>
-                  <th className="p-4 font-headline font-bold text-xs uppercase">Model Name</th>
-                  <th className="p-4 font-headline font-bold text-xs uppercase text-center">Primary ({activeMetric})</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase w-12 text-center">Rank</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase">Model Name</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase text-center">Primary ({activeMetric})</th>
                   {metricsList
                     .filter((m) => m.id !== activeMetric)
+                    .slice(0, 2)
                     .map((m) => (
-                      <th key={m.id} className="p-4 font-headline font-bold text-xs uppercase text-center">
+                      <th key={m.id} className="p-2 sm:p-4 font-headline font-bold text-xs uppercase text-center hidden lg:table-cell">
                         {m.label}
                       </th>
                     ))}
-                  <th className="p-4 font-headline font-bold text-xs uppercase text-center">CV Score</th>
-                  <th className="p-4 font-headline font-bold text-xs uppercase text-center">Status</th>
-                  <th className="p-4 font-headline font-bold text-xs uppercase text-center">Actions</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase text-center hidden sm:table-cell">CV Score</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase text-center">Status</th>
+                  <th className="p-2 sm:p-4 font-headline font-bold text-xs uppercase text-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -258,33 +261,34 @@ export default function ModelComparison() {
                       {/* Other Metrics Score */}
                       {metricsList
                         .filter((mOpt) => mOpt.id !== activeMetric)
+                        .slice(0,2)
                         .map((mOpt) => (
-                          <td key={mOpt.id} className="p-4 font-body text-sm text-center text-on-surface-variant">
+                          <td key={mOpt.id} className="p-2 sm:p-4 font-body text-sm text-center text-on-surface-variant hidden lg:table-cell">
                             {m.metrics?.[mOpt.id as keyof typeof m.metrics] ?? '—'}
                           </td>
                         ))}
 
                       {/* CV Score */}
-                      <td className="p-4 font-body text-sm text-center">
+                      <td className="p-2 sm:p-4 font-body text-sm text-center hidden sm:table-cell">
                         {m.metrics?.cv_mean_score ?? '—'}
                       </td>
 
                       {/* Status */}
-                      <td className="p-4 text-center">
-                        <Badge variant={m.status === 'completed' ? 'success' : 'danger'}>
+                      <td className="p-2 sm:p-4 text-center">
+                        <Badge variant={m.status === 'completed' ? 'success' : 'danger'} className="text-[10px]">
                           {m.status}
                         </Badge>
                       </td>
 
                        {/* Actions */}
-                      <td className="p-4">
-                        <div className="flex items-center justify-center gap-3">
+                      <td className="p-2 sm:p-4">
+                        <div className="flex items-center justify-center gap-2">
                           <a
                             href={`${CONFIG.API_BASE_URL}/training/models/${m.id}/download`}
                             download
-                            className="font-headline font-bold text-xs uppercase text-tertiary hover:text-primary underline underline-offset-2"
+                            className="font-headline font-bold text-[11px] sm:text-xs uppercase text-tertiary hover:text-primary underline underline-offset-2 whitespace-nowrap"
                           >
-                            Download Zip
+                            Download
                           </a>
                         </div>
                       </td>
@@ -293,6 +297,8 @@ export default function ModelComparison() {
                 })}
               </tbody>
             </table>
+              </div>
+            </div>
           </div>
           </>
       )}

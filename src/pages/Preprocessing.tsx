@@ -299,14 +299,14 @@ export default function Preprocessing() {
   const editing = editPipelineId !== null || isCreating || step !== 'select-columns'
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader
         title="Preprocessing"
         accent="Pipeline"
         subtitle="Select target column, configure encoding/scaling/split, and execute."
         action={
           cleanedDatasets.length > 0 ? (
-            <Button variant="primary" size="sm" onClick={handleCreateNew} disabled={editing} title={editing ? 'Finish or cancel current edit first' : undefined}>
+            <Button variant="primary" size="sm" onClick={handleCreateNew} disabled={editing} title={editing ? 'Finish or cancel current edit first' : undefined} className="w-full sm:w-auto">
               + New Pipeline
             </Button>
           ) : undefined
@@ -510,27 +510,27 @@ export default function Preprocessing() {
           {pipelines.map((p) => {
             const isSelected = selectedPipelineIds.includes(p.id)
             return (
-              <div key={p.id} className={`bg-surface border-2 border-primary p-6 brutal-shadow ${isSelected ? 'bg-[#ffd400]/15' : ''}`}>
+              <div key={p.id} className={`bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow ${isSelected ? 'bg-[#ffd400]/15' : ''}`}>
                 <div className="flex items-start gap-3 mb-4">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => togglePipelineSelect(p.id)}
-                    className="w-4 h-4 border-2 border-black accent-black mt-1"
+                    className="w-4 h-4 border-2 border-black accent-black mt-1 shrink-0"
                   />
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                    <h3 className="font-headline font-bold text-lg">{p.name}</h3>
-                    <p className="text-xs text-on-surface-variant">Created {formatDate(p.created_at)}</p>
-                    <p className="text-xs text-on-surface-variant">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
+                      <div className="min-w-0 flex-1">
+                    <h3 className="font-headline font-bold text-lg break-words">{p.name}</h3>
+                    <p className="text-xs text-on-surface-variant break-words">Created {formatDate(p.created_at)}</p>
+                    <p className="text-xs text-on-surface-variant break-words">
                       Target: <span className="font-bold">{p.target_column}</span> ({p.problem_type})
                     </p>
-                    <p className="text-xs text-on-surface-variant">
+                    <p className="text-xs text-on-surface-variant break-all">
                       Dataset: {datasets.find(d => d.id === p.dataset_id)?.name ?? p.dataset_id.slice(0, 8)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap sm:justify-end">
                     {statusBadge(p.status)}
                     {p.status === 'draft' || p.status === 'failed' ? (
                       <>
@@ -705,7 +705,7 @@ function SelectColumnsStep({
 }) {
   const navigate = useNavigate()
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h4 className="font-headline font-black text-lg uppercase mb-6">1. Select Target & Columns</h4>
 
       {uncleanedDatasets.length > 0 && datasets.length === 0 && (
@@ -885,22 +885,22 @@ function ConfigStep({
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
         <h4 className="font-headline font-black text-lg uppercase mb-4">2. Configure Pipeline</h4>
 
         <Section label="Categorical Encoding" description={`${catCount} categorical column(s)`}>
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-3 mb-3">
             <select
               value={encodingStrategy}
               onChange={(e) => onEncodingStrategyChange(e.target.value as EncodingConfig['strategy'])}
-              className="border-2 border-primary bg-surface px-3 py-2 text-sm font-body"
+              className="border-2 border-primary bg-surface px-3 py-2 text-sm font-body w-full sm:w-auto shrink-0"
             >
               <option value="auto">Auto (smart per column)</option>
               <option value="one_hot">One-Hot (all columns)</option>
               <option value="target">Target Encoding</option>
               <option value="frequency">Frequency Encoding</option>
             </select>
-            <span className="text-xs text-on-surface-variant">
+            <span className="text-xs text-on-surface-variant break-words">
               {encodingStrategy === 'auto' ? `One-hot for low-cardinality, target/frequency for high-cardinality (${highCardCols.length} high-card cols)` :
                encodingStrategy === 'one_hot' ? `One-hot encodes all ${catCount} categorical columns. WARNING: high cardinality will produce many columns.` :
                encodingStrategy === 'target' ? 'Replaces each category with the mean target value. Prevents high-dimensional explosion.' :
@@ -928,11 +928,11 @@ function ConfigStep({
         </Section>
 
         <Section label="Feature Scaling" description="Standardize or normalize numeric features">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3">
             <select
               value={scalingStrategy}
               onChange={(e) => onScalingStrategyChange(e.target.value as ScalingConfig['strategy'])}
-              className="border-2 border-primary bg-surface px-3 py-2 text-sm font-body"
+              className="border-2 border-primary bg-surface px-3 py-2 text-sm font-body w-full sm:w-auto"
             >
               <option value="auto">Auto (Standard if no outliers, Robust if outliers present)</option>
               <option value="standard">StandardScaler (z-score)</option>
@@ -1153,7 +1153,7 @@ function ReviewStep({
   isPending: boolean
 }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h4 className="font-headline font-black text-lg uppercase mb-6">3. Review & Execute</h4>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

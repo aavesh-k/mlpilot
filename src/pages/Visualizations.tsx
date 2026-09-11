@@ -4,7 +4,7 @@ import { Badge } from '../shared/components/ui/badge'
 
 export default function Visualizations() {
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader
         title="Diagnostic"
         accent="Visualizations"

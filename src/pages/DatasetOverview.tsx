@@ -20,7 +20,7 @@ export default function DatasetOverview() {
 
   if (dsLoading) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <LoadingSpinner />
       </div>
     )
@@ -28,7 +28,7 @@ export default function DatasetOverview() {
 
   if (dsError) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <ErrorState title="Dataset not found" message="Could not load this dataset." onRetry={() => dsRefetch()} />
       </div>
     )
@@ -36,20 +36,20 @@ export default function DatasetOverview() {
 
   if (!dataset) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <ErrorState title="Dataset not found" />
       </div>
     )
   }
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader
         title="Dataset"
         accent={dataset.name}
         subtitle={`${dataset.row_count?.toLocaleString() ?? '—'} rows × ${dataset.column_count ?? '—'} columns`}
         action={
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Badge variant={dataset.status === 'ready' ? 'success' : 'danger'}>{dataset.status}</Badge>
             <Badge variant={dataset.is_cleaned ? 'success' : 'warning'}>
               {dataset.is_cleaned ? 'Cleaned' : 'Uncleaned'}
@@ -57,7 +57,7 @@ export default function DatasetOverview() {
             {dataset.is_cleaned && (
               <NavLink
                 to={`/cleaning?datasetId=${dataset.id}`}
-                className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow"
+                className="bg-primary text-on-primary font-headline font-bold uppercase text-xs px-4 py-2.5 border-2 border-primary hover:bg-primary-container hover:text-primary transition-all active:scale-95 brutal-shadow w-full sm:w-auto text-center justify-center flex min-h-[44px] items-center"
               >
                 Re-Clean Dataset
               </NavLink>
@@ -65,7 +65,7 @@ export default function DatasetOverview() {
             {dataset.is_cleaned ? (
               <NavLink
                 to={`/preprocessing?datasetId=${dataset.id}`}
-                className="bg-tertiary text-on-tertiary font-headline font-bold uppercase text-xs px-4 py-2 border-2 border-primary hover:opacity-90 transition-all active:scale-95 brutal-shadow"
+                className="bg-tertiary text-on-tertiary font-headline font-bold uppercase text-xs px-4 py-2.5 border-2 border-primary hover:opacity-90 transition-all active:scale-95 brutal-shadow w-full sm:w-auto text-center justify-center flex min-h-[44px] items-center"
               >
                 Build Pipeline
               </NavLink>
@@ -73,7 +73,7 @@ export default function DatasetOverview() {
               <NavLink
                 to={`/cleaning?datasetId=${dataset.id}`}
                 title="Cleaning required before building a pipeline — dataset must be cleaned first"
-                className="bg-warning text-on-warning-container font-headline font-black uppercase text-xs px-4 py-2 border-2 border-primary hover:bg-warning-container transition-all active:scale-95 brutal-shadow flex items-center gap-1.5"
+                className="bg-warning text-on-warning-container font-headline font-black uppercase text-xs px-4 py-2.5 border-2 border-primary hover:bg-warning-container transition-all active:scale-95 brutal-shadow flex items-center justify-center gap-1.5 w-full sm:w-auto min-h-[44px]"
               >
                 <span className="material-symbols-outlined text-sm">cleaning_services</span>
                 Clean Required →
@@ -100,7 +100,7 @@ export default function DatasetOverview() {
       </div>
 
       {isProcessing && (
-        <div className="bg-surface border-2 border-primary p-6 brutal-shadow mb-8">
+        <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow mb-8">
           <h3 className="font-headline font-black text-sm uppercase mb-3">Analyzing dataset...</h3>
           <ProgressBar value={progressPct} active={isProcessing} heightClass="h-4" />
           <p className="mt-2 text-xs text-on-surface-variant font-headline font-bold">{status?.step ?? 'Starting...'} ({progressPct}%)</p>
@@ -110,7 +110,7 @@ export default function DatasetOverview() {
       {report && !isProcessing && <RawEDA report={report} />}
 
       {!report && !isProcessing && status?.status === 'failed' && (
-        <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+        <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
           <ErrorState title="EDA Failed" message={status.error ?? 'An error occurred.'} />
         </div>
       )}
@@ -194,7 +194,7 @@ function RawEDA({ report }: { report: EDAReport }) {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub: string }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-sm uppercase mb-2">{label}</h3>
       <span className="text-3xl font-headline font-black">{value}</span>
       <span className="block text-sm text-on-surface-variant font-body">{sub}</span>
@@ -204,7 +204,7 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub: st
 
 function ColumnListSection({ columns, memory }: { columns: EDAReport['columns']; memory: EDAReport['memory_usage'] }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Columns & Data Types</h3>
       <p className="text-sm text-on-surface-variant mb-4">Memory: {memory.formatted}</p>
       <div className="overflow-x-auto">
@@ -235,11 +235,11 @@ function HeadTailSection({ head, tail, columns }: { head: Record<string, unknown
   if (head.length === 0) return null
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow overflow-x-auto">
         <h3 className="font-headline font-black text-lg uppercase mb-3">Head (first 10 rows)</h3>
         <DataTable rows={head} columns={columns} />
       </div>
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow overflow-x-auto">
         <h3 className="font-headline font-black text-lg uppercase mb-3">Tail (last 5 rows)</h3>
         <DataTable rows={tail} columns={columns} />
       </div>
@@ -250,7 +250,7 @@ function HeadTailSection({ head, tail, columns }: { head: Record<string, unknown
 function DataTable({ rows, columns }: { rows: Record<string, unknown>[]; columns: string[] }) {
   if (rows.length === 0) return <p className="text-on-surface-variant text-sm">No data</p>
   return (
-    <table className="w-full text-left text-xs">
+    <table className="w-full min-w-[640px] text-left text-xs">
       <thead>
         <tr className="border-b-2 border-primary">
           {columns.map((col) => (
@@ -284,7 +284,7 @@ function formatCellValue(val: unknown): string {
 
 function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Missing Values</h3>
       {missingness.length === 0 ? (
          <p className="text-success font-headline font-bold">No missing values detected.</p>
@@ -327,9 +327,9 @@ function MissingnessSection({ missingness }: { missingness: MissingRow[] }) {
 function NumericSummarySection({ summary }: { summary: NumericSummaryRow[] }) {
   if (summary.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow overflow-x-auto">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow overflow-x-auto">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Numeric Summary</h3>
-      <table className="w-full text-left text-xs">
+      <table className="w-full min-w-[640px] text-left text-xs">
         <thead>
           <tr className="border-b-2 border-primary">
             {['Column', 'Count', 'Mean', 'Median', 'Std', 'Min', 'Max', 'Q1', 'Q3', 'IQR', 'Skewness', 'Kurtosis'].map((h) => (
@@ -363,7 +363,7 @@ function NumericSummarySection({ summary }: { summary: NumericSummaryRow[] }) {
 function OutliersSection({ outliers }: { outliers: OutlierRow[] }) {
   if (outliers.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Outlier Detection (IQR 1.5× Rule)</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {outliers.map((o, idx) => {
@@ -412,7 +412,7 @@ function BoxPlotSVG({ stats, width, height, colorIndex = 0 }: { stats: { min: nu
 function CategoricalSection({ categories }: { categories: CategoricalSummaryRow[] }) {
   if (categories.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Categorical Columns</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {categories.map((cat) => (
@@ -460,7 +460,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
   const h = gridW + labelPad + bottomPad
 
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <h3 className="font-headline font-black text-lg uppercase">Correlation Matrix (Pearson)</h3>
         <div className="flex items-center gap-2 text-[9px] font-mono font-bold uppercase tracking-widest">
@@ -548,7 +548,7 @@ function CorrelationSection({ matrix, highPairs }: { matrix: Record<string, Reco
 function DistributionSection({ plots }: { plots: DistributionPlot[] }) {
   if (plots.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h3 className="font-headline font-black text-lg uppercase">Distributions</h3>
         <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-on-surface-variant hidden sm:inline">Each column gets its own palette · bars = histogram · line = KDE</span>
@@ -598,7 +598,7 @@ function MiniHistogram({ plot, width, height, colorIndex = 0 }: { plot: Distribu
 function DataTypeIssuesSection({ issues }: { issues: EDAReport['data_type_issues'] }) {
   if (issues.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Data Type Sanity Checks</h3>
       <div className="space-y-4">
         {issues.map((issue) => (
@@ -621,7 +621,7 @@ function DataTypeIssuesSection({ issues }: { issues: EDAReport['data_type_issues
 function ConstantColumnsSection({ columns }: { columns: EDAReport['constant_columns'] }) {
   if (columns.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Constant / Near-Constant Columns</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {columns.map((col) => (
@@ -640,7 +640,7 @@ function ConstantColumnsSection({ columns }: { columns: EDAReport['constant_colu
 function FindingsSection({ findings }: { findings: EDAReport['findings'] }) {
   if (findings.length === 0) return null
   return (
-    <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+    <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
       <h3 className="font-headline font-black text-lg uppercase mb-4">Findings</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {findings.map((f, i) => (

@@ -141,7 +141,7 @@ export default function DatasetUpload() {
   }
 
 return (
-    <div className="p-4 md:p-8 lg:p-12 max-w-4xl">
+    <div className="p-4 md:p-4 sm:p-6 lg:p-8 xl:p-12 max-w-4xl">
       <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
 
       <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow mb-8">

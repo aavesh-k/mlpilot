@@ -195,7 +195,7 @@ export default function Results() {
 
   if (isLoading) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <PageHeader title="Training" accent="Results" subtitle="Review completed training runs." />
         <SkeletonTable rows={5} cols={6} />
       </div>
@@ -204,14 +204,14 @@ export default function Results() {
 
   if (error) {
     return (
-      <div className="p-8 lg:p-12">
+      <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
         <ErrorState title="Failed to load results" onRetry={() => refetch()} />
       </div>
     )
   }
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader
         title="Training"
         accent="Results"

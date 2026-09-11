@@ -2,10 +2,10 @@ import { useState } from "react"
 import { NavLink } from "react-router-dom"
 
 const primaryCta =
-  "bg-black text-white border-2 border-black font-mono font-black uppercase tracking-widest text-sm px-8 py-4 shadow-[4px_4px_0_0_#000] hover:bg-black/90 btn-press transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 inline-block"
+  "bg-black text-white border-2 border-black font-mono font-black uppercase tracking-widest text-sm px-6 sm:px-8 py-3 sm:py-4 shadow-[3px_3px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] hover:bg-black/90 btn-press transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 inline-block w-full sm:w-auto"
 
 const secondaryCta =
-  "bg-white text-black border-2 border-black font-mono font-black uppercase tracking-widest text-sm px-8 py-4 shadow-[4px_4px_0_0_#000] hover:bg-[#ffd400] btn-press transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 inline-block"
+  "bg-white text-black border-2 border-black font-mono font-black uppercase tracking-widest text-sm px-6 sm:px-8 py-3 sm:py-4 shadow-[3px_3px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] hover:bg-[#ffd400] btn-press transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 inline-block w-full sm:w-auto"
 
 const workflowSteps = [
   "Upload & Profile",
@@ -70,48 +70,48 @@ function EdaChart() {
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-brutal-grid flex flex-col">
+    <div className="bg-brutal-grid flex flex-col min-h-0">
       {/* Header — brutal acid */}
       <header className="border-b-[3px] border-black bg-[#c8ff00] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <NavLink to="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-black shadow-[3px_3px_0_0_#fff] border-2 border-black flex items-center justify-center">
-              <span className="text-[#ffd400] font-black text-xl leading-none">M</span>
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          <NavLink to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 bg-black shadow-[2px_2px_0_0_#fff] sm:shadow-[3px_3px_0_0_#fff] border-2 border-black flex items-center justify-center shrink-0">
+              <span className="text-[#ffd400] font-black text-lg sm:text-xl leading-none">M</span>
             </div>
-            <div className="flex flex-col leading-none">
-              <span className="font-headline font-black text-xl uppercase tracking-tight text-black">MLPilot</span>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-black/70 font-bold">DATA → MODEL</span>
+            <div className="flex flex-col leading-none min-w-0">
+              <span className="font-headline font-black text-lg sm:text-xl uppercase tracking-tight text-black">MLPilot</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-black/70 font-bold hidden sm:block">DATA → MODEL</span>
             </div>
           </NavLink>
-          <div className="flex items-center gap-3">
-            <NavLink to="/dashboard" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <NavLink to="/dashboard" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
               Dashboard
             </NavLink>
-            <NavLink to="/datasets" className="bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-6 py-2 shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press">
-              New run →
+            <NavLink to="/datasets" className="bg-black text-white border-2 border-black font-mono text-[11px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-6 py-2 sm:py-2 shadow-[2px_2px_0_0_#000] sm:shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press min-h-[44px] flex items-center justify-center whitespace-nowrap">
+              <span className="hidden sm:inline">New run →</span><span className="sm:hidden">New →</span>
             </NavLink>
           </div>
         </div>
       </header>
 
-      <div className="font-body px-4 max-w-7xl mx-auto w-full pb-0 flex-1">
-        <section className="py-12 md:py-20 grid grid-cols-1 md:grid-cols-12 gap-12 items-center">
-          <div className="md:col-span-7 flex flex-col items-center md:items-start text-center md:text-left">
-            <div className="inline-flex bg-white border-2 border-black brutal-shadow px-4 py-1 font-mono text-xs uppercase tracking-widest font-black -rotate-1 mb-6">
+      <div className="font-body px-3 sm:px-4 max-w-7xl mx-auto w-full pb-0 flex-1 min-h-0 overflow-x-clip">
+        <section className="py-8 sm:py-12 md:py-20 grid grid-cols-1 md:grid-cols-12 gap-8 sm:gap-12 items-center">
+          <div className="md:col-span-7 flex flex-col items-center md:items-start text-center md:text-left min-w-0">
+            <div className="inline-flex bg-white border-2 border-black brutal-shadow px-3 sm:px-4 py-1 font-mono text-xs uppercase tracking-widest font-black -rotate-1 mb-4 sm:mb-6">
               // local-first ml pipeline
             </div>
-            <h1 className="font-headline text-5xl md:text-7xl font-black uppercase leading-none tracking-tight mb-6">
-              <span className="inline-block bg-white border-2 border-black brutal-shadow px-2 -rotate-1">MLPilot</span>
+            <h1 className="font-headline text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black uppercase leading-none tracking-tight mb-4 sm:mb-6 break-words max-w-full">
+              <span className="inline-block bg-white border-2 border-black brutal-shadow px-1.5 sm:px-2 -rotate-1">MLPilot</span>
               <br />
               From Dataset to
               <br />
-              <span className="inline-block bg-[#ffd400] border-2 border-black brutal-shadow px-3 -rotate-2 mx-1">Shipped</span>
+              <span className="inline-block bg-[#ffd400] border-2 border-black brutal-shadow px-2 sm:px-3 -rotate-2 mx-1">Shipped</span>
               <span className="text-[#ff0000]"> Model.</span>
             </h1>
-            <p className="font-mono text-xs md:text-sm uppercase tracking-widest text-black/70 leading-relaxed max-w-xl mb-10 border-l-[3px] border-black pl-4 text-left">
+            <p className="font-mono text-[11px] sm:text-xs md:text-sm uppercase tracking-widest text-black/70 leading-relaxed max-w-xl mb-8 sm:mb-10 border-l-[3px] border-black pl-3 sm:pl-4 text-left break-words">
               Upload your dataset and let MLPilot handle the heavy lifting: cleaning, preprocessing, and training multiple models with clear, side-by-side results. Spend your time on the decisions that matter, not the boilerplate.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
               <NavLink to="/dashboard" className={primaryCta}>
                 Get Started →
               </NavLink>
@@ -120,8 +120,8 @@ export default function Home() {
               </a>
             </div>
           </div>
-          <div className="md:col-span-5 relative">
-            <div className="w-full aspect-square border-2 border-black bg-white brutal-shadow relative overflow-hidden -rotate-1 hover:rotate-0 transition-transform">
+          <div className="md:col-span-5 relative min-w-0">
+            <div className="w-full aspect-square max-w-[420px] md:max-w-none mx-auto md:mx-0 border-2 border-black bg-white brutal-shadow relative overflow-hidden -rotate-1 hover:rotate-0 transition-transform">
               <svg
                 viewBox="0 0 400 400"
                 className="w-full h-full"
@@ -189,24 +189,24 @@ export default function Home() {
         </section>
 
         {/* Multiplayer-style banner repurposed as MLPilot banner */}
-        <div className="w-full border-y-[3px] border-black bg-[#c8ff00] -rotate-1 my-8 py-4 px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="bg-black text-[#c8ff00] font-mono text-[10px] font-black uppercase px-2 py-1 border-2 border-black">Highlight</span>
-            <span className="font-mono text-xs uppercase font-black tracking-widest text-black">Automated EDA — correlations, missing values & distribution shifts in one click.</span>
+        <div className="w-full border-y-[3px] border-black bg-[#c8ff00] -rotate-1 my-6 sm:my-8 py-3 sm:py-4 px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 text-center md:text-left">
+            <span className="bg-black text-[#c8ff00] font-mono text-[10px] font-black uppercase px-2 py-1 border-2 border-black shrink-0">Highlight</span>
+            <span className="font-mono text-[11px] sm:text-xs uppercase font-black tracking-widest text-black break-words">Automated EDA — correlations, missing values & distribution shifts in one click.</span>
           </div>
-          <NavLink to="/datasets" className="bg-black text-white font-mono text-xs font-black uppercase px-5 py-2 border-2 border-black shadow-[3px_3px_0_0_#fff] btn-press shrink-0">
+          <NavLink to="/datasets" className="bg-black text-white font-mono text-xs font-black uppercase px-5 py-2 border-2 border-black shadow-[3px_3px_0_0_#fff] btn-press shrink-0 w-full md:w-auto text-center justify-center">
             Upload Now →
           </NavLink>
         </div>
 
-        <section id="docs" className="py-12 scroll-mt-24">
-          <div className="mb-8">
-            <h2 className="font-headline text-4xl font-black uppercase tracking-tight text-black">
-              Machine Learning <span className="bg-[#ffd400] border-2 border-black px-2 brutal-shadow inline-block -rotate-1">Pipeline</span>
+        <section id="docs" className="py-8 sm:py-12 scroll-mt-24">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="font-headline text-3xl sm:text-4xl font-black uppercase tracking-tight text-black break-words">
+              Machine Learning <span className="bg-[#ffd400] border-2 border-black px-1.5 sm:px-2 brutal-shadow inline-block -rotate-1">Pipeline</span>
             </h2>
-            <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2">// from raw csv to leaderboard — no boilerplate</p>
+            <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2 break-words">// from raw csv to leaderboard — no boilerplate</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-6">
             <div className="md:col-span-2 md:row-span-2 bg-white border-2 border-black p-6 flex flex-col justify-between brutal-shadow group hover:-translate-y-1 transition-transform">
               <div>
                 <div className="flex justify-between items-start mb-10">
@@ -225,13 +225,13 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="bg-[#ff0000] text-white border-2 border-black p-6 brutal-shadow flex flex-col gap-3 -rotate-1 hover:rotate-0 transition-transform">
+            <div className="bg-[#ff0000] text-white border-2 border-black p-4 sm:p-6 brutal-shadow flex flex-col gap-3 -rotate-1 hover:rotate-0 transition-transform">
               <span className="material-symbols-outlined text-4xl">rocket_launch</span>
               <h3 className="font-headline text-xl font-black uppercase">Rapid Prototyping</h3>
               <p className="font-mono text-xs uppercase tracking-widest leading-relaxed">Train 10 algorithms simultaneously. Scikit-Learn baked-in.</p>
             </div>
 
-            <div className="bg-[#0055ff] text-white border-2 border-black p-6 brutal-shadow flex flex-col gap-3 rotate-1 hover:rotate-0 transition-transform">
+            <div className="bg-[#0055ff] text-white border-2 border-black p-4 sm:p-6 brutal-shadow flex flex-col gap-3 rotate-1 hover:rotate-0 transition-transform">
               <span className="material-symbols-outlined text-4xl">leaderboard</span>
               <h3 className="font-headline text-xl font-black uppercase">Benchmarking</h3>
               <p className="font-mono text-xs uppercase tracking-widest leading-relaxed">Cross-validated scoring + automated leaderboard.</p>
@@ -280,30 +280,30 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-8 bg-black border-[3px] border-black p-8 md:p-12 relative overflow-hidden brutal-shadow-xl">
-          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div>
+        <section className="py-6 sm:py-8 bg-black border-[3px] border-black p-4 sm:p-8 md:p-12 relative overflow-hidden brutal-shadow-xl">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12 items-center">
+            <div className="min-w-0">
               <div className="inline-flex bg-[#ffd400] border-2 border-black px-3 py-1 font-mono text-[10px] font-black uppercase -rotate-1 mb-4 text-black">deterministic engine</div>
-              <h2 className="font-headline text-4xl md:text-5xl font-black uppercase leading-tight mb-6 text-white">
-                Automated <br /><span className="bg-[#c8ff00] text-black px-2 border-2 border-black inline-block -rotate-1">Workflow</span> Logic
+              <h2 className="font-headline text-3xl sm:text-4xl md:text-5xl font-black uppercase leading-tight mb-4 sm:mb-6 text-white break-words">
+                Automated <br /><span className="bg-[#c8ff00] text-black px-1.5 sm:px-2 border-2 border-black inline-block -rotate-1">Workflow</span> Logic
               </h2>
-              <p className="font-mono text-xs uppercase tracking-widest text-white/70 mb-8 max-w-md leading-relaxed">
+              <p className="font-mono text-xs uppercase tracking-widest text-white/70 mb-6 sm:mb-8 max-w-md leading-relaxed break-words">
                 Our deterministic engine handles cleaning, preprocessing, and encoding based on the semantic structure of your data. No magic, just math.
               </p>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {workflowSteps.map((step, i) => (
                   <div
                     key={step}
-                    className="flex items-center gap-4 bg-white border-2 border-black p-3 brutal-shadow-sm"
+                    className="flex items-center gap-3 sm:gap-4 bg-white border-2 border-black p-2.5 sm:p-3 brutal-shadow-sm"
                   >
-                    <span className="w-9 h-9 bg-black text-[#ffd400] flex items-center justify-center font-mono font-black text-sm shrink-0">0{i + 1}</span>
-                    <span className="font-mono font-black uppercase tracking-widest text-xs text-black">{step}</span>
+                    <span className="w-8 h-8 sm:w-9 sm:h-9 bg-black text-[#ffd400] flex items-center justify-center font-mono font-black text-xs sm:text-sm shrink-0">0{i + 1}</span>
+                    <span className="font-mono font-black uppercase tracking-widest text-[11px] sm:text-xs text-black break-words min-w-0">{step}</span>
                   </div>
                 ))}
               </div>
             </div>
             <div className="hidden lg:flex items-center justify-center">
-              <div className="w-full max-w-sm bg-white border-[3px] border-black p-6 brutal-shadow rotate-1">
+              <div className="w-full max-w-sm bg-white border-[3px] border-black p-4 sm:p-6 brutal-shadow rotate-1">
                 <div className="bg-[#ffd400] border-b-2 border-black -mx-6 -mt-6 mb-6 px-4 py-2 flex justify-between">
                   <span className="font-mono text-[10px] font-black uppercase">leaderboard.data</span>
                   <span className="font-mono text-[10px]">✕</span>
@@ -337,9 +337,9 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-16 text-center">
-          <h2 className="font-headline text-3xl font-black uppercase mb-12 text-black tracking-tight">Core Technologies</h2>
-          <div className="flex flex-wrap justify-center gap-6">
+        <section className="py-12 sm:py-16 text-center px-2 sm:px-0">
+          <h2 className="font-headline text-2xl sm:text-3xl font-black uppercase mb-8 sm:mb-12 text-black tracking-tight">Core Technologies</h2>
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
             {[
               { icon: "code", label: "Python 3.12" },
               { icon: "model_training", label: "Scikit-Learn" },
@@ -347,8 +347,8 @@ export default function Home() {
               { icon: "api", label: "REST API" },
             ].map((tech) => (
               <div key={tech.label} className="flex flex-col items-center gap-3 group">
-                <div className="w-24 h-24 border-2 border-black bg-white flex items-center justify-center brutal-shadow group-hover:bg-[#ffd400] transition-colors group-hover:-translate-y-1">
-                  <span className="material-symbols-outlined text-4xl text-black">{tech.icon}</span>
+                <div className="w-20 h-20 sm:w-24 sm:h-24 border-2 border-black bg-white flex items-center justify-center brutal-shadow group-hover:bg-[#ffd400] transition-colors group-hover:-translate-y-1">
+                  <span className="material-symbols-outlined text-3xl sm:text-4xl text-black">{tech.icon}</span>
                 </div>
                 <span className="font-mono font-black uppercase text-[10px] tracking-widest text-black">{tech.label}</span>
               </div>
@@ -356,15 +356,15 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-12 text-center bg-[#ffd400] border-2 border-black brutal-shadow -rotate-1 mx-2">
-          <div className="rotate-1">
-            <h2 className="font-headline text-4xl md:text-6xl font-black uppercase mb-4 text-black tracking-tight">Ready to Pilot?</h2>
-            <p className="font-mono text-xs uppercase tracking-widest text-black/70 mb-10 max-w-2xl mx-auto leading-relaxed">
+        <section className="py-8 sm:py-12 text-center bg-[#ffd400] border-2 border-black brutal-shadow -rotate-1 mx-0 sm:mx-2">
+          <div className="rotate-1 px-4 sm:px-0">
+            <h2 className="font-headline text-3xl sm:text-4xl md:text-6xl font-black uppercase mb-4 text-black tracking-tight break-words">Ready to Pilot?</h2>
+            <p className="font-mono text-xs uppercase tracking-widest text-black/70 mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed px-2 break-words">
               Skip the boilerplate. Get to the insights. Deployment ready artifacts in minutes, not days.
             </p>
             <NavLink
               to="/dashboard"
-              className="bg-black text-white border-2 border-black font-mono font-black text-lg uppercase tracking-widest px-12 py-5 shadow-[6px_6px_0_0_#000] hover:bg-black/90 btn-press inline-block"
+              className="bg-black text-white border-2 border-black font-mono font-black text-base sm:text-lg uppercase tracking-widest px-8 sm:px-12 py-4 sm:py-5 shadow-[4px_4px_0_0_#000] sm:shadow-[6px_6px_0_0_#000] hover:bg-black/90 btn-press inline-block w-full sm:w-auto max-w-sm sm:max-w-none"
             >
               Start Free Run →
             </NavLink>
@@ -372,8 +372,8 @@ export default function Home() {
         </section>
       </div>
 
-      <footer className="bg-black text-white border-t-[3px] border-black mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-10 grid grid-cols-1 md:grid-cols-4 gap-10">
+      <footer className="bg-black text-white border-t-[3px] border-black mt-8 sm:mt-12">
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 sm:gap-10">
           <div>
             <h4 className="font-headline font-black text-2xl uppercase mb-4">
               <span className="text-white">ML</span><span className="text-[#c8ff00]">Pilot</span>

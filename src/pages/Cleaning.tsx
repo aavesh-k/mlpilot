@@ -118,7 +118,7 @@ export default function Cleaning() {
     : (executeMutation.data?.dataset?.id as string | undefined)
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader title="Data" accent="Cleaning" subtitle="Inspect and fix your data — every change is logged and reversible." />
 
       {readyDatasets.length === 0 && !dsLoading && (
@@ -140,7 +140,7 @@ export default function Cleaning() {
       )}
 
       {!report && !isRunning && alreadyCleaned && !showReconfigure && latestRun && (
-        <div className="mt-8 bg-surface border-2 border-primary p-6 brutal-shadow">
+        <div className="mt-8 bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <h3 className="font-headline font-black text-lg uppercase">Already Cleaned</h3>
@@ -225,7 +225,7 @@ export default function Cleaning() {
       )}
 
       {cleaningRuns && cleaningRuns.length > 1 && !report && (
-        <div className="mt-8 bg-surface border-2 border-primary p-6 brutal-shadow">
+        <div className="mt-8 bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
           <h3 className="font-headline font-black text-lg uppercase mb-4">Earlier Cleaning Runs</h3>
           <div className="space-y-2">
             {cleaningRuns.filter((r) => r.run_id !== latestRun?.run_id).map((r) => (
@@ -267,7 +267,7 @@ function CleaningConfigPanel({
 
   return (
     <div className="space-y-6">
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
         <h3 className="font-headline font-black text-xl uppercase mb-4">Cleaning Steps</h3>
         <p className="text-sm text-on-surface-variant mb-6">Toggle each step on or off. Configure per-column strategies where available.</p>
 
@@ -288,17 +288,17 @@ function CleaningConfigPanel({
               hideToggle
             />
             {colsWithMissing.length > 0 && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-3">
                 {colsWithMissing.map((c) => {
                   const current = missingOverrides[c.name] ?? c.suggested_missing_strategy as MissingStrategy
                   return (
-                    <div key={c.name} className="flex items-center gap-3 text-sm flex-wrap">
-                      <span className="font-headline font-bold text-xs uppercase w-40 truncate">{c.name}</span>
-                      <span className="text-xs text-on-surface-variant w-24">{c.missing_count} miss. ({formatPercentage(c.missing_pct)})</span>
+                    <div key={c.name} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm border border-black/10 p-2 sm:border-0 sm:p-0 bg-white sm:bg-transparent">
+                      <span className="font-headline font-bold text-xs uppercase truncate sm:w-40 flex-1 min-w-0" title={c.name}>{c.name}</span>
+                      <span className="text-xs text-on-surface-variant sm:w-28 shrink-0">{c.missing_count} miss. ({formatPercentage(c.missing_pct)})</span>
                       <select
                         value={current}
                         onChange={(e) => onSetMissingOverride(c.name, e.target.value as MissingStrategy)}
-                        className="border border-primary bg-surface px-2 py-1 text-xs font-body"
+                        className="border border-primary bg-surface px-2 py-2 sm:py-1 text-xs font-body w-full sm:w-auto min-h-[36px] sm:min-h-0"
                       >
                         {Object.entries(MISSING_LABELS).map(([k, v]) => (
                           <option key={k} value={k}>{v}{k === c.suggested_missing_strategy ? ' (default)' : ''}</option>
@@ -323,17 +323,17 @@ function CleaningConfigPanel({
               hideToggle
             />
             {colsWithOutliers.length > 0 && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 space-y-3">
                 {colsWithOutliers.map((c) => {
                   const current = outlierOverrides[c.name] ?? c.suggested_outlier_strategy as OutlierStrategy
                   return (
-                    <div key={c.name} className="flex items-center gap-3 text-sm flex-wrap">
-                      <span className="font-headline font-bold text-xs uppercase w-40 truncate">{c.name}</span>
-                      <span className="text-xs text-on-surface-variant w-24">{c.outlier_count} out. ({formatPercentage(c.outlier_pct ?? 0)})</span>
+                    <div key={c.name} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-sm border border-black/10 p-2 sm:border-0 sm:p-0 bg-white sm:bg-transparent">
+                      <span className="font-headline font-bold text-xs uppercase truncate sm:w-40 flex-1 min-w-0" title={c.name}>{c.name}</span>
+                      <span className="text-xs text-on-surface-variant sm:w-28 shrink-0">{c.outlier_count} out. ({formatPercentage(c.outlier_pct ?? 0)})</span>
                       <select
                         value={current}
                         onChange={(e) => onSetOutlierOverride(c.name, e.target.value as OutlierStrategy)}
-                        className="border border-primary bg-surface px-2 py-1 text-xs font-body"
+                        className="border border-primary bg-surface px-2 py-2 sm:py-1 text-xs font-body w-full sm:w-auto min-h-[36px] sm:min-h-0"
                       >
                         {Object.entries(OUTLIER_LABELS).map(([k, v]) => (
                           <option key={k} value={k}>{v}{k === c.suggested_outlier_strategy ? ' (default)' : ''}</option>
@@ -385,15 +385,16 @@ function ToggleStep({ label, description, enabled, onToggle, hideToggle }: {
   label: string; description: string; enabled: boolean; onToggle: (v: boolean) => void; hideToggle?: boolean
 }) {
   return (
-    <div className="flex items-center justify-between py-2">
-      <div>
-        <h4 className="font-headline font-bold text-sm uppercase">{label}</h4>
-        <p className="text-xs text-on-surface-variant">{description}</p>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 border-b border-black/5 last:border-0">
+      <div className="min-w-0 flex-1">
+        <h4 className="font-headline font-bold text-sm uppercase break-words">{label}</h4>
+        <p className="text-xs text-on-surface-variant break-words">{description}</p>
       </div>
       {!hideToggle && (
         <button
           onClick={() => onToggle(!enabled)}
-          className={`w-12 h-6 border-2 border-primary relative transition-colors ${enabled ? 'bg-primary' : 'bg-surface-variant'}`}
+          aria-pressed={enabled}
+          className={`w-12 h-6 border-2 border-primary relative transition-colors shrink-0 self-start sm:self-center ${enabled ? 'bg-primary' : 'bg-surface-variant'}`}
         >
           <div className={`absolute top-0.5 w-4 h-4 bg-surface border border-primary transition-all ${enabled ? 'left-6' : 'left-0.5'}`} />
         </button>
@@ -431,7 +432,7 @@ function CleaningReportView({ report, onViewRun, latestRun, onNewCleaning, onUse
 
   return (
     <div className="space-y-8 mt-8">
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="font-headline font-black text-xl uppercase">Cleaning Report</h3>

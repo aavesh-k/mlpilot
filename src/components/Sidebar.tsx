@@ -36,7 +36,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full py-6 px-4 gap-2 bg-white w-64 overflow-y-auto">
+    <div className="flex flex-col h-full py-6 px-4 gap-2 bg-white w-[280px] max-w-[85vw] sm:w-64 overflow-y-auto pb-safe">
       <div className="mb-6 px-2">
         <div className="inline-flex items-center gap-2 bg-white border-2 border-black brutal-shadow-sm px-3 py-1 -rotate-1">
           <span className="font-mono text-[10px] uppercase tracking-widest font-black text-black">// WORKFLOW</span>
@@ -120,8 +120,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       {isOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-          <aside className="absolute left-0 top-0 h-full border-r-[3px] border-black bg-white shadow-[8px_8px_0_0_#000]" style={{ animation: "slideIn 0.2s ease-out" }}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+          <aside className="absolute left-0 top-0 h-full border-r-[3px] border-black bg-white shadow-[8px_8px_0_0_#000] max-w-[85vw]" style={{ animation: "slideIn 0.2s ease-out" }}>
             {sidebarContent}
           </aside>
         </div>

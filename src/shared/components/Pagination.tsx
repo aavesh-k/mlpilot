@@ -33,22 +33,24 @@ export function Pagination({ page, perPage, total, onPageChange, className }: Pa
   if (totalPages <= 1) return null
 
   return (
-    <div className={cn('flex items-center justify-between pt-6', className)}>
-      <p className="text-sm text-on-surface-variant">
+    <div className={cn('flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 pt-6 border-t border-black/10', className)}>
+      <p className="text-xs sm:text-sm text-on-surface-variant font-mono uppercase tracking-widest text-center sm:text-left break-words">
         Page {page} of {totalPages} ({total} total)
       </p>
-      <div className="flex gap-1 items-center">
+      <div className="flex gap-1 items-center overflow-x-auto scrollbar-none max-w-full pb-1 sm:pb-0">
         <Button
           variant="ghost"
           size="sm"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
+          className="shrink-0"
         >
-          Previous
+          <span className="hidden sm:inline">Previous</span>
+          <span className="sm:hidden">Prev</span>
         </Button>
         {pages.map((p, i) =>
           p === '...' ? (
-            <span key={`ellipsis-${i}`} className="px-1 text-on-surface-variant select-none">
+            <span key={`ellipsis-${i}`} className="px-1 text-on-surface-variant select-none shrink-0">
               ...
             </span>
           ) : (
@@ -57,7 +59,7 @@ export function Pagination({ page, perPage, total, onPageChange, className }: Pa
               variant={p === page ? 'primary' : 'ghost'}
               size="sm"
               onClick={() => onPageChange(p)}
-              className={p === page ? '' : 'min-w-[36px]'}
+              className={cn('shrink-0 min-h-[36px] min-w-[36px]', p === page ? '' : '')}
             >
               {p}
             </Button>
@@ -68,6 +70,7 @@ export function Pagination({ page, perPage, total, onPageChange, className }: Pa
           size="sm"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
+          className="shrink-0"
         >
           Next
         </Button>
