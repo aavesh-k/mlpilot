@@ -135,8 +135,6 @@ export default function ModelTraining() {
   // Resolve selected pipeline details
   const selectedPipeline = completedPipelines.find((p) => p.id === selectedPipelineId)
   const problemType = (recommendationData?.problem_type as string) ?? selectedPipeline?.problem_type ?? 'classification'
-  const rowCount = (recommendationData?.profile.rows as number | undefined) ?? selectedPipeline?.train_rows ?? 0
-  const isLargeDataset = rowCount > 10000
 
   const availableAlgos = problemType === 'classification' ? CLASSIFICATION_ALGOS : REGRESSION_ALGOS
 
@@ -214,7 +212,7 @@ export default function ModelTraining() {
   const activeJob = polledActiveJob ?? jobs.find((j) => j.id === activeJobId)
 
   return (
-    <div className="p-8 lg:p-12">
+    <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader title="Model" accent="Training" subtitle="Run training across multiple classifiers or regressors simultaneously." />
 
       {pipelinesLoading ? (
@@ -222,9 +220,9 @@ export default function ModelTraining() {
       ) : completedPipelines.length === 0 ? (
         <EmptyState icon="model_training" title="No Preprocessing Pipelines Ready" description="Complete and execute a Preprocessing Pipeline first in order to train models." />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-10">
           {/* Training Config Form */}
-          <div className="lg:col-span-7 bg-surface border-2 border-primary p-6 brutal-shadow md:p-8 brutal-shadow">
+          <div className="lg:col-span-7 bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow md:p-8 brutal-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-6 tracking-tight">Configuration</h3>
             
             {/* Select Preprocessed Pipeline */}
@@ -246,17 +244,6 @@ export default function ModelTraining() {
 
             {selectedPipelineId && (
               <>
-                {isLargeDataset && (
-                  <div className="mb-6 bg-[#ffd400] border-2 border-black p-3 brutal-shadow-sm flex items-start gap-2">
-                    <span className="material-symbols-outlined text-sm mt-0.5">warning</span>
-                    <div>
-                      <p className="font-headline font-black text-xs uppercase">Large dataset — free tier guard active</p>
-                      <p className="font-mono text-[11px] leading-snug">
-                        {rowCount.toLocaleString()} rows detected. On Render (512MB) we skip slow models (SVM/KNN) and cap ensembles to 50 trees to avoid OOM. For full scale, run locally: <code className="bg-white border border-black px-1">localhost:5173</code> + <code className="bg-white border border-black px-1">uvicorn app.main:app --app-dir backend</code>
-                      </p>
-                    </div>
-                  </div>
-                )}
                 {/* Dataset-driven recommendations */}
                 {recLoading && (
                   <div className="mb-6 border-2 border-dashed border-primary/30 p-4 flex items-center gap-2 text-xs font-headline font-bold uppercase text-on-surface-variant">
@@ -549,7 +536,7 @@ export default function ModelTraining() {
           </div>
 
           {/* Job Live Monitor / Terminal */}
-          <div className="lg:col-span-5 flex flex-col h-full bg-surface border-2 border-primary p-6 brutal-shadow">
+          <div className="lg:col-span-5 flex flex-col h-full bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
             <h3 className="font-headline font-black text-xl uppercase mb-4 tracking-tight">Job Monitor</h3>
             {activeJob ? (
               <div className="flex-1 flex flex-col min-h-[300px]">
@@ -614,7 +601,7 @@ export default function ModelTraining() {
       )}
 
       {/* Historical Training Jobs list */}
-      <div className="bg-surface border-2 border-primary p-6 brutal-shadow md:p-8 brutal-shadow">
+      <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow md:p-8 brutal-shadow">
         <div className="flex items-center justify-between mb-6 gap-4">
           <h3 className="font-headline font-black text-xl uppercase tracking-tight">Training Jobs History</h3>
           {selectedJobIds.length > 0 && (
@@ -650,11 +637,12 @@ export default function ModelTraining() {
         )}
         {!jobsLoading && !error && jobs.length > 0 && (
           <>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-4 sm:mx-0 scrollbar-none">
+              <div className="px-4 sm:px-0 min-w-[640px]">
               <table className="w-full text-left text-xs mb-4">
                 <thead>
                   <tr className="border-b-2 border-primary">
-                    <th className="p-3 w-10 text-center">
+                    <th className="p-2 sm:p-3 w-10 text-center">
                       <input
                         type="checkbox"
                         checked={jobs.length > 0 && jobs.every((j) => selectedJobIds.includes(j.id))}
@@ -662,12 +650,12 @@ export default function ModelTraining() {
                         className="w-4 h-4 border-2 border-black accent-black"
                       />
                     </th>
-                    <th className="p-3 font-headline font-bold uppercase">Job ID</th>
-                    <th className="p-3 font-headline font-bold uppercase">Pipeline</th>
-                    <th className="p-3 font-headline font-bold uppercase">Started</th>
-                    <th className="p-3 font-headline font-bold uppercase">Status</th>
-                    <th className="p-3 font-headline font-bold uppercase">Progress</th>
-                    <th className="p-3 font-headline font-bold uppercase">Action</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase">Job ID</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase hidden sm:table-cell">Pipeline</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase hidden md:table-cell">Started</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase">Status</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase hidden sm:table-cell">Progress</th>
+                    <th className="p-2 sm:p-3 font-headline font-bold uppercase">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -675,7 +663,7 @@ export default function ModelTraining() {
                     const isSelected = selectedJobIds.includes(job.id)
                     return (
                     <tr key={job.id} className={`border-b border-primary last:border-b-0 transition-colors ${isSelected ? 'bg-[#ffd400]/20' : 'hover:bg-surface-variant/30'}`}>
-                      <td className="p-3 text-center">
+                      <td className="p-2 sm:p-3 text-center">
                         <input
                           type="checkbox"
                           checked={isSelected}
@@ -683,44 +671,19 @@ export default function ModelTraining() {
                           className="w-4 h-4 border-2 border-black accent-black"
                         />
                       </td>
-                      <td className="p-3 font-mono font-bold">{job.id.slice(0, 8)}...</td>
-                      <td className="p-3 font-headline font-bold">
-                        {job.pipeline_id ? (
-                          <span className="text-primary hover:text-tertiary underline">
-                            {job.pipeline_id.slice(0, 8)}...
-                          </span>
-                        ) : (
-                          'Raw Dataset'
-                        )}
-                      </td>
-                      <td className="p-3 font-body">{job.started_at ? formatDate(job.started_at) : '—'}</td>
-                      <td className="p-3">{jobBadge(job.status)}</td>
-                      <td className="p-3 font-headline font-bold">{job.progress}%</td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => setActiveJobId(job.id)}>Monitor</Button>
+                      <td className="p-2 sm:p-3 font-mono font-bold text-[11px] sm:text-xs">{job.id.slice(0, 8)}...</td>
+                      <td className="p-2 sm:p-3 font-headline font-bold hidden sm:table-cell text-xs">{job.pipeline_id ? (<span className="text-primary hover:text-tertiary underline">{job.pipeline_id.slice(0, 8)}...</span>) : ('Raw Dataset')}</td>
+                      <td className="p-2 sm:p-3 font-body hidden md:table-cell text-xs">{job.started_at ? formatDate(job.started_at) : '—'}</td>
+                      <td className="p-2 sm:p-3">{jobBadge(job.status)}</td>
+                      <td className="p-2 sm:p-3 font-headline font-bold hidden sm:table-cell">{job.progress}%</td>
+                      <td className="p-2 sm:p-3">
+                        <div className="flex gap-1 sm:gap-2 flex-wrap">
+                          <Button variant="ghost" size="sm" onClick={() => setActiveJobId(job.id)} className="text-[11px] px-2">Monitor</Button>
                           {(job.status === 'queued' || job.status === 'running') && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="text-error border-error"
-                              onClick={() => setConfirmCancelJobId(job.id)}
-                            >
-                              Cancel
-                            </Button>
+                            <Button variant="secondary" size="sm" className="text-error border-error text-[11px] px-2" onClick={() => setConfirmCancelJobId(job.id)}>Cancel</Button>
                           )}
-                          <Button variant="danger" size="sm" onClick={() => setConfirmDeleteJobId(job.id)}>
-                            Delete
-                          </Button>
-                          {job.status === 'completed' && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => navigate(`/compare?pipelineId=${job.pipeline_id ?? 'all'}`)}
-                            >
-                              Leaderboard
-                            </Button>
-                          )}
+                          <Button variant="danger" size="sm" onClick={() => setConfirmDeleteJobId(job.id)} className="text-[11px] px-2">Delete</Button>
+                          {job.status === 'completed' && (<Button variant="secondary" size="sm" onClick={() => navigate(`/compare?pipelineId=${job.pipeline_id ?? 'all'}`)} className="text-[11px] px-2 hidden sm:inline-flex">Leaderboard</Button>)}
                         </div>
                       </td>
                     </tr>
@@ -728,6 +691,7 @@ export default function ModelTraining() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
             <Pagination page={jobsData!.page} perPage={jobsData!.per_page} total={jobsData!.total} onPageChange={setPage} />
           </>
