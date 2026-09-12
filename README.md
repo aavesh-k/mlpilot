@@ -317,9 +317,26 @@ Deferred / not-yet-implemented:
 
 ## Screenshots
 
-> Screenshots are tracked under `docs/screenshots/` (optimized WebP/PNG <500KB). Current set is pending capture — see `docs/screenshots/README.md` for the 7 expected views (Dashboard, Upload, Cleaning, EDA, Training, Comparison, Visualizations). To generate: run app locally and screenshot at `max-w-7xl`, or use Playwright `npm run test:e2e`.
+> **Why `docs/screenshots/`?** It’s the conventional GitHub docs folder — tracked in git, *not* served as a public asset (unlike `public/` which is copied to `dist/` and exposed at `/screenshots/...`). This keeps portfolio images versioned without bloating the Vite bundle and they render in `README.md` via relative `docs/screenshots/01-home.png`. If you prefer `public/screenshots/` or `image/` we can move — just say the path.
 
-*Placeholder structure exists at `docs/screenshots/README.md` — replace with real captures before portfolio review.*
+Captured via Playwright (`npm run screenshots` → `e2e/screenshots.spec.ts` + `playwright.config.ts` using system Chrome `channel: 'chrome'`, 1280×800, guest session). All images <300KB.
+
+| View | Screenshot |
+|------|------------|
+| Home — brutal hero + 4-stage flow | ![Home](docs/screenshots/01-home.png) |
+| Login — split + AbstractPanel | ![Login](docs/screenshots/02-login.png) |
+| Register — strength meter | ![Register](docs/screenshots/03-register.png) |
+| Dashboard — per-user isolation | ![Dashboard](docs/screenshots/04-dashboard.png) |
+| Datasets — upload + demo | ![Datasets](docs/screenshots/05-datasets.png) |
+| Cleaning — 6-step config | ![Cleaning](docs/screenshots/06-cleaning.png) |
+| Training — split + jobs | ![Training](docs/screenshots/07-training.png) |
+| Compare — leaderboard | ![Compare](docs/screenshots/08-compare.png) |
+| Visualizations — SHAP | ![Visualizations](docs/screenshots/09-visualizations.png) |
+| Results — export hub | ![Results](docs/screenshots/10-results.png) |
+
+To re-capture locally: `npm run screenshots` (spawns backend `:8000` + Vite `:5173` via `playwright.config.ts` `webServer`, or reuse existing servers).
+
+See `docs/screenshots/README.md` for file list + sizes.
 
 ## License
 

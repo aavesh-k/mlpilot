@@ -49,4 +49,9 @@ htmlcov/
 .coverage
 coverage/
 
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
 .vercel
