@@ -425,10 +425,9 @@ async def upload_demo_dataset(
         owner_log = f"session_id={session_id} (anonymous)"
 
     # Accept "type" alias for backward compat with tests
-    if body:
-        target = body.get("demo") or body.get("demo_type") or body.get("type") or demo_type or "iris"
-    else:
-        target = demo_type or "iris"
+    target = (
+        body.get("demo") or body.get("demo_type") or body.get("type") or demo_type or "iris" if body else demo_type or "iris"
+    )
     if target == "california":
         target = "housing"
 

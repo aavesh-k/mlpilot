@@ -59,16 +59,16 @@ Each milestone is independently buildable and testable. They build on each other
 **Goal:** Secure per-user isolation — each account sees only its own data.
 
 ### Features
-- [x] User registration + login (JWT, HS256, 60m access / 7d refresh, bcrypt 12)
-- [x] Auth pages (Login, Register) — modern animated brutalist UI with validation (8+ chars, uppercase+digit, case-insensitive email)
-- [x] Auth context + guarded routes (`AuthGuard` + `PublicOnly`, `TopNav`/`Sidebar` user display, logout)
-- [x] Token refresh interceptor on API client (`Authorization: Bearer`, 401 → redirect to /login, guest fallback via `X-Session-ID` for demo)
-- [x] Per-user data isolation in SQL DB (`user_id` FK on datasets/pipelines/models/jobs, strict filtering via `get_current_user`)
+- [x] User registration + login (JWT, HS256, 60m access / 7d refresh (or 1d if remember-me off), bcrypt 12)
+- [x] Auth pages (Login, Register) — brutalist split + AbstractPanel, validation (8+ chars, uppercase+digit, case-insensitive email), remember-me (mixedStorage local vs session), forgot-password modal (generic)
+- [x] Auth context + guarded routes (`AuthGuard` + `PublicOnly`, `TopNav`/`Sidebar` user display, logout) + `POST /auth/forgot-password` (anti-enumeration)
+- [x] Token refresh interceptor on API client (`Authorization: Bearer`, 401 → redirect to /login, guest fallback via `X-Session-ID` for demo, `?remember_me` controls 1d vs 7d refresh)
+- [x] Per-user data isolation in SQLAlchemy DB (`user_id` FK on datasets/pipelines/models/jobs, strict filtering via `get_owner` hybrid; `X-Session-ID` per-browser guest, `migrate_guest_to_user` on register)
 
 ### Migration from Current
-- Added `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/refresh`
-- Frontend `src/modules/auth/store/authStore.ts` (zustand persist), `src/core/api/auth.api.ts`, `src/shared/components/AuthGuard.tsx`, JWT via `python-jose` + `bcrypt`
-- Existing `default_user`/`session_id` rows are hidden for new users (secure); 7-day auto-cleanup purges orphans
+- Added `POST /api/v1/auth/register` (+ `guest_session_id` migration), `POST /api/v1/auth/login?remember_me`, `GET /api/v1/auth/me`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/forgot-password`
+- Frontend `src/modules/auth/store/authStore.ts` (zustand persist mixedStorage + rememberedEmail), `src/core/api/auth.api.ts` (login rememberMe + forgot), `src/shared/components/AuthGuard.tsx`, JWT via `python-jose` + `bcrypt`
+- Existing `default_user`/`session_id` rows are hidden for new users (secure); auto-cleanup disabled by default (`ENABLE_AUTO_CLEANUP=false`, enable to purge)
 - Home `/` stays public (guest can view), all workflow routes (`/dashboard`, `/datasets`, etc.) now require auth
 
 ### Estimated Complexity: 2 / 5
@@ -107,9 +107,9 @@ Each milestone is independently buildable and testable. They build on each other
 - [x] SHAP waterfall explainability for a single prediction
 - [x] Scoring/prediction endpoint: upload new data, get predictions, download predictions CSV
 - [x] Export hub: cleaned CSV, preprocessed splits ZIP, inference recipe ZIP (`recipe.json` + `recipe.py`), model artifact download, executive HTML report (matplotlib charts embedded)
-- [x] Session isolation (`?session_id=`) + timestamped cleanup of orphaned data
-- [x] Settings API (`GET`/`PUT /api/v1/settings/`)
-- [x] Backend hardened to `ruff check` clean (line-length 160, contextual lint rules)
+ - [x] Session isolation (`X-Session-ID` header, per-browser guest + per-user `user_id` FK) + disabled-by-default cleanup daemon (enable via `ENABLE_AUTO_CLEANUP`)
+ - [x] Settings API (`GET`/`PUT /api/v1/settings/`)
+ - [x] Backend `ruff check` clean (line-length 160), friendly validation errors, demo cache (`_demo_cache`)
 
 ### Verified (this session)
 - [x] `ruff check backend/app backend/tests` — 0 errors

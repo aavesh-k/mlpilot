@@ -37,11 +37,21 @@ class Settings(BaseSettings):
     # Disabled by default so local users keep their data indefinitely.
     ENABLE_AUTO_CLEANUP: bool = False
     AUTO_CLEANUP_MAX_AGE_DAYS: int = 7
-    # Auth — JWT
+    # Auth — JWT (must override SECRET_KEY in production)
     SECRET_KEY: str = "change-me-to-a-random-secret-key-min-32-chars-long!!"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    def model_post_init(self, __context) -> None:  # type: ignore[override]
+        if not self.DEBUG and self.SECRET_KEY.startswith("change-me"):
+            import warnings
+
+            warnings.warn(
+                "SECRET_KEY is placeholder in non-DEBUG mode — set a random 32+ char SECRET_KEY env var (openssl rand -hex 32). JWTs are forgeable until then.",
+                UserWarning,
+                stacklevel=2,
+            )
 
 
 settings = Settings()

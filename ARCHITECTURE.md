@@ -29,15 +29,15 @@
 
 ### 2.1 Primary store — SQLAlchemy
 
-All structured records (datasets, columns, pipelines, models, training jobs,
-settings) are persisted through **SQLAlchemy** (`backend/app/db.py`,
+All structured records (users, datasets, columns, pipelines, models, training jobs)
+are persisted through **SQLAlchemy** (`backend/app/db.py`,
 `backend/app/storage.py` → `SQLStorage`).
 
-- **Default engine:** SQLite at `data/mlpilot.db` (no server required).
-- **PostgreSQL:** set `DATABASE_URL` (e.g. `postgresql+psycopg2://...`) in the
-  environment; the same models/dialect work unchanged.
+- **Default engine:** SQLite at absolute `data/mlpilot.db` (via `DATA_DIR`, `backend/app/core/config.py:35`; no server required).
+- **PostgreSQL:** set `DATABASE_URL` (e.g. `postgresql+psycopg2://...`; Neon/Supabase in production) in the
+  environment; the same models/dialect work unchanged (`backend/app/db.py:14` SQLite vs Postgres + `StaticPool`).
 - **Schema:** created automatically on startup via
-  `Base.metadata.create_all` (see `app/storage.py`). Alembic is configured
+  `Base.metadata.create_all` (`backend/app/db.py:39` + `backend/app/storage.py:49`). Alembic is configured
   (`alembic.ini`) but **no migration scripts are committed**, so rely on the
   auto-create behaviour.
 
@@ -45,18 +45,17 @@ Tables (defined in `app/models.py`):
 
 | Table             | Purpose |
 |-------------------|---------|
-| `users`           | Registered user (email unique, bcrypt hash) |
+| `users`           | Registered user (email unique, bcrypt 12 hash) |
 | `datasets`        | Dataset metadata + status + file path (`user_id` FK) |
 | `dataset_columns` | Per-column EDA statistics |
 | `pipelines`       | Preprocessing pipeline definitions + status (`user_id` FK) |
 | `models`          | Trained model metadata, metrics, status, artifact path (`user_id` FK) |
 | `training_jobs`   | Training job lifecycle + progress + log (`user_id` FK) |
-| `settings`        | Application settings (single `app` row) |
 
 Each record stores its JSON body in a `data` JSON column; `user_id` provides
-per-user isolation (guest fallback uses `session_id`). `SQLStorage` exposes CRUD with user isolation and cascade deletes
+per-user isolation (guest fallback uses `session_id` via `X-Session-ID` header). `SQLStorage` exposes CRUD with user isolation and cascade deletes
 (deleting a dataset/pipeline/job also removes its derived models and on-disk
-artifacts).
+artifacts) and `migrate_guest_to_user` (`backend/app/storage.py:436`).
 
 ### 2.2 File-backed storage
 
@@ -72,8 +71,7 @@ Not everything is relational:
 
 ### 2.3 Auto-cleanup
 
-`main.py` spawns a background daemon thread that, every 12 hours, deletes
-datasets and models older than 7 days (plus their on-disk artifacts).
+Disabled by default (`ENABLE_AUTO_CLEANUP=false` `backend/app/core/config.py:38`). When enabled (`main.py` `lifespan`), a background daemon thread every 12 hours deletes datasets and models older than 7 days (plus on-disk artifacts).
 
 ---
 
@@ -84,25 +82,28 @@ of `domain`/`application`/`infrastructure`). Key modules:
 
 ```
 backend/app/
-├── main.py                  # FastAPI app, CORS, exception handlers, /health, cleanup daemon
+├── main.py                  # FastAPI lifespan, CORS, exception handlers, /health + /api/v1/health, cleanup daemon
 ├── db.py                    # SQLAlchemy engine + session factory
-├── models.py                # ORM models
-├── storage.py               # SQLStorage (CRUD, session isolation, cascade deletes)
+├── models.py                # ORM models (users, datasets, pipelines, models, jobs)
+├── storage.py               # SQLStorage (CRUD, per-user + per-session isolation, cascade deletes, guest migration)
 ├── core/
-│   ├── config.py            # pydantic-settings: DATABASE_URL, DEBUG, CORS_ORIGINS, DATA_DIR, ...
+│   ├── config.py            # pydantic-settings: DATABASE_URL absolute, SECRET_KEY, JWT 60m/7d, CORS, rate-limit, cleanup
+│   ├── security.py          # bcrypt 12, JWT create/verify, password policy, refresh 1d vs 7d
 │   ├── exceptions.py        # AppError hierarchy
 │   └── io.py                # Shared dataframe reading helpers
 ├── api/
-│   ├── errors.py            # Structured error responses -> {"error": {...}}
+│   ├── deps.py              # get_owner hybrid (JWT user_id or X-Session-ID), get_current_user, require_user
+│   ├── errors.py            # Structured error responses + friendly validation mapping
 │   └── v1/
 │       ├── router.py        # Route registration
-│       ├── schemas/         # Pydantic request/response models
+│       ├── schemas/         # Pydantic request/response models (auth, datasets, pipelines, training)
 │       └── endpoints/
-│           ├── datasets.py   # Upload, list, get, delete
+│           ├── auth.py       # register/login/me/refresh/forgot-password (JWT + guest migration)
+│           ├── datasets.py   # upload (auth-only), list/get/delete, demo (guest cached)
 │           ├── eda.py        # Async EDA + progress polling
 │           ├── cleaning.py   # Suggestions, execute, reports
 │           ├── pipelines.py  # CRUD, execute, suggest, detect-target, score
-│           ├── training.py   # Training, jobs/cancel, compare, plots, exports, SHAP
+│           ├── training.py   # Training, jobs/cancel, compare, plots, exports, SHAP, algorithms/recommendations
 │           └── settings.py   # App settings
 └── services/
     ├── cleaning_service.py       # 6-step cleaning engine + run reports
@@ -113,21 +114,24 @@ backend/app/
 
 ### 3.1 Configuration
 
-`app/core/config.py` is a pydantic-settings `Settings` model. The following
+`app/core/config.py` is a pydantic-settings `Settings` model (`_resolve_data_dir()` → absolute `PROJECT_ROOT/data`). The following
 environment variables are read (all optional, with defaults):
 
 | Variable             | Default                        | Purpose |
 |----------------------|--------------------------------|---------|
-| `DATABASE_URL`       | `sqlite:///./data/mlpilot.db`  | DB connection |
-| `DEBUG`              | `true`                         | Verbose logging / error detail |
+| `DATABASE_URL`       | `sqlite:///<PROJECT_ROOT>/data/mlpilot.db` (absolute) | DB connection (`postgresql+psycopg2://` for Neon/Supabase) |
+| `DEBUG`              | `false` (secure)              | Verbose logging + enables `/docs` |
 | `CORS_ORIGINS`       | `["http://localhost:5173"]`    | Allowed CORS origins |
-| `DATA_DIR`           | `data`                         | Artifact root directory |
+| `DATA_DIR`           | `data` (absolute)              | Artifact root directory |
 | `MAX_DATASET_SIZE_MB`| `5120`                         | Upload size limit |
 | `APP_NAME`           | `MLPilot`                      | OpenAPI title |
-| `SECRET_KEY`         | `change-me...`                 | JWT signing key (HS256) |
+| `SECRET_KEY`         | `change-me...` (must override in prod) | JWT signing key (HS256) |
 | `JWT_ALGORITHM`      | `HS256`                        | JWT algo |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `60`              | Access token TTL |
-| `REFRESH_TOKEN_EXPIRE_DAYS`  | `7`                | Refresh token TTL |
+| `REFRESH_TOKEN_EXPIRE_DAYS`  | `7` (or `1` if `remember_me=false`) | Refresh token TTL |
+| `RATE_LIMIT_ENABLED` | `true`                         | API rate limiting |
+| `ENABLE_AUTO_CLEANUP`| `false`                        | Auto-cleanup daemon |
+| `AUTO_CLEANUP_MAX_AGE_DAYS` | `7`                    | Cleanup age |
 
 ### 3.2 Training jobs
 
@@ -154,29 +158,33 @@ only Docker/serve config (`Dockerfile`, `nginx.conf`).
 
 ```
 src/
-├── App.tsx                    # Routes + QueryClientProvider
+├── App.tsx                    # Routes + QueryClientProvider (incl. /login /register)
 ├── main.tsx                   # Entry point
 ├── components/                # App shell (Layout, Sidebar, TopNav, BottomNav)
 ├── core/
-│   ├── api/                   # Axios client + per-domain API modules + errors
+│   ├── api/                   # Axios client (JWT + X-Session-ID) + per-domain modules (auth, datasets, eda, cleaning, pipelines, training) + errors
 │   ├── config/index.ts        # API base URL (VITE_API_BASE_URL)
 │   ├── hooks/useBackendReady.ts
 │   └── types/api.ts           # Shared TypeScript types
-├── modules/                   # Feature modules (datasets, cleaning, pipelines, training) with hooks
-├── pages/                     # Route pages (Dashboard, Upload, EDA, Cleaning, ...)
+├── modules/
+│   ├── auth/store/authStore.ts # Zustand persist mixedStorage (localStorage vs sessionStorage) + rememberMe
+│   ├── datasets/hooks/        # useDatasets, useEDA
+│   ├── cleaning/hooks/        # useCleaning
+│   ├── pipelines/hooks/       # usePipelines
+│   └── training/hooks/        # useTraining
+├── pages/                     # Route pages (Auth split + forgot, Dashboard, Upload, EDA, Cleaning, ...)
 ├── shared/
 │   ├── components/            # EmptyState, ErrorState, LoadingSpinner, PageHeader, Pagination,
-│   │                          #   RouteGuard, error boundaries, ui/ primitives
-│   ├── schemas/               # Zod validation schemas (pipeline, training)
+│   │                          #   RouteGuard, AuthGuard, error boundaries, ui/ primitives
+│   ├── schemas/               # Zod validation schemas (pipeline, training, auth)
 │   └── utils/                 # cn(), format()
 └── test/setup.ts              # Vitest setup
 ```
 
 - **Data fetching:** TanStack React Query (`useDatasets`, `useEDA`,
   `usePipelines`, `useTraining`, …).
-- **State:** Zustand for UI state (theme, sidebar); React Hook Form + Zod for forms.
-- **Dev proxy:** Vite proxies `/api` → `http://localhost:8000`, so the frontend
-  talks to the backend without CORS during local development.
+- **State:** Zustand for UI (`authStore` mixedStorage rememberMe), theme/sidebar; React Hook Form + Zod for forms (login `rememberMe`, register password strength).
+- **Dev proxy:** Vite proxies `/api` → `http://localhost:8000`; Vercel rewrites `/api/*` → Render backend, so same-origin no CORS locally.
 
 ---
 

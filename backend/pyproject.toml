@@ -2,6 +2,10 @@
 name = "mlpilot-backend"
 version = "0.1.0"
 description = "MLPilot Backend - Machine Learning Workflow Automation"
+readme = "../README.md"
+license = {text = "MIT"}
+authors = [{name = "Aavesh Karigar", email = "aweshkarigar335@gmail.com"}]
+classifiers = ["License :: OSI Approved :: MIT License"]
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",

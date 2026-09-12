@@ -4,9 +4,7 @@ Thanks for your interest in contributing! MLPilot is a resume-focused full-stack
 ML-workflow app (React + FastAPI). This guide covers how to get a working local
 environment and the conventions the project follows.
 
-> **Note:** Authentication / multi-user support is **deferred** (see
-> `MILESTONES.md`). The app currently runs as a single local user with session
-> isolation via `?session_id=`. Keep that scope in mind when proposing changes.
+> **Note:** Authentication / multi-user is **complete** (`MILESTONES.md` Milestone 2). The app runs per-user JWT isolation (`user_id` FK) with per-browser guest via `X-Session-ID` (`backend/app/api/deps.py:82`). Keep that scope in mind when proposing changes.
 
 ---
 
@@ -124,3 +122,7 @@ See [`CODING_STANDARDS.md`](./CODING_STANDARDS.md) for the full style guide.
 Use the GitHub issue templates (Bug Report / Feature Request) described in
 [`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md). For security-sensitive reports, please
 do not open a public issue — contact the maintainer directly.
+
+## 8. License
+
+By contributing you agree your contributions will be licensed under the MIT License (see [LICENSE](./LICENSE)).

@@ -24,7 +24,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql+asyncpg://mlpilot:mlpilot@postgres:5432/mlpilot
+      DATABASE_URL: postgresql+psycopg2://mlpilot:mlpilot@postgres:5432/mlpilot
       SECRET_KEY: change-me-in-production
       DEBUG: "true"
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:80"]'
@@ -35,7 +35,8 @@ services:
       postgres:
         condition: service_healthy
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      # Note: alembic upgrade head requires committed migrations — app auto-creates via Base.metadata.create_all
 
   frontend:
     build:

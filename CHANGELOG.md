@@ -69,3 +69,21 @@
 
 ### Changed
 - Backend fully ruff-clean: `line-length = 160`, ignored `N803/N806` (sklearn `X_train` idiom) and `B008` (FastAPI `Depends`/`Query` defaults); fixed real bugs surfaced by the sweep — missing `read_dataframe`/`detect_problem_type` imports, `SIM115` unclosed handles, dead variables, `B904` exception chains, `ARG001`/`ARG002`/`E741`/`E501`/`SIM10x` cleanups
+
+## [v0.5.0] — 2026-09-12 — Auth Polish (Milestone 2+)
+
+### Added
+- **Remember me**: `mixedStorage` (localStorage vs sessionStorage), `rememberMe` checkbox on login, `?remember_me` → 1d vs 7d refresh (`auth.py:55`), `rememberedEmailStorage`
+- **Forgot password**: `POST /auth/forgot-password` generic 200 (anti-enumeration), brutal modal in `Auth.tsx`
+- **Friendly errors**: backend `_friendly_validation_message` (`errors.py:45`) maps `username→email`, auth `409`→“already exists”, `401`→“Incorrect email…”, field-aware `422`
+- **Guest migration**: `migrate_guest_to_user` keeps 3 demos on register (`storage.py:436`, `auth.py:26`)
+- **Demo cache**: `_demo_cache` + `_get_demo_csv_path` (<20ms copy, `datasets.py:114`)
+
+### Changed
+- Auth UI: `Auth.tsx` split `AbstractPanel` gradient `opacity 30`/`480px`, `bg-brutal-grid` + `bg-[#c8ff00]` header, fixed duplicate RHF registers via `useIsDesktop`, `// private vault` clipping `h640 + pt-10`
+- `LICENSE` author → `Aavesh Karigar`, `package.json` `license: MIT`, `pyproject.toml` `license/authors`
+
+### Fixed
+- `docker-compose.yml` `postgresql+asyncpg` → `psycopg2`, removed `alembic upgrade head` (no migrations)
+- `SECRET_KEY` placeholder warn in non-DEBUG (`config.py:46`)
+- `README`/`ARCHITECTURE`/`MILESTONES` drift (SQLite absolute, `X-Session-ID`, `ENABLE_AUTO_CLEANUP=false`, API table with auth/demo)

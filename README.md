@@ -1,12 +1,14 @@
 # MLPilot
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Resume-focused full-stack web application that automates the machine learning
 workflow for tabular datasets. Upload a CSV (or Parquet/JSON/XLSX), run
 data cleaning and EDA, build a preprocessing pipeline, train and compare ML
 models, generate SHAP explanations, score new data, and export reports — all
 through a responsive React UI.
 
-> **Status:** Milestones 1, 2, 3, and 4 are complete — including per-user JWT auth. Each account is isolated; no one can see another user's datasets/models.
+> **Status:** Milestones 1, 2, 3, and 4 are complete — including per-user JWT auth with remember-me, forgot-password, and guest→user migration. Each account is isolated; no one can see another user's datasets/models.
 
 ## Tech Stack
 
@@ -15,7 +17,7 @@ through a responsive React UI.
 | Frontend | React 19, TypeScript, Tailwind CSS, Vite, TanStack React Query, React Router, Recharts, Zustand, Radix UI, React Hook Form + Zod |
 | Backend  | Python 3.12+, FastAPI, Uvicorn, Pydantic / pydantic-settings, SQLAlchemy 2.0 |
 | ML       | scikit-learn, XGBoost, pandas, numpy, imbalanced-learn, pyarrow, matplotlib, cloudpickle |
-| Storage  | SQLAlchemy database — **SQLite by default** (`data/mlpilot.db`); PostgreSQL supported via `DATABASE_URL`. EDA reports and cleaning runs are stored as JSON files under `data/`; uploaded datasets and model artifacts live on the filesystem under `data/`. |
+| Storage  | SQLAlchemy database — **SQLite by default** (absolute `data/mlpilot.db` via `DATA_DIR`, `backend/app/core/config.py:35`); PostgreSQL supported via `DATABASE_URL` (`postgresql+psycopg2://`). EDA reports and cleaning runs are JSON files under `data/`; uploaded datasets and model artifacts live on filesystem under `data/`. |
 | Tooling  | Ruff (Python lint), oxlint + tsc (frontend), pytest, Vitest, GitHub Actions CI |
 
 ## Architecture
@@ -49,25 +51,28 @@ Upload ─▶ Clean ─▶ EDA ─▶ Pipeline ─▶ Train ─▶ Compare ─�
 ```
 backend/
 ├── app/
-│   ├── main.py                 # FastAPI app, CORS, exception handlers, /health, auto-cleanup daemon
-│   ├── db.py                   # SQLAlchemy engine + session factory
-│   ├── models.py               # ORM models (datasets, pipelines, models, training_jobs, settings, columns)
-│   ├── storage.py              # SQLStorage — CRUD over SQLAlchemy (session isolation, cascade deletes)
+│   ├── main.py                 # FastAPI lifespan, CORS, exception handlers, /health + /api/v1/health, auto-cleanup daemon
+│   ├── db.py                   # SQLAlchemy engine + session factory (SQLite vs Postgres, StaticPool for :memory:)
+│   ├── models.py               # ORM models (users, datasets, pipelines, models, training_jobs, dataset_columns)
+│   ├── storage.py              # SQLStorage — CRUD over SQLAlchemy (per-user + per-session isolation, cascade deletes, guest migration)
 │   ├── core/
-│   │   ├── config.py           # Settings (pydantic-settings): DATABASE_URL, DEBUG, CORS_ORIGINS, DATA_DIR, ...
+│   │   ├── config.py           # Settings (DATABASE_URL absolute via DATA_DIR, SECRET_KEY, JWT 60m/7d, CORS, rate-limit, cleanup)
+│   │   ├── security.py         # bcrypt 12, JWT create/verify, password policy, refresh expiry (1d vs 7d/30d)
 │   │   ├── exceptions.py       # Domain exception hierarchy
 │   │   └── io.py               # Shared dataframe reading helpers
 │   ├── api/
-│   │   ├── errors.py           # Structured error responses
+│   │   ├── deps.py             # get_owner hybrid (JWT user_id or X-Session-ID), get_current_user, require_user
+│   │   ├── errors.py           # Structured error responses + friendly validation mapping
 │   │   └── v1/
-│   │       ├── router.py       # Route registration
-│   │       ├── schemas/        # Pydantic request/response models
+│   │       ├── router.py       # Route registration (/auth, /datasets, /eda, /cleaning, /pipelines, /training)
+│   │       ├── schemas/        # Pydantic request/response models (auth, datasets, pipelines, training)
 │   │       └── endpoints/
-│   │           ├── datasets.py     # Upload, list, get, delete
+│   │           ├── auth.py         # register/login/me/refresh/forgot-password (JWT + guest migration)
+│   │           ├── datasets.py     # upload (auth-only), list/get/delete, demo (guest allowed, cached)
 │   │           ├── eda.py          # Async EDA with progress polling
 │   │           ├── cleaning.py     # Cleaning suggestions, execute, reports
 │   │           ├── pipelines.py    # CRUD, execution, suggest, detect-target, score
-│   │           ├── training.py     # Training, jobs/cancel, compare, plots, exports, SHAP
+│   │           ├── training.py     # Training, jobs/cancel, compare, plots, exports, SHAP, algorithms/recommendations
 │   │           └── settings.py     # App settings
 │   └── services/
 │       ├── cleaning_service.py      # 6-step cleaning engine + run reports
@@ -88,36 +93,36 @@ backend/
 └── Dockerfile
 ```
 
-> The database schema is created automatically on startup via
-> `Base.metadata.create_all`. Alembic is configured (`alembic.ini`) but no
-> migration scripts are committed yet.
+> The database schema is created automatically on startup via `Base.metadata.create_all` (`backend/app/db.py:39` + `backend/app/storage.py:49`). Alembic is configured (`alembic.ini`) but no migration scripts are committed yet.
 
 ### Frontend Structure
 
 ```
 src/
-├── App.tsx                    # Routes + QueryClientProvider
+├── App.tsx                    # Routes + QueryClientProvider (incl. /login /register)
 ├── main.tsx                   # Entry point
 ├── components/                # App shell (Layout, Sidebar, TopNav, BottomNav)
 ├── core/
-│   ├── api/                   # Axios client + per-domain API modules (datasets, eda, cleaning, pipelines, training) + errors
+│   ├── api/                   # Axios client (JWT + X-Session-ID) + per-domain modules (auth, datasets, eda, cleaning, pipelines, training) + errors
 │   ├── config/index.ts        # API base URL (VITE_API_BASE_URL)
 │   ├── hooks/useBackendReady.ts
 │   └── types/api.ts           # Shared TypeScript types
-├── modules/                   # Feature modules
+├── modules/
+│   ├── auth/store/authStore.ts # Zustand persist with mixedStorage (localStorage vs sessionStorage) + rememberMe
 │   ├── datasets/hooks/        # useDatasets, useEDA
 │   ├── cleaning/hooks/        # useCleaning
 │   ├── pipelines/hooks/       # usePipelines
 │   └── training/hooks/        # useTraining
 ├── pages/                     # Page components
+│   ├── Auth.tsx, Login.tsx, Register.tsx  # Brutalist auth (split + forgot-password + remember me)
 │   ├── Home.tsx, Dashboard.tsx, DatasetUpload.tsx, DatasetOverview.tsx
 │   ├── Cleaning.tsx, EDA.tsx, Preprocessing.tsx
 │   ├── ModelTraining.tsx, ModelComparison.tsx, Visualizations.tsx
 │   ├── Results.tsx, Settings.tsx
 ├── shared/
-│   ├── components/            # EmptyState, ErrorState, LoadingSpinner, PageHeader, Pagination, RouteGuard, error boundaries
+│   ├── components/            # EmptyState, ErrorState, LoadingSpinner, PageHeader, Pagination, RouteGuard, AuthGuard, error boundaries
 │   ├── components/ui/         # Button, Card, Badge, Input, ConfirmDialog (+ index barrel)
-│   ├── schemas/               # Zod validation schemas (pipeline, training)
+│   ├── schemas/               # Zod validation schemas (pipeline, training, auth)
 │   └── utils/                 # cn(), format()
 └── test/setup.ts              # Vitest setup
 ```
@@ -148,9 +153,9 @@ pip install -r requirements-dev.txt   # for running tests / linting
 uvicorn app.main:app --reload --port 8000
 ```
 
-By default the backend uses a local SQLite database (`data/mlpilot.db`); no
-database server is required. Set `DATABASE_URL` (see `.env.example`) to use
-PostgreSQL instead.
+By default the backend uses a local SQLite database (absolute `data/mlpilot.db` via `DATA_DIR`); no
+database server is required. Set `DATABASE_URL` (see `.env.example`, e.g. `postgresql+psycopg2://`) to use
+PostgreSQL (Neon/Supabase in production). On Render the disk is ephemeral — Postgres persists.
 
 ### Frontend
 
@@ -176,10 +181,9 @@ docker compose up --build
 ```
 
 > **Caveat:** `docker-compose.yml` runs `alembic upgrade head` on startup, but
-> no migration scripts are committed yet (the app auto-creates its schema).
-> For local Docker use, remove that step or rely on the app's `create_all`.
-> Also note the compose `DATABASE_URL` uses the `asyncpg` driver, which is not
-> in `requirements.txt` — use `postgresql+psycopg2://...` for Postgres.
+> no migration scripts are committed yet (the app auto-creates its schema via `create_all`).
+> For local Docker use, comment out that step or rely on `create_all`.
+> Also note the compose `DATABASE_URL` must be `postgresql+psycopg2://...` — `asyncpg` is not in `requirements.txt`.
 
 ### Production Build
 
@@ -191,11 +195,17 @@ npm run build        # produces dist/
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET`  | `/health` | Health check |
-| `POST` | `/api/v1/datasets/upload` | Upload dataset (CSV/Parquet/JSON/XLSX) |
-| `GET`  | `/api/v1/datasets/` | List datasets (paginated) |
+| `GET`  | `/health` / `/api/v1/health` | Health check |
+| `POST` | `/api/v1/auth/register` | Register (email, password, optional `guest_session_id` migration) |
+| `POST` | `/api/v1/auth/login` | Login (`username=email`, `password`, `?remember_me=bool` → 1d vs 7d refresh) |
+| `GET`  | `/api/v1/auth/me` | Current user (JWT) |
+| `POST` | `/api/v1/auth/refresh` | Refresh tokens (`?refresh_token=`) |
+| `POST` | `/api/v1/auth/forgot-password` | Forgot password (always 200 generic to avoid enumeration) |
+| `POST` | `/api/v1/datasets/upload` | Upload dataset (CSV/Parquet/JSON/XLSX) — auth-only |
+| `POST` | `/api/v1/datasets/demo` | Demo dataset (iris/breast_cancer/housing/digits) — guest allowed, cached |
+| `GET`  | `/api/v1/datasets/` | List datasets (paginated, per-user / per-session) |
 | `GET`  | `/api/v1/datasets/{id}` | Get dataset |
-| `DELETE` | `/api/v1/datasets/{id}` | Delete dataset |
+| `DELETE` | `/api/v1/datasets/{id}` | Delete dataset + cascade |
 | `POST` | `/api/v1/datasets/{id}/eda` | Start async EDA |
 | `GET`  | `/api/v1/datasets/{id}/eda` | Get EDA report/status (polling) |
 | `GET`  | `/api/v1/datasets/{id}/columns` | Column stats |
@@ -230,6 +240,8 @@ npm run build        # produces dist/
 | `GET`  | `/api/v1/training/jobs` | List jobs (paginated) |
 | `GET`  | `/api/v1/training/jobs/{id}` | Get job |
 | `POST` | `/api/v1/training/jobs/{id}/cancel` | Cancel job (cooperative) |
+| `GET`  | `/api/v1/training/algorithms` | List available algorithms |
+| `GET`  | `/api/v1/training/recommendations` | Recommend algorithms for dataset |
 | `GET`  | `/api/v1/settings/` | Get app settings |
 | `PUT`  | `/api/v1/settings/` | Update app settings |
 
@@ -284,10 +296,11 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
 - [x] SHAP waterfall explainability
 - [x] Predictions: score new data, download predictions CSV
 - [x] Export hub: cleaned CSV, preprocessed splits ZIP, inference recipe ZIP, model artifact download, executive HTML report
-- [x] Session isolation (`?session_id=`) + automatic cleanup of expired data (7-day daemon)
+- [x] Per-user JWT auth (register/login/me/refresh, bcrypt 12, 60m access) + remember-me (1d vs 7d refresh via mixedStorage) + forgot-password (generic) + guest→user migration + demo cache
+- [x] Session isolation (`X-Session-ID` header, per-browser guest) + per-user isolation (`user_id` FK) — each user sees only their data; auto-cleanup daemon (disabled by default, `ENABLE_AUTO_CLEANUP=true` enables 7-day purge)
 - [x] Settings API
 - [x] Paginated list endpoints
-- [x] Structured error responses
+- [x] Structured error responses (friendly validation: `Please enter a valid email...`)
 - [x] Loading / error / empty states on all pages
 - [x] Backend (pytest) and frontend (Vitest) test suites
 - [x] CI pipeline (GitHub Actions)
@@ -300,14 +313,16 @@ Deferred / not-yet-implemented:
 - **Role-based access control (RBAC)** — deferred (no roles; per-user isolation only).
 - **Real-time collaborative editing** — out of scope for the portfolio.
 - **Dataset versioning / diffing** — nice-to-have, not implemented.
-- **Tech-debt cleanups noted in `AGENTS.md`**: FastAPI `on_event` → lifespan
-  migration; `SVC probability` → `CalibratedClassifierCV`; Vite code-splitting
-  to reduce the single ~950 kB chunk.
+- **Tech-debt cleanups**: `SVC probability` → `CalibratedClassifierCV` (remaining cosmetic: 3 oxlint warnings, `on_event`→`lifespan` done, Vite code-splitting done via `manualChunks`).
 
 ## Screenshots
 
-<!-- TODO: add screenshots / GIFs of the dashboard, EDA, training, and comparison views -->
+> Screenshots are tracked under `docs/screenshots/` (optimized WebP/PNG <500KB). Current set is pending capture — see `docs/screenshots/README.md` for the 7 expected views (Dashboard, Upload, Cleaning, EDA, Training, Comparison, Visualizations). To generate: run app locally and screenshot at `max-w-7xl`, or use Playwright `npm run test:e2e`.
+
+*Placeholder structure exists at `docs/screenshots/README.md` — replace with real captures before portfolio review.*
 
 ## License
 
-<!-- TODO: add LICENSE (none present yet) -->
+MIT © 2026 Aavesh Karigar — see [LICENSE](LICENSE).
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

@@ -2,6 +2,8 @@
   "name": "mlpilot",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
+  "author": "Aavesh Karigar <aweshkarigar335@gmail.com>",
   "type": "module",
   "scripts": {
     "dev": "vite",

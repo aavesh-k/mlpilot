@@ -32,12 +32,12 @@ application code changes were needed — the app already supports Postgres
 1. Push this repo to GitHub.
 2. In Render, **New → Blueprint**, connect the repo. `render.yaml` is detected
    and a `mlpilot-backend` web service is created.
-3. In the service **Environment** tab, set the two manual variables:
-   - `DATABASE_URL` → the Supabase URI from step 1.4
-     (use the `postgresql+psycopg2://...` form).
-    - `CORS_ORIGINS` → `["*"]` (the Vercel frontend calls the backend through a
-      Vercel rewrite proxy, so the browser request is same-origin and CORS is not
-      involved; `*` keeps direct API access open too).
+3. In the service **Environment** tab, set the three manual variables:
+   - `DATABASE_URL` → the Supabase **or Neon** URI from step 1.4
+     (use the `postgresql+psycopg2://...` form; `render.yaml:31`).
+   - `SECRET_KEY` → `openssl rand -hex 32` (min 32 chars, required for JWT; `render.yaml:33`).
+   - `CORS_ORIGINS` → `["https://<your-app>.vercel.app"]` (tighten from `["*"]` once domain stable; `render.yaml:35`).
+     Auto-set: `DEBUG=false`, `ENABLE_AUTO_CLEANUP=true`, `DATA_DIR=/opt/render/project/src/data` (`render.yaml:39-43`).
  4. Deploy. Once live, note the backend URL
     (`https://mlpilot-backend.onrender.com`).
 
