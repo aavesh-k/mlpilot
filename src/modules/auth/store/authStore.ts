@@ -31,24 +31,26 @@ const mixedStorage = {
       return null
     }
   },
-  setItem: (name: string, value: string): void => {
+  setItem: (name: string, value: string | object): void => {
     try {
-      const parsed = JSON.parse(value) as { state?: { rememberMe?: boolean } }
+      const strValue = typeof value === 'string' ? value : JSON.stringify(value)
+      const parsed = JSON.parse(strValue) as { state?: { rememberMe?: boolean } }
       const rememberMe = parsed?.state?.rememberMe ?? true
       if (rememberMe) {
-        localStorage.setItem(name, value)
+        localStorage.setItem(name, strValue)
         try {
           sessionStorage.removeItem(name)
         } catch {}
       } else {
-        sessionStorage.setItem(name, value)
+        sessionStorage.setItem(name, strValue)
         try {
           localStorage.removeItem(name)
         } catch {}
       }
     } catch {
       try {
-        localStorage.setItem(name, value)
+        const strValue = typeof value === 'string' ? value : JSON.stringify(value)
+        localStorage.setItem(name, strValue)
       } catch {}
     }
   },
