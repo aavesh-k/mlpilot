@@ -18,7 +18,7 @@ apiClient.interceptors.request.use((config) => {
     const raw = localStorage.getItem('mlpilot_auth')
     if (raw) {
       const parsed = JSON.parse(raw)
-      const token = parsed?.state?.accessToken as string | undefined
+      const token = parsed.accessToken as string | undefined
       if (token) {
         ;(config.headers as Record<string, string>).Authorization = `Bearer ${token}`
       } else {

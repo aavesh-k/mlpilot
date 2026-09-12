@@ -134,7 +134,7 @@ export default function Home() {
               Upload your dataset and let MLPilot handle the heavy lifting: cleaning, preprocessing, and training multiple models with clear, side-by-side results. Spend your time on the decisions that matter, not the boilerplate.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto">
-              <NavLink to="/dashboard" className={primaryCta}>
+              <NavLink to={isAuthenticated ? "/datasets" : "/login"} className={primaryCta}>
                 Get Started →
               </NavLink>
               <a href="#docs" className={secondaryCta}>
@@ -385,7 +385,7 @@ export default function Home() {
               Skip the boilerplate. Get to the insights. Deployment ready artifacts in minutes, not days.
             </p>
             <NavLink
-              to="/dashboard"
+              to={isAuthenticated ? "/datasets" : "/login"}
               className="bg-black text-white border-2 border-black font-mono font-black text-base sm:text-lg uppercase tracking-widest px-8 sm:px-12 py-4 sm:py-5 shadow-[4px_4px_0_0_#000] sm:shadow-[6px_6px_0_0_#000] hover:bg-black/90 btn-press inline-block w-full sm:w-auto max-w-sm sm:max-w-none"
             >
               Start Free Run →
