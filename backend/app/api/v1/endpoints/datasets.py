@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.api.deps import get_current_user, get_current_user_optional
+from app.api.deps import get_current_user_optional, get_owner
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.storage import storage
@@ -132,10 +132,9 @@ def get_session_id(x_session_id: str = Header("default_user")) -> str:
 async def upload_dataset(
     file: UploadFile = File(...),
     name: str = Form(None),
-    current_user: dict = Depends(get_current_user),
+    owner: dict = Depends(get_owner),
 ) -> JSONResponse:
-    user_id = current_user["id"]
-    logger.info("Dataset upload requested [filename=%s, user_id=%s]", file.filename, user_id)
+    logger.info("Dataset upload requested [filename=%s, user_id=%s]", file.filename, owner.get("user_id"))
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -176,8 +175,8 @@ async def upload_dataset(
         "row_count": None,
         "column_count": None,
         "status": "uploading",
-        "user_id": user_id,
-        "session_id": None,
+        "user_id": owner.get("user_id"),
+        "session_id": owner.get("session_id"),
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -211,9 +210,9 @@ async def upload_dataset(
 async def list_datasets(
     page: int = 1,
     per_page: int = 20,
-    current_user: dict = Depends(get_current_user),
+    owner: dict = Depends(get_owner),
 ) -> dict:
-    all_datasets = storage.list_datasets(user_id=current_user["id"])
+    all_datasets = storage.list_datasets(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     total = len(all_datasets)
     start = (page - 1) * per_page
     items = all_datasets[start:start + per_page]
@@ -223,9 +222,9 @@ async def list_datasets(
 @router.get("/{dataset_id}")
 async def get_dataset(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user),
+    owner: dict = Depends(get_owner),
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     return dataset
@@ -234,10 +233,9 @@ async def get_dataset(
 @router.delete("/{dataset_id}", status_code=204)
 async def delete_dataset(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user),
+    owner: dict = Depends(get_owner),
 ):
-    user_id = current_user["id"]
-    dataset = storage.get_dataset(dataset_id, user_id=user_id)
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -250,8 +248,8 @@ async def delete_dataset(
             shutil.rmtree(dest_dir, ignore_errors=True)
 
     storage.delete_eda(dataset_id)
-    storage.delete_pipelines_by_dataset(dataset_id, user_id=user_id)
-    storage.delete_models_by_dataset(dataset_id, user_id=user_id)
+    storage.delete_pipelines_by_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
+    storage.delete_models_by_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     storage.delete_dataset(dataset_id)
     return None
 

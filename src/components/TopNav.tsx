@@ -83,19 +83,24 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
             <span className="sm:hidden">New →</span>
           </NavLink>
           {user ? (
-            <div className="hidden sm:flex items-center gap-2 border-2 border-black bg-white px-2 py-1 brutal-shadow-sm">
-              <span className="w-7 h-7 bg-black text-[#ffd400] flex items-center justify-center font-mono font-black text-xs">
+            <div className="flex items-center gap-2 border-2 border-black bg-white px-2 py-1 brutal-shadow-sm">
+              <span className="w-7 h-7 bg-black text-white flex items-center justify-center font-mono font-black text-xs">
                 {user.email[0].toUpperCase()}
               </span>
-              <span className="font-mono text-[10px] font-bold uppercase tracking-widest max-w-[120px] truncate">{user.email}</span>
-              <button onClick={handleLogout} className="ml-1 bg-white border border-black px-2 py-1 font-mono text-[10px] font-black uppercase hover:bg-red-50 transition-colors" title="Sign out">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest max-w-[90px] sm:max-w-[120px] truncate hidden sm:inline">{user.email}</span>
+              <button onClick={handleLogout} className="bg-white border border-black px-2 py-1 font-mono text-[10px] font-black uppercase hover:bg-red-50 transition-colors" title="Sign out">
                 Logout
               </button>
             </div>
           ) : (
-            <NavLink to="/login" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
-              Sign In
-            </NavLink>
+            <div className="flex items-center gap-1.5">
+              <NavLink to="/login" className="inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-3 sm:px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
+                Sign In
+              </NavLink>
+              <NavLink to="/register" className="hidden sm:inline-flex bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-black/80 btn-press min-h-[44px] items-center">
+                Sign Up
+              </NavLink>
+            </div>
           )}
         </div>
       </div>

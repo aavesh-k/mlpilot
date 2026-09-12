@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { NavLink } from "react-router-dom"
+import { useAuthStore } from "../modules/auth/store/authStore"
 
 const primaryCta =
   "bg-black text-white border-2 border-black font-mono font-black uppercase tracking-widest text-sm px-6 sm:px-8 py-3 sm:py-4 shadow-[3px_3px_0_0_#000] sm:shadow-[4px_4px_0_0_#000] hover:bg-black/90 btn-press transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black focus-visible:ring-offset-2 inline-block w-full sm:w-auto"
@@ -69,6 +70,8 @@ function EdaChart() {
 }
 
 export default function Home() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
   return (
     <div className="bg-brutal-grid flex flex-col min-h-0">
       {/* Header — brutal acid */}
@@ -84,12 +87,31 @@ export default function Home() {
             </div>
           </NavLink>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <NavLink to="/dashboard" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
-              Dashboard
-            </NavLink>
-            <NavLink to="/datasets" className="bg-black text-white border-2 border-black font-mono text-[11px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-6 py-2 sm:py-2 shadow-[2px_2px_0_0_#000] sm:shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press min-h-[44px] flex items-center justify-center whitespace-nowrap">
-              <span className="hidden sm:inline">New run →</span><span className="sm:hidden">New →</span>
-            </NavLink>
+            {isAuthenticated ? (
+              <>
+                <NavLink to="/dashboard" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
+                  Dashboard
+                </NavLink>
+                <NavLink to="/datasets" className="bg-black text-white border-2 border-black font-mono text-[11px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-6 py-2 sm:py-2 shadow-[2px_2px_0_0_#000] sm:shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press min-h-[44px] flex items-center justify-center whitespace-nowrap">
+                  <span className="hidden sm:inline">New run →</span><span className="sm:hidden">New →</span>
+                </NavLink>
+                {user && (
+                  <span className="hidden sm:inline-flex items-center gap-2 bg-white border-2 border-black px-3 py-2">
+                    <span className="w-6 h-6 bg-black text-white flex items-center justify-center font-mono text-xs font-black">{user.email[0].toUpperCase()}</span>
+                    <span className="font-mono text-[11px] font-bold truncate max-w-[100px]">{user.email}</span>
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                <NavLink to="/login" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
+                  Sign In
+                </NavLink>
+                <NavLink to="/register" className="bg-black text-white border-2 border-black font-mono text-[11px] sm:text-xs font-black uppercase tracking-widest px-3 sm:px-6 py-2 shadow-[2px_2px_0_0_#000] sm:shadow-[3px_3px_0_0_#000] hover:bg-black/90 btn-press min-h-[44px] flex items-center justify-center whitespace-nowrap">
+                  Sign Up →
+                </NavLink>
+              </>
+            )}
           </div>
         </div>
       </header>

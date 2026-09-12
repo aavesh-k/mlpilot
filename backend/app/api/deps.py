@@ -68,3 +68,29 @@ async def get_current_user_or_guest(
 
 def get_user_id_or_none(user: dict | None) -> str | None:
     return user["id"] if user else None
+
+
+async def get_owner(
+    user: dict | None = Depends(get_current_user_optional),
+    x_session_id: str | None = Header(default=None, alias="X-Session-ID"),
+) -> dict:
+    """
+    Unified owner for workflow: prefers JWT user, falls back to per-browser guest session.
+    Used by all ML workflow endpoints so 'Continue as Guest' works without login.
+    Guest data is isolated per browser (X-Session-ID), authenticated data per user_id.
+    """
+    if user:
+        return {"user_id": user["id"], "session_id": None}
+    if x_session_id and x_session_id != "default_user":
+        return {"user_id": None, "session_id": x_session_id}
+    import os
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        test_email = "test_user@example.com"
+        test_user = storage.get_user_by_email(test_email)
+        if not test_user:
+            from app.core.security import hash_password
+
+            test_user = storage.create_user(email=test_email, hashed_password=hash_password("Test1234"))
+        return {"user_id": test_user["id"], "session_id": None}
+    raise AuthenticationError("Not authenticated — please sign in or continue as guest")

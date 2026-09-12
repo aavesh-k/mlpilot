@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.api.deps import get_current_user
+from app.api.deps import get_owner
 from app.api.v1.schemas.cleaning import CleaningSuggestions, ColumnSuggestion, RunCleaningSchema
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
@@ -68,9 +68,9 @@ def _smart_outlier_default(_df: pd.DataFrame, _col: str, outlier_pct: float) -> 
 @router.get("/{dataset_id}/cleaning/suggestions")
 async def get_cleaning_suggestions(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> CleaningSuggestions:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -123,9 +123,9 @@ async def get_cleaning_suggestions(
 async def execute_cleaning(
     dataset_id: str,
     body: RunCleaningSchema,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -184,8 +184,8 @@ async def execute_cleaning(
         "cleaning_run_id": run_id,
         "is_cleaned": True,
         "status": "ready",
-        "user_id": current_user["id"],
-        "session_id": None,
+        "user_id": owner.get("user_id"),
+        "session_id": owner.get("session_id"),
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -201,9 +201,9 @@ async def execute_cleaning(
 async def get_cleaning_report(
     dataset_id: str,
     run_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     report = storage.get_cleaning_report(dataset_id, run_id)
@@ -215,9 +215,9 @@ async def get_cleaning_report(
 @router.get("/{dataset_id}/cleaning/runs")
 async def list_cleaning_runs(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> list[dict]:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     return storage.list_cleaning_runs(dataset_id)
@@ -227,9 +227,9 @@ async def list_cleaning_runs(
 async def download_cleaned_data(
     dataset_id: str,
     run_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     path = storage.get_cleaned_data_path(dataset_id, run_id)

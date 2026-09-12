@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
-from app.api.deps import get_current_user
+from app.api.deps import get_owner
 from app.api.rate_limit import predict_limiter, train_limiter
 from app.api.v1.schemas.plots import ModelPlotsResponseSchema
 from app.api.v1.schemas.training import TrainModelSchema
@@ -144,9 +144,9 @@ def _attach_eta(job: dict) -> dict:
 @router.delete("/jobs/{job_id}")
 async def delete_job(
     job_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> Response:
-    deleted = storage.delete_job(job_id, user_id=current_user["id"])
+    deleted = storage.delete_job(job_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not deleted:
         raise NotFoundError("Job", job_id)
     return Response(status_code=204)
@@ -979,7 +979,7 @@ async def list_algorithms() -> dict:
 async def get_recommendations(
     dataset_id: str | None = Query(default=None),
     pipeline_id: str | None = Query(default=None),
-    current_user: dict = Depends(get_current_user),
+    owner: dict = Depends(get_owner),
 ) -> dict:
     """Dataset-driven model recommendations + suggested metric (no external services)."""
     if (dataset_id is None) == (pipeline_id is None):
@@ -987,7 +987,7 @@ async def get_recommendations(
     try:
         from app.services.recommendation_service import get_recommendations as svc_get_recs
 
-        result = svc_get_recs(dataset_id=dataset_id, pipeline_id=pipeline_id, user_id=current_user["id"], session_id=None)
+        result = svc_get_recs(dataset_id=dataset_id, pipeline_id=pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
         return result
     except ValueError as e:
         raise ValidationError(str(e)) from None
@@ -999,7 +999,7 @@ async def get_recommendations(
 async def train_model(
     body: TrainModelSchema,
     background_tasks: BackgroundTasks,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
     import pandas as pd
 
@@ -1012,19 +1012,19 @@ async def train_model(
     # If pipeline_id provided, fetch problem_type from it. Else default classification.
     problem_type = "classification"
     if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
+        pipeline = storage.get_pipeline(pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
         if not pipeline:
             raise NotFoundError("Pipeline", pipeline_id)
         problem_type = pipeline.get("problem_type", "classification")
         dataset_id = pipeline["dataset_id"]
     elif dataset_id:
-        dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+        dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
         if not dataset:
             raise NotFoundError("Dataset", dataset_id)
     else:
         raise ValidationError("Either pipeline_id or dataset_id must be provided")
 
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
 
     # Read train/test splits
     loop = asyncio.get_event_loop()
@@ -1070,8 +1070,8 @@ async def train_model(
             "algorithm": algo,
             "hyperparameters": {},
             "status": "queued",
-            "user_id": current_user["id"],
-            "session_id": None,
+            "user_id": owner.get("user_id"),
+            "session_id": owner.get("session_id"),
             "created_at": datetime.now(UTC).isoformat(),
         }
         storage.save_model(m_entry)
@@ -1085,8 +1085,8 @@ async def train_model(
         "status": "queued",
         "progress": 0.0,
         "log": "",
-        "user_id": current_user["id"],
-        "session_id": None,
+        "user_id": owner.get("user_id"),
+        "session_id": owner.get("session_id"),
         "started_at": datetime.now(UTC).isoformat(),
     }
     storage.save_job(job)
@@ -1122,9 +1122,9 @@ async def train_model(
 async def list_models(
     page: int = 1,
     per_page: int = 20,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    all_models = storage.list_models(user_id=current_user["id"])
+    all_models = storage.list_models(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     total = len(all_models)
     start = (page - 1) * per_page
     items = all_models[start:start + per_page]
@@ -1135,7 +1135,7 @@ async def list_models(
 @router.get("/compare")
 async def compare_models(
     ids: list[str] = Query(...),
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
     models_list = []
     actual_ids = []
@@ -1146,12 +1146,12 @@ async def compare_models(
             actual_ids.append(item)
 
     for m_id in actual_ids:
-        model = storage.get_model(m_id, user_id=current_user["id"])
+        model = storage.get_model(m_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
         if not model:
             continue
 
         pipeline_id = model.get("pipeline_id")
-        pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"]) if pipeline_id else None
+        pipeline = storage.get_pipeline(pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if pipeline_id else None
 
         models_list.append({
             "id": model["id"],
@@ -1184,9 +1184,9 @@ async def compare_models(
 @router.get("/models/{model_id}")
 async def get_model(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
     return model
@@ -1195,9 +1195,9 @@ async def get_model(
 @router.get("/models/{model_id}/download")
 async def download_model(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
     file_path = model.get("file_path")
@@ -1232,9 +1232,9 @@ async def download_model(
 async def list_jobs(
     page: int = 1,
     per_page: int = 20,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    all_jobs = storage.list_jobs(user_id=current_user["id"])
+    all_jobs = storage.list_jobs(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     total = len(all_jobs)
     start = (page - 1) * per_page
     items = [_attach_eta(j) for j in all_jobs[start:start + per_page]]
@@ -1244,9 +1244,9 @@ async def list_jobs(
 @router.get("/jobs/{job_id}")
 async def get_job(
     job_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    job = storage.get_job(job_id, user_id=current_user["id"])
+    job = storage.get_job(job_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not job:
         raise NotFoundError("Job", job_id)
     return _attach_eta(job)
@@ -1255,9 +1255,9 @@ async def get_job(
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     job_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    job = storage.get_job(job_id, user_id=current_user["id"])
+    job = storage.get_job(job_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not job:
         raise NotFoundError("Job", job_id)
     if job["status"] not in ("queued", "running"):
@@ -1271,7 +1271,7 @@ async def cancel_job(
     storage.save_job(job)
 
     # Cancel all models associated with this job
-    all_models = storage.list_models(user_id=current_user["id"])
+    all_models = storage.list_models(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     for model in all_models:
         if model.get("job_id") == job_id or model.get("id") == job.get("model_id"):
             model["status"] = "cancelled"
@@ -1283,14 +1283,14 @@ async def cancel_job(
 @router.post("/models/{model_id}/set-best")
 async def set_best_model(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
     # Unset all other models in the same job or pipeline
-    all_models = storage.list_models(user_id=current_user["id"])
+    all_models = storage.list_models(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     for m in all_models:
         if m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -1304,7 +1304,7 @@ async def set_best_model(
 @router.get("/models/{model_id}/plots", response_model=ModelPlotsResponseSchema)
 async def get_model_plots(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
     import numpy as np
     import pandas as pd
@@ -1320,7 +1320,7 @@ async def get_model_plots(
     from sklearn.model_selection import learning_curve
     from sklearn.pipeline import Pipeline as SklearnPipeline
 
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1562,7 +1562,7 @@ async def get_model_plots(
 
     # 5. Model Comparison
     model_comparison = []
-    all_models = storage.list_models(user_id=current_user["id"])
+    all_models = storage.list_models(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     for m in all_models:
         if (m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -1587,9 +1587,9 @@ async def get_model_plots(
 @router.get("/models/{model_id}/export/cleaned")
 async def export_cleaned_dataset(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1597,7 +1597,7 @@ async def export_cleaned_dataset(
     if not dataset_id:
         raise ValidationError("Model is not associated with any dataset")
 
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -1630,11 +1630,11 @@ async def export_cleaned_dataset(
 @router.get("/models/{model_id}/export/preprocessed")
 async def export_preprocessed_dataset(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
     import pandas as pd
 
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -1676,17 +1676,17 @@ async def export_preprocessed_dataset(
 @router.get("/models/{model_id}/export/recipe")
 async def export_reproducibility_recipe(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
     dataset_id = model.get("dataset_id")
     pipeline_id = model.get("pipeline_id")
 
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"]) if dataset_id else None
-    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"]) if pipeline_id else None
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if dataset_id else None
+    pipeline = storage.get_pipeline(pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if pipeline_id else None
 
     # Load cleaning configuration if cleaned dataset was used
     cleaning_config = {}
@@ -1863,17 +1863,17 @@ if __name__ == "__main__":
 @router.get("/models/{model_id}/export/report", response_class=HTMLResponse)
 async def export_html_report(
     model_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ):
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
     dataset_id = model.get("dataset_id")
     pipeline_id = model.get("pipeline_id")
 
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"]) if dataset_id else None
-    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"]) if pipeline_id else None
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if dataset_id else None
+    pipeline = storage.get_pipeline(pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if pipeline_id else None
     # Models may not carry their own target_column; fall back to the pipeline.
     target_col_disp = model.get("target_column") or (pipeline.get("target_column") if pipeline else None)
 
@@ -1884,7 +1884,7 @@ async def export_html_report(
         cleaning_report = storage.get_cleaning_report(source_id, run_id)
 
     leaderboard = []
-    all_models = storage.list_models(user_id=current_user["id"])
+    all_models = storage.list_models(user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     for m in all_models:
         if (m.get("pipeline_id") == model.get("pipeline_id") or (
             m.get("job_id") and m.get("job_id") == model.get("job_id")
@@ -2343,13 +2343,13 @@ async def export_html_report(
 async def explain_model(
     model_id: str,
     row_idx: int = 0,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
     import numpy as np
     import pandas as pd
     from sklearn.pipeline import Pipeline as SklearnPipeline
 
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -2363,7 +2363,7 @@ async def explain_model(
     # pipeline artifacts are available.
     df = _load_test_df(pipeline_id)
     if df is None:
-        dataset = storage.get_dataset(dataset_id, user_id=current_user["id"]) if dataset_id else None
+        dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id")) if dataset_id else None
         if not dataset:
             raise NotFoundError("Dataset", dataset_id)
         df = read_dataframe(dataset)
@@ -2460,12 +2460,12 @@ async def predict_model(
     model_id: str,
     file: UploadFile = File(...),
     preprocessed: bool = Query(False, description="True if the data is already preprocessed; skips the model's preprocessor."),
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
     import numpy as np
     import pandas as pd
 
-    model = storage.get_model(model_id, user_id=current_user["id"])
+    model = storage.get_model(model_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not model:
         raise NotFoundError("Model", model_id)
 
@@ -2519,7 +2519,7 @@ async def predict_model(
     # fall back to the pipeline when the model has no target_column of its own.
     target_col = model.get("target_column")
     if not target_col:
-        pipeline_rec = storage.get_pipeline(model.get("pipeline_id"), user_id=current_user["id"])
+        pipeline_rec = storage.get_pipeline(model.get("pipeline_id"), user_id=owner.get("user_id"), session_id=owner.get("session_id"))
         if pipeline_rec:
             target_col = pipeline_rec.get("target_column")
     if target_col and target_col in df.columns:

@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
 from fastapi import APIRouter, Depends
 
-from app.api.deps import get_current_user
+from app.api.deps import get_owner
 from app.api.rate_limit import eda_limiter
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.services.eda_service import compute_eda
@@ -91,9 +91,9 @@ def _run_eda_background(dataset_id: str):
 @router.post("/{dataset_id}/eda", dependencies=[Depends(eda_limiter)])
 async def start_eda(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     if dataset["status"] != "ready":
@@ -145,9 +145,9 @@ def _extract_column_stats(report: dict) -> list[dict]:
 @router.get("/{dataset_id}/eda")
 async def get_eda_status(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -170,9 +170,9 @@ async def get_eda_status(
 @router.get("/{dataset_id}/columns")
 async def get_columns(
     dataset_id: str,
-    current_user: dict = Depends(get_current_user)
+    owner: dict = Depends(get_owner)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
+    dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
