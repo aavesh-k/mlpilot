@@ -328,11 +328,6 @@ Captured via Playwright (`npm run screenshots` → `e2e/screenshots.spec.ts` + `
 | Register — strength meter | ![Register](docs/screenshots/03-register.png) |
 | Dashboard — per-user isolation | ![Dashboard](docs/screenshots/04-dashboard.png) |
 | Datasets — upload + demo | ![Datasets](docs/screenshots/05-datasets.png) |
-| Cleaning — 6-step config | ![Cleaning](docs/screenshots/06-cleaning.png) |
-| Training — split + jobs | ![Training](docs/screenshots/07-training.png) |
-| Compare — leaderboard | ![Compare](docs/screenshots/08-compare.png) |
-| Visualizations — SHAP | ![Visualizations](docs/screenshots/09-visualizations.png) |
-| Results — export hub | ![Results](docs/screenshots/10-results.png) |
 
 To re-capture locally: `npm run screenshots` (spawns backend `:8000` + Vite `:5173` via `playwright.config.ts` `webServer`, or reuse existing servers).
 
