@@ -8,6 +8,7 @@ import { RouteGuard } from "./shared/components/RouteGuard"
 import { AuthGuard, PublicOnly } from "./shared/components/AuthGuard"
 import { LoadingSpinner } from "./shared/components/LoadingSpinner"
 import Layout from "./components/Layout"
+import { useAuthStore } from "./modules/auth/store/authStore"
 
 const Home = lazy(() => import("./pages/Home"))
 const Login = lazy(() => import("./pages/Login"))
@@ -36,6 +37,8 @@ function withErrorBoundary(element: JSX.Element, name?: string) {
 }
 
 export default function App() {
+  const userId = useAuthStore((s) => s.user?.id)
+
   return (
     <GlobalErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -47,7 +50,7 @@ export default function App() {
               <Route path="/login" element={withErrorBoundary(<PublicOnly><Login /></PublicOnly>, "Login")} />
               <Route path="/register" element={withErrorBoundary(<PublicOnly><Register /></PublicOnly>, "Register")} />
               {/* Protected */}
-              <Route element={<AuthGuard><Layout /></AuthGuard>}>
+              <Route element={<AuthGuard><Layout key={userId || 'guest'} /></AuthGuard>}>
                 <Route path="/dashboard" element={withErrorBoundary(<Dashboard />, "Dashboard")} />
                 <Route path="/datasets" element={withErrorBoundary(<DatasetUpload />, "Datasets")} />
                 <Route path="/datasets/:id" element={withErrorBoundary(<DatasetOverview />, "DatasetOverview")} />

@@ -19,6 +19,9 @@ export const queryClient = new QueryClient({
 
 export function clearAppQueryCache() {
   try {
+    queryClient.cancelQueries()
+    queryClient.removeQueries()
     queryClient.clear()
   } catch {}
 }
+

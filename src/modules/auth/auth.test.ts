@@ -110,6 +110,22 @@ describe('Auth & API Client', () => {
     )
     expect(queryClient.getQueryData(['datasets'])).toBeUndefined()
   })
+
+  it('properly serializes and persists state in storage so hard refresh keeps user logged in', async () => {
+    useAuthStore.getState().setAuth(
+      { access_token: 'persist_access', refresh_token: 'persist_refresh' },
+      { id: 'u4', email: 'persist@example.com', created_at: '' },
+      true
+    )
+
+    const raw = localStorage.getItem('mlpilot_auth')
+    expect(raw).toBeDefined()
+    expect(raw).not.toBeNull()
+    const parsed = JSON.parse(raw!)
+    expect(parsed.state.accessToken).toBe('persist_access')
+    expect(parsed.state.isAuthenticated).toBe(true)
+    expect(parsed.state.user?.email).toBe('persist@example.com')
+  })
 })
 
 

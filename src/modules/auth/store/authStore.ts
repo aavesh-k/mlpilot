@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage, type StateStorage } from 'zustand/middleware'
 import { clearAppQueryCache } from '../../../core/queryClient'
 
 interface User {
@@ -20,9 +20,7 @@ interface AuthState {
   logout: () => void
 }
 
-// Mixed storage: localStorage if rememberMe true, sessionStorage if false
-// getItem checks both so existing sessions survive migration
-const mixedStorage = {
+const dynamicStorage: StateStorage = {
   getItem: (name: string): string | null => {
     try {
       const local = localStorage.getItem(name)
@@ -32,26 +30,24 @@ const mixedStorage = {
       return null
     }
   },
-  setItem: (name: string, value: string | object): void => {
+  setItem: (name: string, value: string): void => {
     try {
-      const strValue = typeof value === 'string' ? value : JSON.stringify(value)
-      const parsed = JSON.parse(strValue) as { state?: { rememberMe?: boolean } }
+      const parsed = JSON.parse(value) as { state?: { rememberMe?: boolean } }
       const rememberMe = parsed?.state?.rememberMe ?? true
       if (rememberMe) {
-        localStorage.setItem(name, strValue)
+        localStorage.setItem(name, value)
         try {
           sessionStorage.removeItem(name)
         } catch {}
       } else {
-        sessionStorage.setItem(name, strValue)
+        sessionStorage.setItem(name, value)
         try {
           localStorage.removeItem(name)
         } catch {}
       }
     } catch {
       try {
-        const strValue = typeof value === 'string' ? value : JSON.stringify(value)
-        localStorage.setItem(name, strValue)
+        localStorage.setItem(name, value)
       } catch {}
     }
   },
@@ -97,14 +93,15 @@ export const useAuthStore = create<AuthState>()(
         try {
           sessionStorage.removeItem('mlpilot_auth')
         } catch {}
+        try {
+          localStorage.removeItem('mlpilot_guest_session')
+        } catch {}
         set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false })
       },
     }),
     {
       name: 'mlpilot_auth',
-      // @ts-expect-error mixedStorage matches StateStorage but TS expects PersistStorage shape
-      storage: mixedStorage,
-      // @ts-expect-error partialize may return subset
+      storage: createJSONStorage(() => dynamicStorage),
       partialize: (state) => ({
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
@@ -116,7 +113,6 @@ export const useAuthStore = create<AuthState>()(
   )
 )
 
-// Helper for remembered email (separate from auth tokens)
 export const rememberedEmailStorage = {
   get(): string | null {
     try {
