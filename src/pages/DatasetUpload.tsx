@@ -14,10 +14,14 @@ import { formatFileSize, formatDate } from '../shared/utils/format'
 import { apiClient } from '../core/api/client'
 import { toApiError } from '../core/api/errors'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
+import { useIsGuest, GuestBanner } from '../shared/components/GuestBanner'
+import { GuestAuthModal } from '../shared/components/GuestAuthModal'
 
 export default function DatasetUpload() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const isGuest = useIsGuest()
+  const [showGuestModal, setShowGuestModal] = useState(false)
   const [page, setPage] = useState(1)
   const [isDragOver, setIsDragOver] = useState(false)
   const { data, isLoading, error, refetch } = useDatasets(page)
@@ -52,8 +56,6 @@ export default function DatasetUpload() {
     try {
       await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
       setSelectedIds([])
-      // Ensure workflow (pipelines/models/jobs with 100-per-page queries) is fresh
-      // even when parallel deletes raced — final invalidate covers bulk case.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['datasets'] }),
         queryClient.invalidateQueries({ queryKey: ['pipelines'] }),
@@ -116,6 +118,10 @@ export default function DatasetUpload() {
   }
 
   const handleUpload = async (file: File) => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     setClientValidationError(null)
     const err = validateClientSide(file)
     if (err) {
@@ -139,34 +145,62 @@ export default function DatasetUpload() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragOver(false)
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     const file = e.dataTransfer.files?.[0]
     if (file) handleUpload(file)
   }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      e.target.value = ''
+      return
+    }
     const file = e.target.files?.[0]
     if (file) handleUpload(file)
+    e.target.value = ''
   }
 
-return (
+  const handleDropzoneClick = () => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
+    document.getElementById('file-input')?.click()
+  }
+
+  return (
     <div className="p-4 md:p-4 sm:p-6 lg:p-8 xl:p-12 max-w-4xl">
       <PageHeader title="Dataset" accent="Upload" subtitle="Ingest your data. CSV, Parquet, or JSON." />
+
+      {isGuest && (
+        <GuestBanner
+          feature="Custom File Uploads"
+          description="Guests can explore all sample demo datasets below with full exploratory analysis. To upload your own custom datasets, create a free account."
+          className="mb-8"
+        />
+      )}
 
       <div className="bg-surface border-2 border-primary p-4 brutal-shadow md:p-8 brutal-shadow mb-8">
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
-          onClick={() => document.getElementById('file-input')?.click()}
+          onClick={handleDropzoneClick}
           className={`border-2 border-dashed border-primary p-6 md:p-12 text-center transition-colors cursor-pointer group ${
             isDragOver ? 'border-solid bg-primary/5' : ''
           }`}
         >
           <span className="material-symbols-outlined text-6xl text-black group-hover:text-black transition-colors">cloud_upload</span>
           <p className="font-mono font-black text-lg uppercase tracking-widest text-black mt-4">
-            {isDragOver ? 'Drop now' : 'Drop Files Here'}
+            {isGuest ? 'Upload Custom Dataset (Account Required)' : isDragOver ? 'Drop now' : 'Drop Files Here'}
           </p>
-          <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2">or click to browse — Max 5GB</p>
+          <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2">
+            {isGuest ? 'Click to learn more — or select a demo dataset below' : 'or click to browse — Max 5GB'}
+          </p>
           <p className="font-mono text-[10px] uppercase tracking-widest text-black/50 mt-1">CSV, Parquet, JSON, Excel</p>
         </div>
         <input
@@ -182,9 +216,25 @@ return (
           </p>
         )}
         {uploadMutation.isError && (
-          <p className="mt-4 text-error font-mono font-bold text-sm">
-            Upload failed: {toApiError(uploadMutation.error).message}
-          </p>
+          <div className="mt-4 bg-amber-50 border-2 border-black p-4 brutal-shadow-sm flex items-start gap-3">
+            <span className="material-symbols-outlined text-black text-xl shrink-0">info</span>
+            <div className="flex-1">
+              <p className="font-headline font-black text-sm uppercase text-black">
+                {toApiError(uploadMutation.error).status === 403 || isGuest ? 'Guest Preview Mode' : 'Upload Notice'}
+              </p>
+              <p className="font-mono text-xs text-black/80 mt-1">
+                {toApiError(uploadMutation.error).message}
+              </p>
+              {(toApiError(uploadMutation.error).status === 403 || isGuest) && (
+                <button
+                  onClick={() => setShowGuestModal(true)}
+                  className="mt-3 bg-black text-white font-mono text-xs font-black uppercase tracking-widest px-3 py-1.5 border border-black hover:bg-[#ffd400] hover:text-black transition-colors btn-press"
+                >
+                  Create Free Account →
+                </button>
+              )}
+            </div>
+          </div>
         )}
         {uploadMutation.isPending && (
           <div className="mt-4 space-y-2">
@@ -380,6 +430,12 @@ return (
         confirmLabel={bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.length}`}
         onConfirm={handleBulkDelete}
         onCancel={() => setConfirmBulkDelete(false)}
+      />
+      <GuestAuthModal
+        open={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        actionName="Custom Dataset Uploads"
+        description="Guests can explore demo datasets and preview automated analysis. Create a free account to upload your own custom datasets, clean data, and train models."
       />
       <WorkflowNextStep />
     </div>

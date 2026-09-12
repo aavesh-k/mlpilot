@@ -93,7 +93,11 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="hidden md:inline-flex items-center gap-1 bg-[#ffd400] text-black border border-black px-2 py-1 font-mono text-[10px] font-black uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 bg-black rounded-full" />
+                Guest Mode
+              </span>
               <NavLink to="/login" className="inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-3 sm:px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
                 Sign In
               </NavLink>

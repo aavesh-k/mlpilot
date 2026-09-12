@@ -53,4 +53,12 @@ describe('toApiError', () => {
     const original = new ApiError('CONFLICT', 'nope', 'id', 409)
     expect(toApiError(original)).toBe(original)
   })
+
+  it('formats 403 guest errors as friendly upgrade instructions', () => {
+    const err = makeAxiosError(403, { error: { code: 'AUTHORIZATION_ERROR', message: 'Sign up to use this feature — guest is try-only (demo + preview).' } })
+    const result = toApiError(err)
+    expect(result.code).toBe('AUTHORIZATION_ERROR')
+    expect(result.status).toBe(403)
+    expect(result.message).toContain('Sign up for a free account')
+  })
 })

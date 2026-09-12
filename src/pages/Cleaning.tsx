@@ -10,7 +10,10 @@ import { Button } from '../shared/components/ui/button'
 import { Badge } from '../shared/components/ui/badge'
 import { formatPercentage, formatDate } from '../shared/utils/format'
 import { cleaningApi, type ColumnSuggestion, type CleaningLogEntry, type ColumnChange, type SnapshotStats } from '../core/api/cleaning.api'
+import { toApiError } from '../core/api/errors'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
+import { useIsGuest, GuestBanner } from '../shared/components/GuestBanner'
+import { GuestAuthModal } from '../shared/components/GuestAuthModal'
 
 type MissingStrategy = 'drop_row' | 'drop_column' | 'mean' | 'median' | 'mode' | 'knn' | 'ffill' | 'bfill'
 type OutlierStrategy = 'winsorize' | 'remove' | 'leave'
@@ -34,6 +37,8 @@ const OUTLIER_LABELS: Record<OutlierStrategy, string> = {
 
 export default function Cleaning() {
   const navigate = useNavigate()
+  const isGuest = useIsGuest()
+  const [showGuestModal, setShowGuestModal] = useState(false)
   const [searchParams] = useSearchParams()
   const paramDatasetId = searchParams.get('datasetId')
   const { data: datasetsData, isLoading: dsLoading } = useDatasets()
@@ -77,6 +82,10 @@ export default function Cleaning() {
   }, [])
 
   const handleRunCleaning = useCallback(() => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     if (!selectedId || !suggestions) return
     const missingStrategies = suggestions.columns
       .filter((c) => c.missing_count > 0)
@@ -101,7 +110,7 @@ export default function Cleaning() {
         drop_constant_columns: dropConst,
       },
     })
-  }, [selectedId, suggestions, missingOverrides, outlierOverrides, removeDupes, fixDtypes, standardizeCat, dropConst, executeMutation])
+  }, [isGuest, selectedId, suggestions, missingOverrides, outlierOverrides, removeDupes, fixDtypes, standardizeCat, dropConst, executeMutation])
 
   const latestRun = cleaningRuns?.[0]
   const report = viewRunId ? reportDetail : (executeMutation.data?.report ?? null)
@@ -120,6 +129,14 @@ export default function Cleaning() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader title="Data" accent="Cleaning" subtitle="Inspect and fix your data — every change is logged and reversible." />
+
+      {isGuest && (
+        <GuestBanner
+          feature="Automated Data Cleaning"
+          description="Guests can inspect dataset health and preview cleaning recommendations. Create a free account to execute cleaning transformations and save cleaned datasets."
+          className="mb-8"
+        />
+      )}
 
       {readyDatasets.length === 0 && !dsLoading && (
         <EmptyState icon="cleaning_services" title="No datasets ready" description="Upload a dataset first to clean it." />
@@ -188,6 +205,7 @@ export default function Cleaning() {
           onSetOutlierOverride={(col, s) => setOutlierOverrides((prev) => ({ ...prev, [col]: s }))}
           onRun={handleRunCleaning}
           isRunning={isRunning}
+          isGuest={isGuest}
         />
       )}
 
@@ -201,7 +219,33 @@ export default function Cleaning() {
       )}
 
       {executeMutation.isError && (
-        <ErrorState title="Cleaning failed" message={(executeMutation.error as Error)?.message ?? 'Unknown error'} onRetry={handleRunCleaning} />
+        (() => {
+          const apiErr = toApiError(executeMutation.error)
+          if (apiErr.status === 403 || isGuest) {
+            return (
+              <div className="mt-8 bg-amber-50 border-2 border-black p-4 sm:p-6 brutal-shadow flex items-start gap-4">
+                <span className="material-symbols-outlined text-black text-3xl shrink-0">info</span>
+                <div className="flex-1">
+                  <h4 className="font-headline font-black text-base uppercase text-black">
+                    Guest Mode: Preview Only
+                  </h4>
+                  <p className="font-mono text-xs text-black/80 mt-1">
+                    {apiErr.message}
+                  </p>
+                  <div className="mt-4 flex gap-3">
+                    <button
+                      onClick={() => setShowGuestModal(true)}
+                      className="bg-black text-white font-mono text-xs font-black uppercase tracking-widest px-4 py-2 border-2 border-black hover:bg-[#ffd400] hover:text-black transition-colors btn-press shadow-[2px_2px_0_0_#000]"
+                    >
+                      Create Free Account →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          return <ErrorState title="Cleaning failed" message={apiErr.message} onRetry={handleRunCleaning} />
+        })()
       )}
 
       {report && !isRunning && (
@@ -240,6 +284,12 @@ export default function Cleaning() {
           </div>
         </div>
       )}
+      <GuestAuthModal
+        open={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        actionName="Automated Data Cleaning"
+        description="Guests can inspect dataset quality and view AI cleaning suggestions. Create a free account to execute cleaning and export clean datasets."
+      />
       <WorkflowNextStep />
     </div>
   )
@@ -249,7 +299,7 @@ function CleaningConfigPanel({
   suggestions, removeDupes, onToggleRemoveDupes, fixDtypes, onToggleFixDtypes,
   standardizeCat, onToggleStandardizeCat, dropConst, onToggleDropConst,
   missingOverrides, onSetMissingOverride, outlierOverrides, onSetOutlierOverride,
-  onRun, isRunning,
+  onRun, isRunning, isGuest = false,
 }: {
   suggestions: ColumnSuggestion[]
   removeDupes: boolean; onToggleRemoveDupes: (v: boolean) => void
@@ -260,7 +310,7 @@ function CleaningConfigPanel({
   onSetMissingOverride: (col: string, s: MissingStrategy) => void
   outlierOverrides: Record<string, OutlierStrategy>
   onSetOutlierOverride: (col: string, s: OutlierStrategy) => void
-  onRun: () => void; isRunning: boolean
+  onRun: () => void; isRunning: boolean; isGuest?: boolean
 }) {
   const colsWithMissing = suggestions.filter((c) => c.missing_count > 0)
   const colsWithOutliers = suggestions.filter((c) => c.outlier_count != null && c.outlier_count > 0)
@@ -268,7 +318,14 @@ function CleaningConfigPanel({
   return (
     <div className="space-y-6">
       <div className="bg-surface border-2 border-primary p-4 sm:p-6 brutal-shadow">
-        <h3 className="font-headline font-black text-xl uppercase mb-4">Cleaning Steps</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+          <h3 className="font-headline font-black text-xl uppercase">Cleaning Steps</h3>
+          {isGuest && (
+            <span className="font-mono text-[10px] font-bold bg-[#ffd400] text-black px-2 py-0.5 border border-black self-start sm:self-auto">
+              Guest Mode: Live Preview
+            </span>
+          )}
+        </div>
         <p className="text-sm text-on-surface-variant mb-6">Toggle each step on or off. Configure per-column strategies where available.</p>
 
         <div className="space-y-4">
@@ -371,10 +428,15 @@ function CleaningConfigPanel({
           />
         </div>
 
-        <div className="mt-8 flex gap-4">
+        <div className="mt-8 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Button variant="primary" size="lg" onClick={onRun} disabled={isRunning} title={isRunning ? 'Cleaning in progress — please wait' : undefined} className="w-full sm:w-auto">
-            {isRunning ? 'Running…' : 'Run Cleaning'}
+            {isRunning ? 'Running…' : isGuest ? '🔒 Sign Up to Run Cleaning' : 'Run Cleaning'}
           </Button>
+          {isGuest && (
+            <span className="font-mono text-xs text-black/70">
+              Preview mode: Sign up free to execute transformations and export datasets.
+            </span>
+          )}
         </div>
       </div>
     </div>

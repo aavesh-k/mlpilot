@@ -109,7 +109,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )
         })}
       </nav>
-      {user && (
+      {user ? (
         <div className="mt-4 border-2 border-black bg-[#ffd400] p-3 brutal-shadow-sm">
           <div className="flex items-center gap-2">
             <span className="w-8 h-8 bg-black text-white flex items-center justify-center font-mono font-black text-xs border-2 border-black">
@@ -129,6 +129,27 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             className="mt-3 w-full bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest py-2 hover:bg-white hover:text-black transition-colors"
           >
             Sign Out
+          </button>
+        </div>
+      ) : (
+        <div className="mt-4 border-2 border-black bg-amber-50 p-3 brutal-shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 bg-[#ffd400] text-black flex items-center justify-center font-mono font-black text-xs border-2 border-black">
+              G
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-headline font-black text-[11px] uppercase tracking-tight text-black">Guest Mode</p>
+              <p className="font-mono text-[9px] uppercase tracking-widest text-black/60">Demo & Preview Only</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              navigate('/register')
+              onClose()
+            }}
+            className="mt-3 w-full bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest py-2 hover:bg-[#ffd400] hover:text-black transition-colors btn-press shadow-[2px_2px_0_0_#000]"
+          >
+            Sign Up Free →
           </button>
         </div>
       )}

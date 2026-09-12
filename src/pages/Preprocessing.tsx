@@ -23,11 +23,15 @@ import { toApiError } from '../core/api/errors'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
 import { pipelinesApi } from '../core/api/pipelines.api'
 import type { ColumnSuggestion, EncodingConfig, ScalingConfig, SplitConfig, FeatureSelectionConfig, TargetDetectionResult } from '../core/api/pipelines.api'
+import { useIsGuest, GuestBanner } from '../shared/components/GuestBanner'
+import { GuestAuthModal } from '../shared/components/GuestAuthModal'
 
 type Step = 'select-columns' | 'config' | 'review'
 
 export default function Preprocessing() {
   const navigate = useNavigate()
+  const isGuest = useIsGuest()
+  const [showGuestModal, setShowGuestModal] = useState(false)
   const [searchParams] = useSearchParams()
   const paramDatasetId = searchParams.get('datasetId')
   const [page, setPage] = useState(1)
@@ -178,6 +182,10 @@ export default function Preprocessing() {
   }, [targetColumn])
 
   const handleCreateNew = useCallback(() => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     const first = cleanedDatasets[0]
     if (!first) return
     setEditPipelineId(null)
@@ -205,17 +213,23 @@ export default function Preprocessing() {
     setUseSmote(false)
     setUseClassWeight(false)
     setValidationError('')
-  }, [cleanedDatasets])
+  }, [isGuest, cleanedDatasets])
 
   const handleEditPipeline = useCallback((p: typeof pipelines[0]) => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     setEditPipelineId(p.id)
     setPipelineName(p.name)
     setSelectedDatasetId(p.dataset_id)
     setTargetColumn(p.target_column || '')
     setProblemType(p.problem_type || null)
     setProblemTypeOverride(null)
-    setEncodingStrategy(p.encoding?.strategy || 'auto')
-    setScalingStrategy(p.scaling?.strategy || 'auto')
+    setEncodingStrategy(p.encoding?.strategy ?? 'auto')
+    setPassthroughCols(p.encoding?.passthrough_columns ?? [])
+    setScaleCols(p.encoding?.scale_columns ?? null)
+    setScalingStrategy(p.scaling?.strategy ?? 'auto')
     setTestSize(p.split?.test_size ?? 0.2)
     setStratify(p.split?.stratify ?? true)
     setRandomSeed(p.split?.random_seed ?? 42)
@@ -228,14 +242,19 @@ export default function Preprocessing() {
     setFsCorrThreshold(p.feature_selection?.correlation_threshold ?? 0.95)
     setUseSmote(p.use_smote ?? false)
     setUseClassWeight(p.use_class_weight ?? false)
+    setIsCreating(false)
     setStep('select-columns')
     setValidationError('')
-  }, [])
+  }, [isGuest])
 
   const resolvedProblemType = problemTypeOverride || problemType || 'classification'
   const isClassification = resolvedProblemType === 'classification'
 
   const handleSaveAndExecute = useCallback(() => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     setValidationError('')
     if (!selectedDatasetId) { setValidationError('Select a dataset'); return }
     if (!targetColumn) { setValidationError('Select a target column'); return }
@@ -287,7 +306,7 @@ export default function Preprocessing() {
         },
       })
     }
-  }, [selectedDatasetId, targetColumn, resolvedProblemType, pipelineName, encodingStrategy, passthroughCols, scaleCols, scalingStrategy, testSize, randomSeed, isClassification, stratify, splitStrategy, datetimeColumn, fsEnabled, fsDropLowVar, fsVarThreshold, fsDropHighCorr, fsCorrThreshold, useSmote, useClassWeight, editPipelineId, createPipeline, executePipeline, updatePipeline, refetch])
+  }, [isGuest, selectedDatasetId, targetColumn, resolvedProblemType, pipelineName, encodingStrategy, passthroughCols, scaleCols, scalingStrategy, testSize, randomSeed, isClassification, stratify, splitStrategy, datetimeColumn, fsEnabled, fsDropLowVar, fsVarThreshold, fsDropHighCorr, fsCorrThreshold, useSmote, useClassWeight, editPipelineId, createPipeline, executePipeline, updatePipeline, refetch])
 
   const statusBadge = (status: string) => {
     const variants: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
@@ -312,6 +331,14 @@ export default function Preprocessing() {
           ) : undefined
         }
       />
+
+      {isGuest && (
+        <GuestBanner
+          feature="Preprocessing Pipelines"
+          description="Guests can explore demo datasets and preview automated analysis. Create a free account to build feature engineering pipelines, configure encodings, and split datasets."
+          className="mb-8"
+        />
+      )}
 
       {editing && (
         <div className="mb-10 max-w-4xl">
@@ -673,6 +700,12 @@ export default function Preprocessing() {
           <Pagination page={pipesData!.page} perPage={pipesData!.per_page} total={pipesData!.total} onPageChange={setPage} />
         </div>
       )}
+      <GuestAuthModal
+        open={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        actionName="Preprocessing Pipelines"
+        description="Guests can explore demo datasets and preview automated analysis. Create a free account to build feature engineering pipelines, configure encodings, and split datasets."
+      />
       <WorkflowNextStep />
     </div>
   )

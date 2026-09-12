@@ -18,6 +18,8 @@ import { formatDate } from '../shared/utils/format'
 import { trainModelSchema } from '../shared/schemas/training'
 import { trainingApi } from '../core/api/training.api'
 import WorkflowNextStep from '../shared/components/WorkflowNextStep'
+import { useIsGuest, GuestBanner } from '../shared/components/GuestBanner'
+import { GuestAuthModal } from '../shared/components/GuestAuthModal'
 
 interface AlgoOption {
   id: string
@@ -59,6 +61,8 @@ function formatEta(seconds: number | null | undefined): string | null {
 export default function ModelTraining() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
+  const isGuest = useIsGuest()
+  const [showGuestModal, setShowGuestModal] = useState(false)
   const paramPipelineId = searchParams.get('pipelineId')
   const [page, setPage] = useState(1)
   const [selectedPipelineId, setSelectedPipelineId] = useState('')
@@ -138,21 +142,18 @@ export default function ModelTraining() {
 
   const availableAlgos = problemType === 'classification' ? CLASSIFICATION_ALGOS : REGRESSION_ALGOS
 
-  // Auto-select recommended algorithms when recommendations arrive (first load or pipeline switch)
   const [hasAutoApplied, setHasAutoApplied] = useState(false)
+
+  // Auto-select recommended algorithms on first load
   useEffect(() => {
-    if (recommendationData?.recommended_algorithms && selectedPipelineId) {
-      const isAllSelected =
-        selectedAlgos.length > 0 &&
-        selectedAlgos.length === availableAlgos.length &&
-        selectedAlgos.every((id) => availableAlgos.some((a) => a.id === id))
-      const shouldApply = selectedAlgos.length === 0 || (isAllSelected && !hasAutoApplied)
+    if (recommendationData?.recommended_algorithms && !hasAutoApplied && selectedPipelineId) {
+      const shouldApply = selectedAlgos.length === 0
       if (shouldApply) {
         setSelectedAlgos(recommendationData.recommended_algorithms)
         setHasAutoApplied(true)
       }
     }
-  }, [recommendationData, selectedPipelineId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recommendationData, hasAutoApplied, selectedPipelineId, selectedAlgos.length])
 
   // Reset auto-apply flag when pipeline changes
   const handleSelectPipeline = (id: string) => {
@@ -169,6 +170,10 @@ export default function ModelTraining() {
   }
 
   const handleTrain = () => {
+    if (isGuest) {
+      setShowGuestModal(true)
+      return
+    }
     setValidationError('')
     
     const requestData = {
@@ -214,6 +219,14 @@ export default function ModelTraining() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 xl:p-12">
       <PageHeader title="Model" accent="Training" subtitle="Run training across multiple classifiers or regressors simultaneously." />
+
+      {isGuest && (
+        <GuestBanner
+          feature="Model Training"
+          description="Guests can explore demo datasets and preview automated analysis. Create a free account to train machine learning models, tune hyperparameters, and view explainability reports."
+          className="mb-8"
+        />
+      )}
 
       {pipelinesLoading ? (
         <LoadingSpinner />
@@ -741,6 +754,12 @@ export default function ModelTraining() {
         confirmLabel={bulkDeletingJobs ? 'Deleting…' : `Delete ${selectedJobIds.length}`}
         onConfirm={handleBulkDeleteJobs}
         onCancel={() => setConfirmBulkDeleteJobs(false)}
+      />
+      <GuestAuthModal
+        open={showGuestModal}
+        onClose={() => setShowGuestModal(false)}
+        actionName="Model Training"
+        description="Guests can explore demo datasets and preview automated analysis. Create a free account to train machine learning models, tune hyperparameters, and view explainability reports."
       />
       <WorkflowNextStep />
     </div>

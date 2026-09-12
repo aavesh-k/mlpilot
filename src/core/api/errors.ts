@@ -42,16 +42,41 @@ export class ApiError extends Error {
 export function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err
 
-  const axiosErr = err as AxiosError<{ error?: ApiErrorShape }>
+  const axiosErr = err as AxiosError<{ error?: ApiErrorShape; detail?: string }>
   const status = axiosErr?.response?.status ?? null
   const data = axiosErr?.response?.data
 
   if (data?.error) {
+    const code = data.error.code ?? (status === 403 ? 'AUTHORIZATION_ERROR' : 'API_ERROR')
+    let message = data.error.message ?? 'Request failed'
+    if (status === 403 && (message.toLowerCase().includes('guest') || message.toLowerCase().includes('sign up'))) {
+      message = 'Sign up for a free account to unlock this feature (guest is demo & preview only).'
+    }
     return new ApiError(
-      data.error.code ?? 'API_ERROR',
-      data.error.message ?? 'Request failed',
+      code,
+      message,
       data.error.field ?? null,
       status,
+      err,
+    )
+  }
+
+  if (data?.detail && typeof data.detail === 'string') {
+    return new ApiError(
+      status === 403 ? 'AUTHORIZATION_ERROR' : 'UNKNOWN_ERROR',
+      data.detail,
+      null,
+      status,
+      err,
+    )
+  }
+
+  if (status === 403) {
+    return new ApiError(
+      'AUTHORIZATION_ERROR',
+      'Sign up for a free account to unlock this feature (guest is demo & preview only).',
+      null,
+      403,
       err,
     )
   }
