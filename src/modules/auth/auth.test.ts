@@ -93,5 +93,24 @@ describe('Auth & API Client', () => {
       expect(sessionId).toMatch(/^guest_/)
     }
   })
+
+  it('clears React Query cache on logout and setAuth to prevent cross-account cache leakage', async () => {
+    const { queryClient } = await import('../../core/queryClient')
+    queryClient.setQueryData(['datasets'], [{ id: 'user1_dataset' }])
+    expect(queryClient.getQueryData(['datasets'])).toEqual([{ id: 'user1_dataset' }])
+
+    useAuthStore.getState().logout()
+    expect(queryClient.getQueryData(['datasets'])).toBeUndefined()
+
+    queryClient.setQueryData(['datasets'], [{ id: 'user2_dataset' }])
+    useAuthStore.getState().setAuth(
+      { access_token: 'user3_token', refresh_token: 'user3_refresh' },
+      { id: '3', email: 'u3@example.com', created_at: '' },
+      true
+    )
+    expect(queryClient.getQueryData(['datasets'])).toBeUndefined()
+  })
 })
+
+
 

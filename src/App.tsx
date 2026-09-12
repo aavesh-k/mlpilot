@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import { lazy, Suspense, type JSX } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClientProvider } from "@tanstack/react-query"
+import { queryClient } from "./core/queryClient"
 import { GlobalErrorBoundary } from "./shared/components/GlobalErrorBoundary"
 import { ModuleErrorBoundary } from "./shared/components/ModuleErrorBoundary"
 import { RouteGuard } from "./shared/components/RouteGuard"
@@ -29,23 +30,6 @@ function PageFallback() {
     </div>
   )
 }
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: (failureCount, error) => {
-        const err = error as { code?: string; response?: unknown } | null
-        const isNetwork = !!err && (err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED' || !err.response)
-        // Network errors (backend not yet up / unreachable) retry with backoff;
-        // real 4xx/5xx responses from a live backend fail fast.
-        if (!isNetwork) return false
-        return failureCount < 5
-      },
-      retryDelay: (attempt) => Math.min(500 * 2 ** attempt, 8000),
-      staleTime: 30_000,
-    },
-  },
-})
 
 function withErrorBoundary(element: JSX.Element, name?: string) {
   return <ModuleErrorBoundary moduleName={name}>{element}</ModuleErrorBoundary>

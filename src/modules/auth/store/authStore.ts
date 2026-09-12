@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { clearAppQueryCache } from '../../../core/queryClient'
 
 interface User {
   id: string
@@ -72,14 +73,16 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       rememberMe: true,
-      setAuth: (tokens: { access_token: string; refresh_token: string }, user: User | null = null, rememberMe?: boolean) =>
+      setAuth: (tokens: { access_token: string; refresh_token: string }, user: User | null = null, rememberMe?: boolean) => {
+        clearAppQueryCache()
         set((prev: AuthState) => ({
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
           user: user ?? prev.user,
           isAuthenticated: true,
           rememberMe: rememberMe ?? prev.rememberMe ?? true,
-        })),
+        }))
+      },
       setUser: (user: User | null) =>
         set((prev: AuthState) => ({
           user,
@@ -87,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
         })),
       setRememberMe: (v: boolean) => set({ rememberMe: v }),
       logout: () => {
+        clearAppQueryCache()
         try {
           localStorage.removeItem('mlpilot_auth')
         } catch {}

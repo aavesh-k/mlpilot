@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { authApi, type User } from '../core/api/auth.api'
 import { useAuthStore, rememberedEmailStorage } from '../modules/auth/store/authStore'
+import { clearAppQueryCache } from '../core/queryClient'
 import { ApiError, toApiError } from '../core/api/errors'
 
 // --- Schemas with proper UX copy ---
@@ -245,6 +246,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     setSuccessMsg(null)
     try {
       const tokens = await authApi.login(data.email, data.password, data.rememberMe ?? false)
+      clearAppQueryCache()
       setRememberMeStore(!!data.rememberMe)
       if (data.rememberMe) rememberedEmailStorage.set(data.email)
       else rememberedEmailStorage.clear()
@@ -279,6 +281,7 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     try {
       const guest = ensureGuest()
       const tokens = await authApi.register(formData.email, formData.password, guest || undefined)
+      clearAppQueryCache()
       setRememberMeStore(true)
       rememberedEmailStorage.set(formData.email)
       
