@@ -317,10 +317,6 @@ Deferred / not-yet-implemented:
 
 ## Screenshots
 
-> **Why `docs/screenshots/`?** It’s the conventional GitHub docs folder — tracked in git, *not* served as a public asset (unlike `public/` which is copied to `dist/` and exposed at `/screenshots/...`). This keeps portfolio images versioned without bloating the Vite bundle and they render in `README.md` via relative `docs/screenshots/01-home.png`. If you prefer `public/screenshots/` or `image/` we can move — just say the path.
-
-Captured via Playwright (`npm run screenshots` → `e2e/screenshots.spec.ts` + `playwright.config.ts` using system Chrome `channel: 'chrome'`, 1280×800, guest session). All images <300KB.
-
 | View | Screenshot |
 |------|------------|
 | Home — brutal hero + 4-stage flow | ![Home](docs/screenshots/01-home.png) |
@@ -328,10 +324,6 @@ Captured via Playwright (`npm run screenshots` → `e2e/screenshots.spec.ts` + `
 | Register — strength meter | ![Register](docs/screenshots/03-register.png) |
 | Dashboard — per-user isolation | ![Dashboard](docs/screenshots/04-dashboard.png) |
 | Datasets — upload + demo | ![Datasets](docs/screenshots/05-datasets.png) |
-
-To re-capture locally: `npm run screenshots` (spawns backend `:8000` + Vite `:5173` via `playwright.config.ts` `webServer`, or reuse existing servers).
-
-See `docs/screenshots/README.md` for file list + sizes.
 
 ## License
 
