@@ -72,12 +72,12 @@ export default function DatasetUpload() {
     }
   }
 
-  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState<string | null>(null)
   const [demoError, setDemoError] = useState<string | null>(null)
 
   const loadDemoDataset = async (demoType: string) => {
     try {
-      setDemoLoading(true)
+      setDemoLoading(demoType)
       setDemoError(null)
       const { data } = await apiClient.post('/datasets/demo', { demo: demoType })
       await queryClient.invalidateQueries({ queryKey: ['datasets'] })
@@ -85,7 +85,7 @@ export default function DatasetUpload() {
     } catch (err: unknown) {
       setDemoError(toApiError(err).message)
     } finally {
-      setDemoLoading(false)
+      setDemoLoading(null)
     }
   }
 
@@ -205,43 +205,53 @@ return (
           </p>
         )}
         {demoLoading && (
-          <div className="mb-4 flex items-center gap-3">
-            <LoadingSpinner className="py-0" />
-            <span className="font-headline font-bold text-sm">Loading demo dataset...</span>
+          <div className="mb-4 flex items-center gap-3 bg-[#ffd400]/20 border-2 border-black p-3 brutal-shadow-sm">
+            <span className="material-symbols-outlined animate-spin text-black">progress_activity</span>
+            <span className="font-headline font-bold text-sm">
+              Loading {demoLoading === 'iris' ? 'Iris' : demoLoading === 'breast_cancer' ? 'Breast Cancer' : demoLoading === 'housing' ? 'Housing' : demoLoading} dataset…
+            </span>
+            <span className="ml-auto flex gap-1" aria-hidden>
+              <span className="w-1 h-1 bg-black animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1 h-1 bg-black animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1 h-1 bg-black animate-bounce" style={{ animationDelay: '300ms' }} />
+            </span>
           </div>
         )}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <button
             onClick={() => loadDemoDataset('iris')}
-            disabled={demoLoading}
+            disabled={demoLoading !== null}
             title={demoLoading ? 'Loading demo — please wait' : undefined}
-            aria-disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-disabled={demoLoading !== null}
+            aria-busy={demoLoading === 'iris'}
+            className={`flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${demoLoading === 'iris' ? 'bg-[#ffd400] animate-pulse' : ''}`}
           >
-            <span className="material-symbols-outlined text-2xl mb-1">grade</span>
-            <span>Iris Classification</span>
+            <span className={`material-symbols-outlined text-2xl mb-1 ${demoLoading === 'iris' ? 'animate-spin' : ''}`}>{demoLoading === 'iris' ? 'progress_activity' : 'grade'}</span>
+            <span>{demoLoading === 'iris' ? 'Loading…' : 'Iris Classification'}</span>
             <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">150 samples, 4 features</span>
           </button>
           <button
             onClick={() => loadDemoDataset('breast_cancer')}
-            disabled={demoLoading}
+            disabled={demoLoading !== null}
             title={demoLoading ? 'Loading demo — please wait' : undefined}
-            aria-disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-disabled={demoLoading !== null}
+            aria-busy={demoLoading === 'breast_cancer'}
+            className={`flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${demoLoading === 'breast_cancer' ? 'bg-[#ffd400] animate-pulse' : ''}`}
           >
-            <span className="material-symbols-outlined text-2xl mb-1">favorite</span>
-            <span>Breast Cancer</span>
+            <span className={`material-symbols-outlined text-2xl mb-1 ${demoLoading === 'breast_cancer' ? 'animate-spin' : ''}`}>{demoLoading === 'breast_cancer' ? 'progress_activity' : 'favorite'}</span>
+            <span>{demoLoading === 'breast_cancer' ? 'Loading…' : 'Breast Cancer'}</span>
             <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">569 samples, 30 features</span>
           </button>
           <button
             onClick={() => loadDemoDataset('housing')}
-            disabled={demoLoading}
+            disabled={demoLoading !== null}
             title={demoLoading ? 'Loading demo — please wait' : undefined}
-            aria-disabled={demoLoading}
-            className="flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-disabled={demoLoading !== null}
+            aria-busy={demoLoading === 'housing'}
+            className={`flex flex-col items-center bg-white border-2 border-black brutal-shadow-sm px-4 py-3 hover:bg-[#ffd400] btn-press font-mono text-xs font-black uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${demoLoading === 'housing' ? 'bg-[#ffd400] animate-pulse' : ''}`}
           >
-            <span className="material-symbols-outlined text-2xl mb-1">house</span>
-            <span>Housing Regression</span>
+            <span className={`material-symbols-outlined text-2xl mb-1 ${demoLoading === 'housing' ? 'animate-spin' : ''}`}>{demoLoading === 'housing' ? 'progress_activity' : 'house'}</span>
+            <span>{demoLoading === 'housing' ? 'Loading…' : 'Housing Regression'}</span>
             <span className="font-mono text-[10px] text-black/60 normal-case tracking-normal">489 samples, 8 features</span>
           </button>
         </div>

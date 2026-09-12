@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import shutil
+import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pandas as pd
-
-import asyncio
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
@@ -111,6 +109,17 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {".csv", ".parquet", ".json", ".xlsx"}
+
+# --- Demo dataset cache (memory + disk) ------------------------------------
+# After the Render cold start this makes every demo click <20ms server-side:
+# * DataFrames are memoized in memory so sklearn is imported only once.
+# * CSVs are written once to DATA_DIR/_demo_cache and subsequent requests
+#   just copy the file (no df.to_csv per click).
+_DEMO_CACHE: dict[str, Any] = {}
+_DEMO_NAMES: dict[str, str] = {}
+_DEMO_CACHE_DIR = settings.DATA_DIR / "_demo_cache"
+_DEMO_CACHE_LOCK = threading.RLock()
+_DEMO_TYPES = ("iris", "breast_cancer", "housing", "digits")
 
 
 def get_session_id(x_session_id: str = Header("default_user")) -> str:
@@ -242,8 +251,13 @@ async def delete_dataset(
     return None
 
 
-def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
+def _generate_demo_dataframe_raw(target: str) -> tuple[str, Any]:
+    """Uncached generation — factored out so caching wrapper stays lean."""
     from sklearn.datasets import load_breast_cancer, load_digits, load_iris
+
+    # Normalize alias
+    if target == "california":
+        target = "housing"
 
     if target == "iris":
         data = load_iris(as_frame=True)
@@ -309,6 +323,63 @@ def _get_demo_dataframe(target: str) -> tuple[str, pd.DataFrame]:
         raise ValidationError(f"Unknown demo type '{target}'. Choose from: iris, breast_cancer, housing, digits")
 
 
+def _get_demo_dataframe(target: str) -> tuple[str, Any]:
+    """Cached wrapper — first call builds DF, later calls hit memory."""
+    # Normalize alias consistently
+    if target == "california":
+        target = "housing"
+    if target in _DEMO_CACHE:
+        return _DEMO_NAMES[target], _DEMO_CACHE[target]
+    with _DEMO_CACHE_LOCK:
+        # Double-check after acquiring lock
+        if target in _DEMO_CACHE:
+            return _DEMO_NAMES[target], _DEMO_CACHE[target]
+        name, df = _generate_demo_dataframe_raw(target)
+        _DEMO_CACHE[target] = df
+        _DEMO_NAMES[target] = name
+        return name, df
+
+
+def _get_demo_csv_path(target: str) -> Path:
+    """Return path to cached CSV for target, generating it once if missing."""
+    if target == "california":
+        target = "housing"
+    if target not in _DEMO_TYPES:
+        raise ValidationError(f"Unknown demo type '{target}'. Choose from: iris, breast_cancer, housing, digits")
+    _DEMO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_path = _DEMO_CACHE_DIR / f"{target}.csv"
+    if cache_path.exists():
+        # Ensure memory cache is also primed (for row/column counts)
+        if target not in _DEMO_CACHE:
+            with contextlib.suppress(Exception):
+                _get_demo_dataframe(target)
+        return cache_path
+    with _DEMO_CACHE_LOCK:
+        if cache_path.exists():
+            return cache_path
+        # Generate and persist atomically
+        name, df = _get_demo_dataframe(target)
+        tmp = cache_path.with_suffix(".tmp")
+        df.to_csv(tmp, index=False)
+        tmp.replace(cache_path)
+        logger.info("Demo cache built [target=%s, rows=%d, file=%s]", target, len(df), cache_path)
+        return cache_path
+
+
+def ensure_demo_cache() -> None:
+    """Pre-warm all demo CSVs — called from lifespan background thread."""
+    try:
+        _DEMO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        for t in _DEMO_TYPES:
+            try:
+                _get_demo_csv_path(t)
+            except Exception as e:
+                logger.warning("Failed to pre-warm demo cache for %s: %s", t, e)
+        logger.info("Demo cache ready [dir=%s, types=%s]", _DEMO_CACHE_DIR, ",".join(_DEMO_TYPES))
+    except Exception as e:
+        logger.warning("ensure_demo_cache failed: %s", e)
+
+
 @router.post("/demo", status_code=201)
 async def upload_demo_dataset(
     body: dict | None = None,
@@ -317,14 +388,22 @@ async def upload_demo_dataset(
 ) -> JSONResponse:
     """Upload an authentic benchmark dataset (iris, breast_cancer, housing, digits)."""
     target = (body.get("demo") or body.get("demo_type") if body else None) or demo_type or "iris"
+    if target == "california":
+        target = "housing"
 
-    name, df = _get_demo_dataframe(target)
+    # Resolve cached CSV (builds once, then <1ms). Loop off event loop so
+    # the first build after a cold start doesn't block other requests.
+    loop = asyncio.get_running_loop()
+    cache_path = await loop.run_in_executor(None, _get_demo_csv_path, target)
+    # Ensure DataFrame metadata is cached for counts/name
+    name, df = await loop.run_in_executor(None, _get_demo_dataframe, target)
 
     dataset_id = str(uuid.uuid4())
     dest_dir = settings.DATA_DIR / "datasets" / dataset_id
     dest_dir.mkdir(parents=True, exist_ok=True)
     file_path = dest_dir / "data.csv"
-    df.to_csv(file_path, index=False)
+    # Fast file copy — no DataFrame serialization per request
+    await loop.run_in_executor(None, shutil.copyfile, str(cache_path), str(file_path))
 
     dataset = {
         "id": dataset_id,

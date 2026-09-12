@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import axios from 'axios'
 import { useDatasets } from '../modules/datasets/hooks/useDatasets'
@@ -6,20 +7,87 @@ import { SkeletonCard } from '../shared/components/LoadingSpinner'
 import { ErrorState } from '../shared/components/ErrorState'
 import { useBackendReady } from '../core/hooks/useBackendReady'
 
+const WARMING_TIPS = [
+  'Waking up the Render free-tier instance…',
+  'First load can take 30–60s on the free plan — hang tight.',
+  'Spinning up the ML engine…',
+  'Demo datasets will be instant once we’re connected.',
+]
+
 export default function Dashboard() {
-  const { ready, warming } = useBackendReady()
+  const { ready, warming, elapsed, attempt } = useBackendReady()
+  const [dots, setDots] = useState('')
+  const [tipIndex, setTipIndex] = useState(0)
+
+  useEffect(() => {
+    if (ready) return
+    const id = setInterval(() => setDots((d) => (d.length >= 3 ? '' : d + '.')), 420)
+    return () => clearInterval(id)
+  }, [ready])
+
+  useEffect(() => {
+    if (ready) return
+    const id = setInterval(() => setTipIndex((i) => (i + 1) % WARMING_TIPS.length), 2800)
+    return () => clearInterval(id)
+  }, [ready])
 
   if (!ready) {
+    // Gently advancing progress so the bar never stalls at 0. Cap at 92% until ready.
+    const progress = Math.min(92, 12 + elapsed * 1.8 + attempt * 2.5)
+
     return (
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 xl:p-12 flex items-center justify-center">
-        <div className="text-center border-2 border-black bg-white brutal-shadow p-8 max-w-md">
-          <span className="material-symbols-outlined text-4xl animate-pulse text-black">sync</span>
-          <p className="font-headline font-black text-2xl uppercase mt-4 tracking-tight text-black">Connecting to backend…</p>
-          <p className="font-mono text-xs uppercase tracking-widest text-black/60 mt-2">
-            {warming
-              ? 'First load? The free-tier backend is warming up (can take ~30–60s).'
-              : 'Waiting for the MLPilot API to become available.'}
+        <div className="relative overflow-hidden text-center border-2 border-black bg-white brutal-shadow p-6 sm:p-8 max-w-md w-full">
+          {/* Top shimmer bar */}
+          <div className="absolute top-0 left-0 h-1 bg-[#ffd400] transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
+
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 bg-black border-2 border-black flex items-center justify-center brutal-shadow-sm relative">
+              <span className="material-symbols-outlined text-3xl text-[#ffd400] animate-spin" style={{ animationDuration: '1.2s' }}>
+                sync
+              </span>
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#c8ff00] border-2 border-black animate-ping" aria-hidden />
+              <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#c8ff00] border-2 border-black" aria-hidden />
+            </div>
+          </div>
+
+          <p className="font-headline font-black text-2xl uppercase tracking-tight text-black">
+            Connecting to backend<span className="inline-block w-6 text-left">{dots}</span>
           </p>
+          <p className="font-mono text-[11px] uppercase tracking-widest text-black/60 mt-1 min-h-4">
+            {warming ? WARMING_TIPS[tipIndex] : 'Waiting for the MLPilot API to become available.'}
+          </p>
+
+          <div className="mt-5 space-y-3 text-left">
+            <div className="h-2.5 w-full border-2 border-black bg-white overflow-hidden brutal-shadow-sm">
+              <div
+                className="h-full bg-[#ffd400] relative transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              >
+                <span className="absolute inset-y-0 right-0 w-8 bg-gradient-to-r from-transparent to-white/60 animate-pulse" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-black/60">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 bg-[#c8ff00] border border-black animate-pulse" aria-hidden />
+                {elapsed}s elapsed
+              </span>
+              <span>Attempt #{Math.max(1, attempt)}</span>
+              <span className="hidden sm:inline">Retrying every 2s</span>
+            </div>
+
+            {/* Bouncing dots row — visual proof it isn't frozen */}
+            <div className="flex justify-center gap-1 pt-1" aria-hidden>
+              <span className="w-1.5 h-1.5 bg-black animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 bg-black animate-bounce" style={{ animationDelay: '140ms' }} />
+              <span className="w-1.5 h-1.5 bg-black animate-bounce" style={{ animationDelay: '280ms' }} />
+            </div>
+
+            <p className="font-mono text-[10px] uppercase tracking-widest text-black/40 text-center leading-relaxed">
+              Free-tier cold start — this only happens after 15 min of inactivity.
+            </p>
+          </div>
         </div>
       </div>
     )

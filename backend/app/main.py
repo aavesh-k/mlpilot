@@ -36,6 +36,19 @@ async def lifespan(_app: FastAPI):
             "datasets/models older than AUTO_CLEANUP_MAX_AGE_DAYS)."
         )
 
+    # Pre-warm demo dataset cache in background so first "Try a Demo" click
+    # after a cold start is instant (copyfile <20ms instead of regenerating +
+    # sklearn import). Runs as daemon so it never blocks startup.
+    def _warm_demo_cache() -> None:
+        try:
+            from app.api.v1.endpoints.datasets import ensure_demo_cache
+
+            ensure_demo_cache()
+        except Exception as e:
+            logger.warning("Demo cache warmup failed: %s", e)
+
+    threading.Thread(target=_warm_demo_cache, daemon=True).start()
+
     # Recover any orphaned zombie jobs left running/queued if previous container crashed (e.g. OOM)
     try:
         from app.storage import storage
