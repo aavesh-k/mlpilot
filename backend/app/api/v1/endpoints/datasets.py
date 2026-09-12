@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.api.deps import get_current_user_optional, get_owner
+from app.api.deps import get_current_user_optional, get_owner, require_user
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.storage import storage
@@ -134,6 +134,7 @@ async def upload_dataset(
     name: str = Form(None),
     owner: dict = Depends(get_owner),
 ) -> JSONResponse:
+    require_user(owner)
     logger.info("Dataset upload requested [filename=%s, user_id=%s]", file.filename, owner.get("user_id"))
 
     ext = Path(file.filename).suffix.lower()

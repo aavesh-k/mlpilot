@@ -70,6 +70,15 @@ def get_user_id_or_none(user: dict | None) -> str | None:
     return user["id"] if user else None
 
 
+def require_user(owner: dict) -> dict:
+    """Ensure owner is authenticated user (not guest). Guest gets 403 for B plan."""
+    if not owner.get("user_id"):
+        from app.core.exceptions import AuthorizationError
+
+        raise AuthorizationError("Sign up to use this feature — guest is try-only (demo + preview).")
+    return owner
+
+
 async def get_owner(
     user: dict | None = Depends(get_current_user_optional),
     x_session_id: str | None = Header(default=None, alias="X-Session-ID"),

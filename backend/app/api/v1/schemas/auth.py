@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
+    guest_session_id: str | None = Field(default=None, description="Guest session to migrate")
 
     @field_validator("email")
     @classmethod

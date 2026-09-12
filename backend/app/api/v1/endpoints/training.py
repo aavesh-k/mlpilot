@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
-from app.api.deps import get_owner
+from app.api.deps import get_owner, require_user
 from app.api.rate_limit import predict_limiter, train_limiter
 from app.api.v1.schemas.plots import ModelPlotsResponseSchema
 from app.api.v1.schemas.training import TrainModelSchema
@@ -1001,6 +1001,7 @@ async def train_model(
     background_tasks: BackgroundTasks,
     owner: dict = Depends(get_owner)
 ) -> dict:
+    require_user(owner)
     import pandas as pd
 
     # Resolve target dataset or pipeline

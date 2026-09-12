@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
 
-from app.api.deps import get_owner
+from app.api.deps import get_owner, require_user
 from app.api.rate_limit import predict_limiter
 from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 from app.core.config import settings
@@ -90,6 +90,7 @@ async def create_pipeline(
     body: CreatePipelineSchema,
     owner: dict = Depends(get_owner)
 ) -> dict:
+    require_user(owner)
     dataset = storage.get_dataset(body.dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", body.dataset_id)
@@ -250,6 +251,7 @@ async def execute_pipeline(
     background_tasks: BackgroundTasks,
     owner: dict = Depends(get_owner)
 ) -> dict:
+    require_user(owner)
     pipeline = storage.get_pipeline(pipeline_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)

@@ -433,5 +433,28 @@ class SQLStorage:
             import shutil
             shutil.rmtree(path)
 
+    def migrate_guest_to_user(self, guest_session_id: str, user_id: str) -> int:
+        """Migrate all guest session rows to new user — keep all 3 demos etc."""
+        if not guest_session_id or not user_id or guest_session_id == "default_user":
+            return 0
+        migrated = 0
+        with session_scope() as session:
+            for cls in (DatasetRecord, PipelineRecord, ModelRecord, JobRecord):
+                stmt = select(cls).where(cls.session_id == guest_session_id)
+                rows = session.scalars(stmt).all()
+                for r in rows:
+                    r.user_id = user_id
+                    r.session_id = None
+                    # also update JSON payload for consistency
+                    try:
+                        data = dict(r.data)
+                        data["user_id"] = user_id
+                        data.pop("session_id", None)
+                        r.data = data
+                    except Exception:
+                        pass
+                    migrated += 1
+        return migrated
+
 
 storage = SQLStorage(str(settings.DATA_DIR))

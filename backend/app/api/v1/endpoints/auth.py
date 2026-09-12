@@ -20,6 +20,12 @@ async def register(body: RegisterRequest) -> TokenResponse:
         raise ConflictError(f"Email {email} already registered")
     hashed = hash_password(body.password)
     user = storage.create_user(email=email, hashed_password=hashed)
+    # Migrate guest demo data if provided — keep all 3
+    if body.guest_session_id:
+        try:
+            storage.migrate_guest_to_user(body.guest_session_id, user["id"])
+        except Exception:
+            pass
     access_token = create_access_token({"sub": user["id"], "email": user["email"]}, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     refresh_token = create_refresh_token({"sub": user["id"], "email": user["email"]})
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)

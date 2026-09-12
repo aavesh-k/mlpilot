@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from fastapi import APIRouter, Depends
 from fastapi.responses import FileResponse
 
-from app.api.deps import get_owner
+from app.api.deps import get_owner, require_user
 from app.api.v1.schemas.cleaning import CleaningSuggestions, ColumnSuggestion, RunCleaningSchema
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
@@ -125,6 +125,7 @@ async def execute_cleaning(
     body: RunCleaningSchema,
     owner: dict = Depends(get_owner)
 ) -> dict:
+    require_user(owner)
     dataset = storage.get_dataset(dataset_id, user_id=owner.get("user_id"), session_id=owner.get("session_id"))
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
