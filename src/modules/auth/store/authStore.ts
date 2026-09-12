@@ -76,13 +76,25 @@ export const useAuthStore = create<AuthState>()(
         set((prev: AuthState) => ({
           accessToken: tokens.access_token,
           refreshToken: tokens.refresh_token,
-          user,
+          user: user ?? prev.user,
           isAuthenticated: true,
           rememberMe: rememberMe ?? prev.rememberMe ?? true,
         })),
-      setUser: (user: User | null) => set({ user, isAuthenticated: !!user }),
+      setUser: (user: User | null) =>
+        set((prev: AuthState) => ({
+          user,
+          isAuthenticated: prev.accessToken ? true : !!user,
+        })),
       setRememberMe: (v: boolean) => set({ rememberMe: v }),
-      logout: () => set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false }),
+      logout: () => {
+        try {
+          localStorage.removeItem('mlpilot_auth')
+        } catch {}
+        try {
+          sessionStorage.removeItem('mlpilot_auth')
+        } catch {}
+        set({ accessToken: null, refreshToken: null, user: null, isAuthenticated: false })
+      },
     }),
     {
       name: 'mlpilot_auth',

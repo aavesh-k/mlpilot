@@ -3,7 +3,7 @@ import { useNavigate, useLocation, NavLink } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { authApi } from '../core/api/auth.api'
+import { authApi, type User } from '../core/api/auth.api'
 import { useAuthStore, rememberedEmailStorage } from '../modules/auth/store/authStore'
 import { ApiError, toApiError } from '../core/api/errors'
 
@@ -245,19 +245,29 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     setSuccessMsg(null)
     try {
       const tokens = await authApi.login(data.email, data.password, data.rememberMe ?? false)
-      // Persist rememberMe choice
       setRememberMeStore(!!data.rememberMe)
       if (data.rememberMe) rememberedEmailStorage.set(data.email)
       else rememberedEmailStorage.clear()
-      useAuthStore.getState().setAuth(tokens, null, !!data.rememberMe)
-      let user = null
+      
+      const fallbackUser: User = {
+        id: '',
+        email: data.email,
+        created_at: new Date().toISOString(),
+      }
+      setAuth(tokens, fallbackUser, !!data.rememberMe)
+      
       try {
-        user = await authApi.me()
-      } catch {}
-      setAuth(tokens, user, !!data.rememberMe)
+        const user = await authApi.me()
+        if (user) {
+          setAuth(tokens, user, !!data.rememberMe)
+        }
+      } catch {
+        // Fallback user already stored
+      }
+      
       setSuccessMsg('Welcome back! Redirecting…')
       setLoginAttempts(0)
-      setTimeout(() => navigate(from, { replace: true }), 400)
+      setTimeout(() => navigate(from, { replace: true }), 300)
     } catch (err: unknown) {
       handleApiError(err, loginForm, 'password')
     }
@@ -268,29 +278,31 @@ export default function Auth({ mode }: { mode: 'login' | 'register' }) {
     setSuccessMsg(null)
     try {
       const guest = ensureGuest()
-      const tokens = await (async () => {
-        const { apiClient } = await import('../core/api/client')
-        const { data: respData } = await apiClient.post('/auth/register', {
-          email: formData.email,
-          password: formData.password,
-          guest_session_id: guest || undefined,
-        })
-        return respData
-      })()
-      // Sign-up always remembers (no checkbox) — keep user signed in
+      const tokens = await authApi.register(formData.email, formData.password, guest || undefined)
       setRememberMeStore(true)
       rememberedEmailStorage.set(formData.email)
-      useAuthStore.getState().setAuth(tokens, null, true)
-      let user = null
+      
+      const fallbackUser: User = {
+        id: '',
+        email: formData.email,
+        created_at: new Date().toISOString(),
+      }
+      setAuth(tokens, fallbackUser, true)
+      
       try {
-        user = await authApi.me()
-      } catch {}
-      setAuth(tokens, user, true)
+        const user = await authApi.me()
+        if (user) {
+          setAuth(tokens, user, true)
+        }
+      } catch {
+        // Fallback user already stored
+      }
+      
       try {
         localStorage.removeItem('mlpilot_guest_session')
       } catch {}
       setSuccessMsg('Account created! Welcome aboard.')
-      setTimeout(() => navigate('/dashboard', { replace: true }), 500)
+      setTimeout(() => navigate('/dashboard', { replace: true }), 300)
     } catch (err: unknown) {
       handleApiError(err, registerForm, 'email')
     }

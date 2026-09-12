@@ -13,8 +13,12 @@ export interface User {
 }
 
 export const authApi = {
-  async register(email: string, password: string): Promise<AuthTokens> {
-    const { data } = await apiClient.post('/auth/register', { email, password })
+  async register(email: string, password: string, guest_session_id?: string): Promise<AuthTokens> {
+    const { data } = await apiClient.post('/auth/register', {
+      email,
+      password,
+      guest_session_id: guest_session_id || undefined,
+    })
     return data
   },
   async login(email: string, password: string, rememberMe: boolean = false): Promise<AuthTokens> {
