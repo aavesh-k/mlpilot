@@ -18,24 +18,50 @@ def test_corrupt_file_upload_rejected_gracefully(client: TestClient) -> None:
 
 
 def test_multi_user_session_data_isolation(client: TestClient) -> None:
+    import uuid
+
+    # Create two isolated users via JWT
+    def register_and_token(email_prefix: str) -> str:
+        email = f"{email_prefix}_{uuid.uuid4().hex[:6]}@example.com"
+        pwd = "Test1234"
+        r = client.post("/api/v1/auth/register", json={"email": email, "password": pwd})
+        assert r.status_code == 201
+        return r.json()["access_token"]
+
+    token_a = register_and_token("user_a")
+    token_b = register_and_token("user_b")
+
     # 1. User A uploads a dataset
     csv_a = "col_a,col_b\n1,2\n3,4\n"
     resp_a = client.post(
         "/api/v1/datasets/upload",
-        headers={"X-Session-ID": "user_a"},
+        headers={"Authorization": f"Bearer {token_a}"},
         files={"file": ("data_a.csv", io.BytesIO(csv_a.encode()), "text/csv")},
     )
     assert resp_a.status_code == 201
     dataset_a_id = resp_a.json()["id"]
 
-    # 2. User B lists datasets - must be empty
-    resp_list_b = client.get("/api/v1/datasets/", headers={"X-Session-ID": "user_b"})
+    # 2. User B lists datasets - must be empty (per-user isolation)
+    resp_list_b = client.get("/api/v1/datasets/", headers={"Authorization": f"Bearer {token_b}"})
     assert resp_list_b.status_code == 200
     assert len(resp_list_b.json()["items"]) == 0
 
     # 3. User B tries to fetch User A's dataset - must be 404
-    resp_get_b = client.get(f"/api/v1/datasets/{dataset_a_id}", headers={"X-Session-ID": "user_b"})
+    resp_get_b = client.get(f"/api/v1/datasets/{dataset_a_id}", headers={"Authorization": f"Bearer {token_b}"})
     assert resp_get_b.status_code == 404
+
+    # 4. Guest session isolation (demo without login) via X-Session-ID
+    resp_guest = client.post(
+        "/api/v1/datasets/demo",
+        headers={"X-Session-ID": "guest_iso_test_1"},
+        json={"demo": "iris"},
+    )
+    assert resp_guest.status_code == 201
+    guest_id = resp_guest.json()["id"]
+    # Different guest must not see it via datasets list (guest uses demo endpoint, but list is auth-only so skip)
+    # Verify authenticated user A does not see guest demo
+    resp_a_list = client.get("/api/v1/datasets/", headers={"Authorization": f"Bearer {token_a}"})
+    assert not any(d["id"] == guest_id for d in resp_a_list.json()["items"])
 
 
 def test_chronological_split_strategy(client: TestClient) -> None:
@@ -102,6 +128,13 @@ def test_chronological_split_strategy(client: TestClient) -> None:
 
 
 def test_pipeline_execution_is_non_blocking(client: TestClient) -> None:
+    import uuid
+
+    # Create auth user for this test
+    email = f"nb_{uuid.uuid4().hex[:6]}@example.com"
+    r = client.post("/api/v1/auth/register", json={"email": email, "password": "Test1234"})
+    token = r.json()["access_token"]
+    hdr = {"Authorization": f"Bearer {token}"}
     # 10 rows to prevent stratified split complaining about small class sizes
     csv_content = (
         "feature,target\n"
@@ -109,16 +142,17 @@ def test_pipeline_execution_is_non_blocking(client: TestClient) -> None:
     )
     resp = client.post(
         "/api/v1/datasets/upload",
+        headers=hdr,
         files={"file": ("dummy.csv", io.BytesIO(csv_content.encode()), "text/csv")},
     )
     ds_id = resp.json()["id"]
 
     # Execute cleaning first
-    clean_resp = client.post(f"/api/v1/datasets/{ds_id}/cleaning/execute", json={})
+    clean_resp = client.post(f"/api/v1/datasets/{ds_id}/cleaning/execute", headers=hdr, json={})
     assert clean_resp.status_code == 201
     cleaned_ds_id = clean_resp.json()["dataset"]["id"]
 
-    pipe_resp = client.post("/api/v1/pipelines/", json={
+    pipe_resp = client.post("/api/v1/pipelines/", headers=hdr, json={
         "dataset_id": cleaned_ds_id,
         "target_column": "target",
         "problem_type": "classification"
@@ -130,7 +164,7 @@ def test_pipeline_execution_is_non_blocking(client: TestClient) -> None:
     import os
     pytest_var = os.environ.pop("PYTEST_CURRENT_TEST", None)
     try:
-        exec_resp = client.post(f"/api/v1/pipelines/{pipe_id}/execute")
+        exec_resp = client.post(f"/api/v1/pipelines/{pipe_id}/execute", headers=hdr)
         assert exec_resp.status_code == 200
         assert exec_resp.json()["status"] == "running"
     finally:
@@ -139,10 +173,16 @@ def test_pipeline_execution_is_non_blocking(client: TestClient) -> None:
 
 
 def test_preprocessing_requires_cleaning_boundary(client: TestClient) -> None:
+    import uuid
+    email = f"bound_{uuid.uuid4().hex[:6]}@example.com"
+    r = client.post("/api/v1/auth/register", json={"email": email, "password": "Test1234"})
+    token = r.json()["access_token"]
+    hdr = {"Authorization": f"Bearer {token}"}
     # 1. Upload raw dataset
     csv_content = "feature,target\n1,0\n2,1\n"
     resp = client.post(
         "/api/v1/datasets/upload",
+        headers=hdr,
         files={"file": ("dummy.csv", io.BytesIO(csv_content.encode()), "text/csv")},
     )
     assert resp.status_code == 201
@@ -152,7 +192,7 @@ def test_preprocessing_requires_cleaning_boundary(client: TestClient) -> None:
     import os
     pytest_var = os.environ.pop("PYTEST_CURRENT_TEST", None)
     try:
-        pipe_resp = client.post("/api/v1/pipelines/", json={
+        pipe_resp = client.post("/api/v1/pipelines/", headers=hdr, json={
             "dataset_id": ds_id,
             "target_column": "target"
         })

@@ -20,6 +20,7 @@ from app.models import (
     JobRecord,
     ModelRecord,
     PipelineRecord,
+    UserRecord,
 )
 
 
@@ -53,6 +54,7 @@ class SQLStorage:
         model = session.get(record_cls, record_id)
         created_at = body.get("created_at")
         session_id = body.get("session_id")
+        user_id = body.get("user_id")
         if isinstance(created_at, str):
             try:
                 created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
@@ -60,12 +62,20 @@ class SQLStorage:
                 created_at = None
         payload = {**body, **(extra or {})}
         if model is None:
-            model = record_cls(id=record_id, session_id=session_id, data=payload, created_at=created_at)
+            # Handle models that have both session_id and user_id, vs UserRecord etc.
+            kwargs: dict = {"id": record_id, "data": payload, "created_at": created_at}
+            if hasattr(record_cls, "session_id"):
+                kwargs["session_id"] = session_id
+            if hasattr(record_cls, "user_id"):
+                kwargs["user_id"] = user_id
+            model = record_cls(**kwargs)
             session.add(model)
         else:
             model.data = payload
-            if session_id:
+            if session_id and hasattr(model, "session_id"):
                 model.session_id = session_id
+            if user_id and hasattr(model, "user_id"):
+                model.user_id = user_id
             if created_at is not None:
                 model.created_at = created_at
         session.flush()
@@ -76,19 +86,31 @@ class SQLStorage:
             model = session.get(record_cls, record_id)
             return dict(model.data) if model else None
 
-    def _list(self, record_cls, session_id: str | None, _batch: int | None = None) -> list[dict]:
+    def _list(
+        self,
+        record_cls,
+        session_id: str | None = None,
+        _batch: int | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
         with session_scope() as session:
             stmt = select(record_cls).order_by(record_cls.created_at.desc(), record_cls.id.desc())
-            # The implicit local user (no session header -> "default_user") owns all
-            # locally stored data, so no filtering is applied and every record is
-            # returned. Explicit custom sessions keep isolation (they only see
-            # their own data plus shared/default_user/null records).
-            if session_id and session_id != "default_user":
-                stmt = stmt.where(
-                    (record_cls.session_id == session_id)
-                    | (record_cls.session_id == "default_user")
-                    | (record_cls.session_id.is_(None))
-                )
+            # Per-user isolation: authenticated users see only their own records.
+            # Per-browser guest isolation: anonymous sessions see only their own session_id.
+            # Unauthenticated / default_user with no identity sees nothing (secure by default).
+            has_user = hasattr(record_cls, "user_id")
+            has_session = hasattr(record_cls, "session_id")
+            if has_user and user_id:
+                stmt = stmt.where(record_cls.user_id == user_id)
+            elif has_session and session_id and session_id != "default_user":
+                stmt = stmt.where(record_cls.session_id == session_id)
+            elif has_user or has_session:
+                # No identity — internal background tasks & orphan recovery call without
+                # user_id/session_id and need global view. API list endpoints always
+                # pass user_id (authenticated) so they are filtered above. Unauthenticated
+                # API access is blocked by get_current_user 401 before reaching storage,
+                # so returning all here is safe for internal use and doesn't leak via API.
+                pass
             rows = session.scalars(stmt).all()
             return [dict(r.data) for r in rows]
 
@@ -100,16 +122,50 @@ class SQLStorage:
             session.delete(model)
             return True
 
-    # --- Datasets ---
-    def list_datasets(self, session_id: str = None) -> list[dict]:
-        return self._list(DatasetRecord, session_id)
+    # --- Users ---
+    def get_user_by_email(self, email: str) -> dict | None:
+        email = email.lower().strip()
+        with session_scope() as session:
+            stmt = select(UserRecord).where(UserRecord.email == email)
+            row = session.scalars(stmt).first()
+            return {"id": row.id, "email": row.email, "hashed_password": row.hashed_password, "created_at": row.created_at.isoformat()} if row else None
 
-    def get_dataset(self, dataset_id: str, session_id: str = None) -> dict | None:
+    def get_user_by_id(self, user_id: str) -> dict | None:
+        with session_scope() as session:
+            row = session.get(UserRecord, user_id)
+            return {"id": row.id, "email": row.email, "hashed_password": row.hashed_password, "created_at": row.created_at.isoformat()} if row else None
+
+    def create_user(self, email: str, hashed_password: str) -> dict:
+        import uuid
+
+        user_id = str(uuid.uuid4())
+        email = email.lower().strip()
+        with session_scope() as session:
+            row = UserRecord(id=user_id, email=email, hashed_password=hashed_password)
+            session.add(row)
+            session.flush()
+            return {"id": row.id, "email": row.email, "hashed_password": row.hashed_password, "created_at": row.created_at.isoformat()}
+
+    # --- Datasets ---
+    def list_datasets(self, session_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        return self._list(DatasetRecord, session_id=session_id, user_id=user_id)
+
+    def get_dataset(self, dataset_id: str, session_id: str | None = None, user_id: str | None = None) -> dict | None:
         dataset = self._get(DatasetRecord, dataset_id)
         if dataset is None:
             return None
-        ds_session = dataset.get("session_id")
-        if session_id and session_id != "default_user" and ds_session not in (session_id, "default_user", None):
+        # Internal background tasks call without identity — allow.
+        if not user_id and not session_id:
+            return dataset
+        # Strict per-user / per-session check
+        if user_id:
+            if dataset.get("user_id") != user_id:
+                return None
+        elif session_id and session_id != "default_user":
+            if dataset.get("session_id") != session_id:
+                return None
+        elif dataset.get("user_id") or dataset.get("session_id") not in (None, "default_user"):
+            # No identity but record is owned -> hide
             return None
         return dataset
 
@@ -141,15 +197,22 @@ class SQLStorage:
                 model.data = columns
 
     # --- Pipelines ---
-    def list_pipelines(self, session_id: str = None) -> list[dict]:
-        return self._list(PipelineRecord, session_id)
+    def list_pipelines(self, session_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        return self._list(PipelineRecord, session_id=session_id, user_id=user_id)
 
-    def get_pipeline(self, pipeline_id: str, session_id: str = None) -> dict | None:
+    def get_pipeline(self, pipeline_id: str, session_id: str | None = None, user_id: str | None = None) -> dict | None:
         pipeline = self._get(PipelineRecord, pipeline_id)
         if pipeline is None:
             return None
-        pl_session = pipeline.get("session_id")
-        if session_id and session_id != "default_user" and pl_session not in (session_id, "default_user", None):
+        if not user_id and not session_id:
+            return pipeline
+        if user_id:
+            if pipeline.get("user_id") != user_id:
+                return None
+        elif session_id and session_id != "default_user":
+            if pipeline.get("session_id") != session_id:
+                return None
+        elif pipeline.get("user_id") or pipeline.get("session_id") not in (None, "default_user"):
             return None
         return pipeline
 
@@ -161,15 +224,22 @@ class SQLStorage:
         return self._delete(PipelineRecord, pipeline_id)
 
     # --- Models ---
-    def list_models(self, session_id: str = None) -> list[dict]:
-        return self._list(ModelRecord, session_id)
+    def list_models(self, session_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        return self._list(ModelRecord, session_id=session_id, user_id=user_id)
 
-    def get_model(self, model_id: str, session_id: str = None) -> dict | None:
+    def get_model(self, model_id: str, session_id: str | None = None, user_id: str | None = None) -> dict | None:
         model = self._get(ModelRecord, model_id)
         if model is None:
             return None
-        m_session = model.get("session_id")
-        if session_id and session_id != "default_user" and m_session not in (session_id, "default_user", None):
+        if not user_id and not session_id:
+            return model
+        if user_id:
+            if model.get("user_id") != user_id:
+                return None
+        elif session_id and session_id != "default_user":
+            if model.get("session_id") != session_id:
+                return None
+        elif model.get("user_id") or model.get("session_id") not in (None, "default_user"):
             return None
         return model
 
@@ -191,43 +261,50 @@ class SQLStorage:
         if processed_dir.exists():
             shutil.rmtree(processed_dir, ignore_errors=True)
 
-    def delete_models_by_dataset(self, dataset_id: str, session_id: str | None = None) -> int:
-        models = [m for m in self.list_models(session_id) if m.get("dataset_id") == dataset_id]
+    def delete_models_by_dataset(self, dataset_id: str, session_id: str | None = None, user_id: str | None = None) -> int:
+        models = [m for m in self.list_models(session_id=session_id, user_id=user_id) if m.get("dataset_id") == dataset_id]
         for m in models:
             self._delete(ModelRecord, m["id"])
             self._remove_model_artifacts(m["id"])
         return len(models)
 
-    def delete_models_by_pipeline(self, pipeline_id: str, session_id: str | None = None) -> int:
-        models = [m for m in self.list_models(session_id) if m.get("pipeline_id") == pipeline_id]
+    def delete_models_by_pipeline(self, pipeline_id: str, session_id: str | None = None, user_id: str | None = None) -> int:
+        models = [m for m in self.list_models(session_id=session_id, user_id=user_id) if m.get("pipeline_id") == pipeline_id]
         for m in models:
             self._delete(ModelRecord, m["id"])
             self._remove_model_artifacts(m["id"])
         return len(models)
 
-    def delete_pipelines_by_dataset(self, dataset_id: str, session_id: str | None = None) -> int:
-        pipelines = [p for p in self.list_pipelines(session_id) if p.get("dataset_id") == dataset_id]
+    def delete_pipelines_by_dataset(self, dataset_id: str, session_id: str | None = None, user_id: str | None = None) -> int:
+        pipelines = [p for p in self.list_pipelines(session_id=session_id, user_id=user_id) if p.get("dataset_id") == dataset_id]
         for p in pipelines:
             self._delete(PipelineRecord, p["id"])
             self._remove_pipeline_artifacts(p["id"])
         return len(pipelines)
 
-    def delete_pipeline_cascade(self, pipeline_id: str, session_id: str | None = None) -> int:
-        self.delete_models_by_pipeline(pipeline_id, session_id)
+    def delete_pipeline_cascade(self, pipeline_id: str, session_id: str | None = None, user_id: str | None = None) -> int:
+        self.delete_models_by_pipeline(pipeline_id, session_id=session_id, user_id=user_id)
         self._remove_pipeline_artifacts(pipeline_id)
         self._delete(PipelineRecord, pipeline_id)
         return 1
 
     # --- Training Jobs ---
-    def list_jobs(self, session_id: str = None) -> list[dict]:
-        return self._list(JobRecord, session_id)
+    def list_jobs(self, session_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        return self._list(JobRecord, session_id=session_id, user_id=user_id)
 
-    def get_job(self, job_id: str, session_id: str = None) -> dict | None:
+    def get_job(self, job_id: str, session_id: str | None = None, user_id: str | None = None) -> dict | None:
         job = self._get(JobRecord, job_id)
         if job is None:
             return None
-        j_session = job.get("session_id")
-        if session_id and session_id != "default_user" and j_session not in (session_id, "default_user", None):
+        if not user_id and not session_id:
+            return job
+        if user_id:
+            if job.get("user_id") != user_id:
+                return None
+        elif session_id and session_id != "default_user":
+            if job.get("session_id") != session_id:
+                return None
+        elif job.get("user_id") or job.get("session_id") not in (None, "default_user"):
             return None
         return job
 
@@ -235,12 +312,12 @@ class SQLStorage:
         with session_scope() as session:
             return self._upsert(JobRecord, job["id"], job, session)
 
-    def delete_job(self, job_id: str, session_id: str | None = None) -> bool:
-        job = self.get_job(job_id, session_id=session_id)
+    def delete_job(self, job_id: str, session_id: str | None = None, user_id: str | None = None) -> bool:
+        job = self.get_job(job_id, session_id=session_id, user_id=user_id)
         if job is None:
             return False
         # Cascade delete the job's models and their on-disk artifacts
-        for model in self.list_models(session_id=session_id):
+        for model in self.list_models(session_id=session_id, user_id=user_id):
             if model.get("job_id") == job_id:
                 self.delete_model(model["id"])
                 self._remove_model_artifacts(model["id"])

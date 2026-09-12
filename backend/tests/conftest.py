@@ -18,6 +18,7 @@ from app.models import (
     JobRecord,
     ModelRecord,
     PipelineRecord,
+    UserRecord,
 )
 
 
@@ -31,6 +32,7 @@ def truncate_tables():
             PipelineRecord,
             DatasetRecord,
             DatasetColumnsRecord,
+            UserRecord,
         ]:
             session.execute(delete(model.__table__))
         session.commit()

@@ -1,4 +1,5 @@
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
+import { useAuthStore } from "../modules/auth/store/authStore"
 
 interface TopNavProps {
   onToggleSidebar?: () => void
@@ -12,6 +13,14 @@ const links = [
 
 export default function TopNav({ onToggleSidebar }: TopNavProps) {
   const location = useLocation()
+  const navigate = useNavigate()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/"
@@ -73,6 +82,21 @@ export default function TopNav({ onToggleSidebar }: TopNavProps) {
             <span className="hidden sm:inline">New Dataset →</span>
             <span className="sm:hidden">New →</span>
           </NavLink>
+          {user ? (
+            <div className="hidden sm:flex items-center gap-2 border-2 border-black bg-white px-2 py-1 brutal-shadow-sm">
+              <span className="w-7 h-7 bg-black text-[#ffd400] flex items-center justify-center font-mono font-black text-xs">
+                {user.email[0].toUpperCase()}
+              </span>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-widest max-w-[120px] truncate">{user.email}</span>
+              <button onClick={handleLogout} className="ml-1 bg-white border border-black px-2 py-1 font-mono text-[10px] font-black uppercase hover:bg-red-50 transition-colors" title="Sign out">
+                Logout
+              </button>
+            </div>
+          ) : (
+            <NavLink to="/login" className="hidden sm:inline-flex bg-white text-black border-2 border-black font-mono text-xs font-black uppercase tracking-widest px-4 py-2 shadow-[3px_3px_0_0_#000] hover:bg-[#ffd400] btn-press min-h-[44px] items-center">
+              Sign In
+            </NavLink>
+          )}
         </div>
       </div>
     </header>

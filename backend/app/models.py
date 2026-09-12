@@ -16,9 +16,23 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+class UserRecord(Base):
+    """Registered user — owns all MLPilot artifacts via user_id FK."""
+
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+
+
 class BaseRecord:
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # Legacy per-browser session; kept for guest/demo + backward compat.
     session_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    # Per-user owner — new secure isolation (FK, cascade).
+    user_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
     data: Mapped[dict] = mapped_column(JSON, default=dict)
 

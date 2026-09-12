@@ -4,10 +4,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { GlobalErrorBoundary } from "./shared/components/GlobalErrorBoundary"
 import { ModuleErrorBoundary } from "./shared/components/ModuleErrorBoundary"
 import { RouteGuard } from "./shared/components/RouteGuard"
+import { AuthGuard, PublicOnly } from "./shared/components/AuthGuard"
 import { LoadingSpinner } from "./shared/components/LoadingSpinner"
 import Layout from "./components/Layout"
 
 const Home = lazy(() => import("./pages/Home"))
+const Login = lazy(() => import("./pages/Login"))
+const Register = lazy(() => import("./pages/Register"))
 const Dashboard = lazy(() => import("./pages/Dashboard"))
 const DatasetUpload = lazy(() => import("./pages/DatasetUpload"))
 const DatasetOverview = lazy(() => import("./pages/DatasetOverview"))
@@ -55,8 +58,12 @@ export default function App() {
         <BrowserRouter>
           <Suspense fallback={<PageFallback />}>
             <Routes>
-              <Route element={<Layout />}>
-                <Route path="/" element={withErrorBoundary(<Home />, "Home")} />
+              {/* Public */}
+              <Route path="/" element={withErrorBoundary(<Home />, "Home")} />
+              <Route path="/login" element={withErrorBoundary(<PublicOnly><Login /></PublicOnly>, "Login")} />
+              <Route path="/register" element={withErrorBoundary(<PublicOnly><Register /></PublicOnly>, "Register")} />
+              {/* Protected */}
+              <Route element={<AuthGuard><Layout /></AuthGuard>}>
                 <Route path="/dashboard" element={withErrorBoundary(<Dashboard />, "Dashboard")} />
                 <Route path="/datasets" element={withErrorBoundary(<DatasetUpload />, "Datasets")} />
                 <Route path="/datasets/:id" element={withErrorBoundary(<DatasetOverview />, "DatasetOverview")} />

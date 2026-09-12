@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     # Disabled by default so local users keep their data indefinitely.
     ENABLE_AUTO_CLEANUP: bool = False
     AUTO_CLEANUP_MAX_AGE_DAYS: int = 7
+    # Auth — JWT
+    SECRET_KEY: str = "change-me-to-a-random-secret-key-min-32-chars-long!!"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
 
 settings = Settings()
