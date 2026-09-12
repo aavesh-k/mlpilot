@@ -43,8 +43,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
-def create_refresh_token(data: dict) -> str:
-    expire = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+def create_refresh_token(data: dict, expires_days: int | None = None) -> str:
+    days = expires_days if expires_days is not None else settings.REFRESH_TOKEN_EXPIRE_DAYS
+    expire = datetime.now(UTC) + timedelta(days=days)
     to_encode = {**data, "exp": expire, "type": "refresh"}
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 

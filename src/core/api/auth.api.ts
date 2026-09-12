@@ -17,13 +17,18 @@ export const authApi = {
     const { data } = await apiClient.post('/auth/register', { email, password })
     return data
   },
-  async login(email: string, password: string): Promise<AuthTokens> {
+  async login(email: string, password: string, rememberMe: boolean = false): Promise<AuthTokens> {
     const params = new URLSearchParams()
     params.append('username', email)
     params.append('password', password)
     const { data } = await apiClient.post('/auth/login', params, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      params: { remember_me: rememberMe },
     })
+    return data
+  },
+  async forgotPassword(email: string): Promise<{ message: string; detail?: string }> {
+    const { data } = await apiClient.post('/auth/forgot-password', { email })
     return data
   },
   async me(): Promise<User> {

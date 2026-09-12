@@ -30,6 +30,20 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email")
+    @classmethod
+    def lower_email(cls, v: str) -> str:
+        return v.lower().strip()
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
+    detail: str | None = None
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
