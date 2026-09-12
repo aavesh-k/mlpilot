@@ -6,8 +6,8 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Query, UploadFile
 from fastapi.responses import FileResponse
 
+from app.api.deps import get_current_user
 from app.api.rate_limit import predict_limiter
-from app.api.v1.endpoints.datasets import get_session_id
 from app.api.v1.schemas.pipelines import CreatePipelineSchema, UpdatePipelineSchema
 from app.core.config import settings
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 @router.post("/suggest", status_code=200)
 async def get_pipeline_suggestions(
     dataset_id: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -42,11 +42,11 @@ async def get_pipeline_suggestions(
 async def detect_target_problem_type(
     dataset_id: str,
     target_column: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
     import pandas as pd
 
-    dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -88,9 +88,9 @@ async def detect_target_problem_type(
 @router.post("/", status_code=201)
 async def create_pipeline(
     body: CreatePipelineSchema,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    dataset = storage.get_dataset(body.dataset_id, session_id=session_id)
+    dataset = storage.get_dataset(body.dataset_id, user_id=current_user["id"])
     if not dataset:
         raise NotFoundError("Dataset", body.dataset_id)
 
@@ -122,7 +122,8 @@ async def create_pipeline(
         "imputation": body.imputation.model_dump(),
         "use_smote": body.use_smote,
         "use_class_weight": body.use_class_weight,
-        "session_id": session_id,
+        "user_id": current_user["id"],
+        "session_id": None,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -133,9 +134,9 @@ async def create_pipeline(
 async def list_pipelines(
     page: int = 1,
     per_page: int = 20,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    all_pipelines = storage.list_pipelines(session_id=session_id)
+    all_pipelines = storage.list_pipelines(user_id=current_user["id"])
     total = len(all_pipelines)
     start = (page - 1) * per_page
     items = all_pipelines[start:start + per_page]
@@ -145,9 +146,9 @@ async def list_pipelines(
 @router.get("/{pipeline_id}")
 async def get_pipeline(
     pipeline_id: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     return pipeline
@@ -157,9 +158,9 @@ async def get_pipeline(
 async def update_pipeline(
     pipeline_id: str,
     body: UpdatePipelineSchema,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
@@ -192,14 +193,14 @@ async def update_pipeline(
 @router.delete("/{pipeline_id}", status_code=204)
 async def delete_pipeline(
     pipeline_id: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ):
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Cannot delete a running pipeline")
-    storage.delete_pipeline_cascade(pipeline_id, session_id=session_id)
+    storage.delete_pipeline_cascade(pipeline_id, user_id=current_user["id"])
     return None
 
 
@@ -247,15 +248,15 @@ def _run_execution_background(pipeline_id: str, dataset_id: str, target_col: str
 async def execute_pipeline(
     pipeline_id: str,
     background_tasks: BackgroundTasks,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline["status"] == "running":
         raise ConflictError("Pipeline already running")
 
-    dataset = storage.get_dataset(pipeline["dataset_id"], session_id=session_id)
+    dataset = storage.get_dataset(pipeline["dataset_id"], user_id=current_user["id"])
     if not dataset:
         raise NotFoundError("Source dataset", pipeline["dataset_id"])
 
@@ -290,13 +291,13 @@ async def execute_pipeline(
 async def score_pipeline(
     pipeline_id: str,
     file: UploadFile = File(...),
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user)
 ) -> dict:
     import cloudpickle
     import numpy as np
     import pandas as pd
 
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline.get("status") != "completed":
@@ -371,11 +372,11 @@ async def score_pipeline(
 async def download_preprocessed_pipeline_data(
     pipeline_id: str,
     split: str = Query("combined", pattern="^(combined|train|test)$"),
-    session_id: str = Depends(get_session_id),
+    current_user: dict = Depends(get_current_user),
 ):
     import pandas as pd
 
-    pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+    pipeline = storage.get_pipeline(pipeline_id, user_id=current_user["id"])
     if not pipeline:
         raise NotFoundError("Pipeline", pipeline_id)
     if pipeline.get("status") != "completed":

@@ -1,6 +1,7 @@
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { useEffect } from "react"
 import { useWorkflowProgress, type WorkflowStepId } from "../shared/hooks/useWorkflowProgress"
+import { useAuthStore } from "../modules/auth/store/authStore"
 
 interface SidebarProps {
   isOpen: boolean
@@ -19,7 +20,10 @@ const navItems = [
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { steps, counts } = useWorkflowProgress()
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
 
   useEffect(() => {
     if (isOpen) {
@@ -105,9 +109,32 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           )
         })}
       </nav>
+      {user && (
+        <div className="mt-4 border-2 border-black bg-[#ffd400] p-3 brutal-shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-8 h-8 bg-black text-white flex items-center justify-center font-mono font-black text-xs border-2 border-black">
+              {user.email[0].toUpperCase()}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-[11px] font-black uppercase truncate">{user.email}</p>
+              <p className="font-mono text-[9px] uppercase tracking-widest text-black/60">Private vault</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              logout()
+              navigate('/login', { replace: true })
+              onClose()
+            }}
+            className="mt-3 w-full bg-black text-white border-2 border-black font-mono text-xs font-black uppercase tracking-widest py-2 hover:bg-white hover:text-black transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      )}
       <div className="mt-6 border-2 border-black bg-white p-3 -rotate-1">
         <p className="font-mono text-[10px] uppercase tracking-widest font-black text-black">DATA → MODEL</p>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-black/60">local-first • open pipeline</p>
+        <p className="font-mono text-[10px] uppercase tracking-widest text-black/60">isolated • per-user</p>
       </div>
     </div>
   )

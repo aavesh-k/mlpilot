@@ -30,6 +30,8 @@ services:
     envVars:
       - key: DATABASE_URL
         # Manual: paste your Supabase/Neon Postgres connection string.
+      - key: SECRET_KEY
+        # Manual: openssl rand -hex 32 (min 32 chars). Required for JWT.
       - key: CORS_ORIGINS
         # Manual: JSON list of allowed frontend origins, e.g.
         # ["https://mlpilot.vercel.app"]

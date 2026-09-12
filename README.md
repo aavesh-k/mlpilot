@@ -6,9 +6,7 @@ data cleaning and EDA, build a preprocessing pipeline, train and compare ML
 models, generate SHAP explanations, score new data, and export reports — all
 through a responsive React UI.
 
-> **Status:** Milestones 1 (Core Pipeline), 3 (Polish & DX), and 4 (Advanced
-> Features) are complete. Authentication / multi-user support is **deferred**
-> (see Roadmap).
+> **Status:** Milestones 1, 2, 3, and 4 are complete — including per-user JWT auth. Each account is isolated; no one can see another user's datasets/models.
 
 ## Tech Stack
 
@@ -296,12 +294,10 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
 
 ## Roadmap
 
-Deferred / not-yet-implemented (per `PRD.md` and `MILESTONES.md`):
+Deferred / not-yet-implemented:
 
-- **Authentication & multi-user (JWT)** — deferred (Milestone 2); currently a
-  single local user with session isolation.
 - **Optuna hyperparameter tuning** — deferred via an extension point.
-- **Role-based access control (RBAC)** — deferred (single-user by design).
+- **Role-based access control (RBAC)** — deferred (no roles; per-user isolation only).
 - **Real-time collaborative editing** — out of scope for the portfolio.
 - **Dataset versioning / diffing** — nice-to-have, not implemented.
 - **Tech-debt cleanups noted in `AGENTS.md`**: FastAPI `on_event` → lifespan

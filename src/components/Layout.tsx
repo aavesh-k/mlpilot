@@ -9,7 +9,7 @@ export default function Layout() {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const hideSidebar = location.pathname === "/"
+  const hideSidebar = location.pathname === "/" || location.pathname === "/login" || location.pathname === "/register"
   const showStepper = !hideSidebar
 
   return (

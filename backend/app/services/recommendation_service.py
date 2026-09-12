@@ -462,7 +462,8 @@ def _score_algorithm(algo: str, profile: dict[str, Any], problem_type: str) -> t
 def get_recommendations(
     dataset_id: str | None = None,
     pipeline_id: str | None = None,
-    session_id: str = "default_user",
+    session_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     if (dataset_id is None) == (pipeline_id is None):
         raise ValueError("Exactly one of dataset_id / pipeline_id is required")
@@ -470,7 +471,7 @@ def get_recommendations(
     pipeline = None
     resolved_dataset_id = dataset_id
     if pipeline_id:
-        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id)
+        pipeline = storage.get_pipeline(pipeline_id, session_id=session_id, user_id=user_id)
         if not pipeline:
             # try without session isolation for better error msg? storage already handles
             raise LookupError(f"Pipeline {pipeline_id} not found")
@@ -481,7 +482,7 @@ def get_recommendations(
     if not resolved_dataset_id:
         raise LookupError("No dataset resolved")
 
-    dataset = storage.get_dataset(resolved_dataset_id, session_id=session_id)
+    dataset = storage.get_dataset(resolved_dataset_id, session_id=session_id, user_id=user_id)
     if not dataset:
         raise LookupError(f"Dataset {resolved_dataset_id} not found")
 

@@ -39,7 +39,14 @@ export function useDeleteDataset() {
   return useMutation({
     mutationFn: (id: string) => datasetsApi.delete(id),
     onSuccess: () => {
+      // Deleting a dataset cascades to pipelines/models/jobs on the backend,
+      // so all workflow queries must be invalidated together. Otherwise the
+      // sidebar/stepper/RouteGuard keep stale completed pipelines/models and
+      // Train/Leaderboard/Reports appear unlocked until next navigation.
       queryClient.invalidateQueries({ queryKey: ['datasets'] })
+      queryClient.invalidateQueries({ queryKey: ['pipelines'] })
+      queryClient.invalidateQueries({ queryKey: ['models'] })
+      queryClient.invalidateQueries({ queryKey: ['jobs'] })
     },
   })
 }

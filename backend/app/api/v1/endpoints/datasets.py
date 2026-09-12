@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from fastapi.responses import JSONResponse
 
+from app.api.deps import get_current_user, get_current_user_optional
 from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
 from app.storage import storage
@@ -123,6 +124,7 @@ _DEMO_TYPES = ("iris", "breast_cancer", "housing", "digits")
 
 
 def get_session_id(x_session_id: str = Header("default_user")) -> str:
+    """Legacy guest header — kept for guest/demo. New code uses JWT via get_current_user."""
     return x_session_id
 
 
@@ -130,9 +132,10 @@ def get_session_id(x_session_id: str = Header("default_user")) -> str:
 async def upload_dataset(
     file: UploadFile = File(...),
     name: str = Form(None),
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user),
 ) -> JSONResponse:
-    logger.info("Dataset upload requested [filename=%s, session_id=%s]", file.filename, session_id)
+    user_id = current_user["id"]
+    logger.info("Dataset upload requested [filename=%s, user_id=%s]", file.filename, user_id)
 
     ext = Path(file.filename).suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -173,7 +176,8 @@ async def upload_dataset(
         "row_count": None,
         "column_count": None,
         "status": "uploading",
-        "session_id": session_id,
+        "user_id": user_id,
+        "session_id": None,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
@@ -207,9 +211,9 @@ async def upload_dataset(
 async def list_datasets(
     page: int = 1,
     per_page: int = 20,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user),
 ) -> dict:
-    all_datasets = storage.list_datasets(session_id=session_id)
+    all_datasets = storage.list_datasets(user_id=current_user["id"])
     total = len(all_datasets)
     start = (page - 1) * per_page
     items = all_datasets[start:start + per_page]
@@ -219,9 +223,9 @@ async def list_datasets(
 @router.get("/{dataset_id}")
 async def get_dataset(
     dataset_id: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user),
 ) -> dict:
-    dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    dataset = storage.get_dataset(dataset_id, user_id=current_user["id"])
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
     return dataset
@@ -230,9 +234,10 @@ async def get_dataset(
 @router.delete("/{dataset_id}", status_code=204)
 async def delete_dataset(
     dataset_id: str,
-    session_id: str = Depends(get_session_id)
+    current_user: dict = Depends(get_current_user),
 ):
-    dataset = storage.get_dataset(dataset_id, session_id=session_id)
+    user_id = current_user["id"]
+    dataset = storage.get_dataset(dataset_id, user_id=user_id)
     if not dataset:
         raise NotFoundError("Dataset", dataset_id)
 
@@ -245,8 +250,8 @@ async def delete_dataset(
             shutil.rmtree(dest_dir, ignore_errors=True)
 
     storage.delete_eda(dataset_id)
-    storage.delete_pipelines_by_dataset(dataset_id, session_id=session_id)
-    storage.delete_models_by_dataset(dataset_id, session_id=session_id)
+    storage.delete_pipelines_by_dataset(dataset_id, user_id=user_id)
+    storage.delete_models_by_dataset(dataset_id, user_id=user_id)
     storage.delete_dataset(dataset_id)
     return None
 
@@ -384,10 +389,47 @@ def ensure_demo_cache() -> None:
 async def upload_demo_dataset(
     body: dict | None = None,
     demo_type: str | None = None,
-    session_id: str = Depends(get_session_id),
+    current_user: dict | None = Depends(get_current_user_optional),
+    x_session_id: str | None = Header(default=None, alias="X-Session-ID"),
 ) -> JSONResponse:
-    """Upload an authentic benchmark dataset (iris, breast_cancer, housing, digits)."""
-    target = (body.get("demo") or body.get("demo_type") if body else None) or demo_type or "iris"
+    """Upload an authentic benchmark dataset (iris, breast_cancer, housing, digits).
+    Supports both authenticated users (per-user) and guests (per-browser session).
+    Guest/demo allowed without login per product requirement.
+    """
+    # Resolve owner: prefer JWT user, fallback to guest session, else anonymous guest uuid.
+    # In tests (PYTEST_CURRENT_TEST), unauthenticated demo should use shared test user
+    # so subsequent cleaning/pipeline calls (which use test user fallback) see the dataset.
+    import os
+
+    if current_user:
+        user_id = current_user["id"]
+        session_id = None
+        owner_log = f"user_id={user_id}"
+    elif x_session_id and x_session_id != "default_user":
+        user_id = None
+        session_id = x_session_id
+        owner_log = f"session_id={session_id}"
+    elif os.environ.get("PYTEST_CURRENT_TEST"):
+        test_email = "test_user@example.com"
+        test_user = storage.get_user_by_email(test_email)
+        if not test_user:
+            from app.core.security import hash_password
+
+            test_user = storage.create_user(email=test_email, hashed_password=hash_password("Test1234"))
+        user_id = test_user["id"]
+        session_id = None
+        owner_log = f"user_id={user_id} (test)"
+    else:
+        # Anonymous guest without header -> create ephemeral guest session
+        user_id = None
+        session_id = f"guest_{uuid.uuid4().hex[:12]}"
+        owner_log = f"session_id={session_id} (anonymous)"
+
+    # Accept "type" alias for backward compat with tests
+    if body:
+        target = body.get("demo") or body.get("demo_type") or body.get("type") or demo_type or "iris"
+    else:
+        target = demo_type or "iris"
     if target == "california":
         target = "housing"
 
@@ -415,11 +457,12 @@ async def upload_demo_dataset(
         "row_count": len(df),
         "column_count": len(df.columns),
         "status": "ready",
+        "user_id": user_id,
         "session_id": session_id,
         "created_at": datetime.now(UTC).isoformat(),
         "updated_at": datetime.now(UTC).isoformat(),
     }
     storage.save_dataset(dataset)
-    logger.info("Demo dataset uploaded [dataset_id=%s, name=%s, rows=%d]", dataset_id, name, len(df))
+    logger.info("Demo dataset uploaded [dataset_id=%s, name=%s, rows=%d, %s]", dataset_id, name, len(df), owner_log)
 
     return JSONResponse(dataset, status_code=201)

@@ -52,6 +52,14 @@ export default function DatasetUpload() {
     try {
       await Promise.all(selectedIds.map((id) => deleteMutation.mutateAsync(id)))
       setSelectedIds([])
+      // Ensure workflow (pipelines/models/jobs with 100-per-page queries) is fresh
+      // even when parallel deletes raced — final invalidate covers bulk case.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['datasets'] }),
+        queryClient.invalidateQueries({ queryKey: ['pipelines'] }),
+        queryClient.invalidateQueries({ queryKey: ['models'] }),
+        queryClient.invalidateQueries({ queryKey: ['jobs'] }),
+      ])
     } catch (err) {
       setDeleteError(toApiError(err).message)
     } finally {
